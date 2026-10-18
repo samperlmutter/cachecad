@@ -520,6 +520,15 @@ def main(argv=None):
     except Exception:
         if diagnostics is not None:
             diagnostics.record_exception('startup-failure', *sys.exc_info())
+            if getattr(args, 'startup_check', False):
+                # Only the existing redacted record is exposed by disposable CI.
+                # Never print the exception value, raw traceback, or local paths.
+                try:
+                    if diagnostics.pending:
+                        print('CACHECAD_STARTUP_DIAGNOSTIC=' +
+                              json.dumps(diagnostics.pending[-1], sort_keys=True), file=sys.stderr)
+                except Exception:
+                    pass
         # No exception traceback may expose OAuth material or local file metadata.
         print('CacheCAD could not start. Check the reviewed installation and isolated application profile.', file=sys.stderr)
         return 1

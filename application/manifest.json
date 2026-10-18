@@ -5,7 +5,7 @@
     {
       "source": "application/launch.py",
       "destination": "application/launch.py",
-      "sha256": "1cd749b5d94e0813ee9c3a4842d930b72fb88c3ecd67f14dc0406b6d2f016d7d"
+      "sha256": "9cd1a13d3326f4d8acae3c5f309f410ed8fda5744d754da10f165e3c7d711b2a"
     },
     {
       "source": "application/resources_rc.py",

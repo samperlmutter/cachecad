@@ -5,6 +5,7 @@ used. Unsigned CI installers are invoked explicitly as test inputs; this never
 changes the application's fail-closed production update trust policy.
 """
 import argparse
+import ast
 import ctypes
 from ctypes import wintypes
 from datetime import datetime, timezone
@@ -12,6 +13,8 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -66,6 +69,129 @@ def installed_identity(install_dir):
     return identity
 
 
+CRASH_REPORT_LIMIT = 8
+CRASH_BYTES_LIMIT = 32768
+CRASH_KINDS = frozenset(('unhandled-main', 'unhandled-thread', 'qt-callback',
+                        'startup-failure', 'shutdown-timeout', 'native-fatal'))
+CRASH_EVENTS = frozenset(('bootstrap_verified', 'profile_ready', 'native_capture_ready',
+    'application_configured', 'qt_started', 'window_shown', 'shutdown_started',
+    'shutdown_finished', 'shutdown_timeout', 'diagnostic_test'))
+
+
+def reviewed_crash_labels(install_dir):
+    """Parse verified source for safe labels; never execute installed modules."""
+    labels = {'<external>': {'<redacted>'}}
+    for name, path in verified_payload(install_dir / '_internal/app-source').items():
+        if not name.endswith('.py') or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,79}\.py', path.name):
+            continue
+        functions = labels.setdefault(path.name, {'<module>', '<redacted>'})
+        for node in ast.walk(ast.parse(path.read_bytes())):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                functions.add(node.name)
+            elif isinstance(node, ast.Lambda):
+                functions.add('<lambda>')
+    return labels
+
+
+def validated_crash_record(record, expected, build_hash, labels):
+    """Accept only the existing privacy-safe crash schema and reviewed labels."""
+    required = {'schema', 'application', 'version', 'build_sha256', 'platform',
+                'timestamp_utc', 'kind', 'frames', 'breadcrumbs'}
+    if (type(record) is not dict or not required <= record.keys()
+            or record.keys() - required - {'exception_type'}
+            or type(record['schema']) is not int or record['schema'] != 1
+            or record['application'] != 'CacheCAD' or record['version'] != expected['version']
+            or record['build_sha256'] != build_hash or record['kind'] not in CRASH_KINDS):
+        raise ValueError('Crash metadata is outside the approved schema')
+    platform = record['platform']
+    if (type(platform) is not dict or set(platform) != {'os', 'python', 'bits'}
+            or platform['os'] != 'windows' or type(platform['bits']) is not int
+            or platform['bits'] != 64 or type(platform['python']) is not str
+            or not re.fullmatch(r'[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,3}', platform['python'])):
+        raise ValueError('Crash platform is invalid')
+    timestamp = record['timestamp_utc']
+    if (type(timestamp) is not str or not re.fullmatch(
+            r'[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?\+00:00', timestamp)):
+        raise ValueError('Crash timestamp is invalid')
+    datetime.fromisoformat(timestamp)
+    errors = {name for name, value in vars(__import__('builtins')).items()
+              if isinstance(value, type) and issubclass(value, BaseException)} | {'ApplicationError'}
+    if 'exception_type' in record and record['exception_type'] not in errors:
+        raise ValueError('Crash exception type is not allowlisted')
+    frames, crumbs = record['frames'], record['breadcrumbs']
+    if type(frames) is not list or len(frames) > 64 or type(crumbs) is not list or len(crumbs) > 16:
+        raise ValueError('Crash arrays exceed their bounds')
+    for frame in frames:
+        if (type(frame) is not dict or set(frame) != {'source', 'function', 'line'}
+                or type(frame['source']) is not str or frame['source'] not in labels
+                or frame['function'] not in labels[frame['source']]
+                or type(frame['line']) is not int or not 0 <= frame['line'] <= 999999999):
+            raise ValueError('Crash frame is not a reviewed source label')
+    if any(type(crumb) is not str or crumb not in CRASH_EVENTS for crumb in crumbs):
+        raise ValueError('Crash breadcrumb is not allowlisted')
+    return record
+
+
+def collect_startup_crashes(profile, expected, build_hash, labels):
+    """Export only bounded validated JSON, never profile/settings/session files."""
+    result = {'status': 'absent', 'reports': [], 'rejected_count': 0, 'scan_limited': False}
+    directory = profile / 'diagnostics'
+    try:
+        for path in (directory, *directory.parents):
+            if path.is_symlink() or (hasattr(path, 'is_junction') and path.is_junction()):
+                result['status'] = 'linked-directory-refused'
+                return result
+        if not directory.exists():
+            return result
+        result['status'] = 'collected'
+        with os.scandir(directory) as entries:
+            for index, entry in enumerate(entries):
+                if index >= 64:
+                    result['scan_limited'] = True
+                    break
+                if not re.fullmatch(r'crash-[0-9a-f]{32}\.json', entry.name):
+                    continue
+                try:
+                    info = entry.stat(follow_symlinks=False)
+                    path = Path(entry.path)
+                    if (not stat.S_ISREG(info.st_mode) or info.st_nlink != 1
+                            or path.is_symlink() or (hasattr(path, 'is_junction') and path.is_junction())
+                            or info.st_size > CRASH_BYTES_LIMIT or len(result['reports']) >= CRASH_REPORT_LIMIT):
+                        raise ValueError('Unsafe or oversized crash report')
+                    with path.open('rb') as stream:
+                        raw = stream.read(CRASH_BYTES_LIMIT + 1)
+                    if len(raw) > CRASH_BYTES_LIMIT:
+                        raise ValueError('Crash report grew past its bound')
+                    record = validated_crash_record(json.loads(raw), expected, build_hash, labels)
+                    result['reports'].append(record)
+                except (OSError, ValueError, TypeError, KeyError):
+                    result['rejected_count'] += 1
+    except OSError:
+        result['status'] = 'unreadable'
+    return result
+
+
+def startup_gate_snapshot():
+    """Observe object presence only; never create, acquire or release a gate."""
+    if sys.platform != 'win32':
+        return {'status': 'not-windows'}
+    kernel = ctypes.WinDLL('kernel32.dll', use_last_error=True, winmode=0x00000800)
+    kernel.OpenMutexW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
+    kernel.OpenMutexW.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes, kernel.CloseHandle.restype = [wintypes.HANDLE], wintypes.BOOL
+    result = {}
+    for suffix in ('Install', 'Running', 'Handoff'):
+        ctypes.set_last_error(0)
+        handle = kernel.OpenMutexW(0x00100000, False, MUTEX_PREFIX + suffix)
+        error = ctypes.get_last_error()
+        if handle:
+            kernel.CloseHandle(handle)
+            result[suffix] = {'presence': 'present'}
+        else:
+            result[suffix] = {'presence': 'absent' if error == 2 else 'unknown', 'win32_error': error}
+    return result
+
+
 def native_startup(install_dir, root, environment, reports, name, expected, *, preserved_profile=None):
     profile = preserved_profile or root / 'startup-profiles' / name
     command = [install_dir / EXE_NAME, '--startup-check', '--platform', 'windows',
@@ -73,15 +199,49 @@ def native_startup(install_dir, root, environment, reports, name, expected, *, p
     if preserved_profile is not None:
         command.append('--preserved-profile-check')
         environment = dict(environment, CACHECAD_ENABLE_UPGRADE_TESTS='1')
-    result = run_capture(command,
-                         reports, name, env=environment, cwd=root, timeout=90)
-    record = validate_application_smoke(result.stdout, 'windows')
-    if preserved_profile is not None and record.get('preserved_profile_unchanged') is not True:
-        raise RuntimeError('Preserved-profile startup did not confirm unchanged bytes')
-    for field in ('version', 'release_number', 'windows_version', 'product_id'):
-        if record.get(field) != expected[field]:
-            raise RuntimeError('Installed startup identity differs: ' + field)
-    return record
+    evidence = {'schema_version': 1, 'scenario': name, 'status': 'failed', 'stage': 'source-verification',
+                'started_utc': datetime.now(timezone.utc).isoformat(), 'launch_attempts': 0,
+                'expected_identity': expected, 'preserved_profile': preserved_profile is not None}
+    started = time.monotonic()
+    labels, build_hash = {'<external>': {'<redacted>'}}, ''
+    try:
+        labels = reviewed_crash_labels(install_dir)
+        build_hash = sha256(install_dir / '_internal/app-source/assembly-manifest.json')
+        evidence['gates_before'] = startup_gate_snapshot()
+        evidence['stage'] = 'process'
+        evidence['launch_attempts'] = 1
+        try:
+            process = subprocess.run([str(arg) for arg in command], env=environment, cwd=root,
+                capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=90)
+        except subprocess.TimeoutExpired as failure:
+            evidence['timed_out'] = True
+            for suffix, content in (('stdout', failure.stdout), ('stderr', failure.stderr)):
+                raw = content if isinstance(content, bytes) else (content or '').encode('utf-8')
+                (reports / f'{name}.{suffix}.log').write_bytes(raw)
+            raise RuntimeError(name + ' timed out after 90 seconds') from failure
+        evidence['exit_code'] = process.returncode
+        for suffix, content in (('stdout', process.stdout), ('stderr', process.stderr)):
+            (reports / f'{name}.{suffix}.log').write_text(content, encoding='utf-8')
+        if process.returncode:
+            raise RuntimeError(f'{name} returned {process.returncode}; see {name} logs')
+        evidence['stage'] = 'smoke-validation'
+        record = validate_application_smoke(process.stdout, 'windows')
+        if preserved_profile is not None and record.get('preserved_profile_unchanged') is not True:
+            raise RuntimeError('Preserved-profile startup did not confirm unchanged bytes')
+        for field in ('version', 'release_number', 'windows_version', 'product_id'):
+            if record.get(field) != expected[field]:
+                raise RuntimeError('Installed startup identity differs: ' + field)
+        evidence.update(status='passed', stage='complete', result=record)
+        return record
+    finally:
+        evidence['gates_after'] = startup_gate_snapshot()
+        evidence['crash_diagnostics'] = collect_startup_crashes(profile, expected, build_hash, labels)
+        evidence['profile_state'] = {'directory_exists': profile.is_dir(),
+            'marker_exists': (profile / 'application-profile.json').is_file(),
+            'lock_exists': (profile / '.cachecad-profile.lock').is_file()}
+        evidence['duration_seconds'] = round(time.monotonic() - started, 3)
+        evidence['finished_utc'] = datetime.now(timezone.utc).isoformat()
+        (reports / (name + '.json')).write_text(json.dumps(evidence, indent=2, sort_keys=True) + '\n', encoding='utf-8')
 
 
 def token_store_module(install_dir, suffix):
@@ -216,6 +376,8 @@ def test_upgrade(older, newer, reports):
             if (new['release_number'] <= old['release_number'] or
                     tuple(map(int, new['version'].split('.'))) <= tuple(map(int, old['version'].split('.')))):
                 raise RuntimeError('Upgrade test inputs are not increasing releases')
+            summary['newer_identity'] = new
+            save()
             assert_preserved(roots, preserved, install_dir, token_record, 'upgrade')
             new_start = native_startup(install_dir, root, environment, reports, 'startup-N-plus-1', new)
             assert_preserved(roots, preserved, install_dir, token_record, 'startup')
