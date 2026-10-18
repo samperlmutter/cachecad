@@ -9,7 +9,17 @@ remote I/O with an explicitly synthetic adapter in smoke scenarios.
 
 Use Linux x86_64 and Python 3.12.14. First run the normal maintenance gates and
 assemble a new output directory, then install the separate runtime lock into a
-fresh environment:
+fresh environment. On Ubuntu 24.04, install the native Qt prerequisites first:
+
+```sh
+sudo apt-get update
+sudo apt-get install -y --no-install-recommends libegl1 libgl1 libopengl0
+```
+
+These OS packages come from the official Ubuntu repositories. The Python lock
+fixes wheel versions and hashes; it does not pin the complete OS image.
+
+Then run:
 
 ```sh
 python -m venv /path/to/runtime

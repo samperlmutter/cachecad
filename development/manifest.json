@@ -5,7 +5,7 @@
     {
       "source": "development/README.md",
       "destination": "development/README.md",
-      "sha256": "e1e20f22701519d128619d142a33b46f9ca5e92a7614765ea369cefaedb3af42"
+      "sha256": "3b396a9b2c12cee8e4b95cafd0bad6b2287a52cc554cef6ab332284e11d0c17f"
     },
     {
       "source": "development/launch.py",

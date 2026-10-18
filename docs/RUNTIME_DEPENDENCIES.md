@@ -261,3 +261,13 @@ application packaging must still be checked by their respective tests. Refer
 to the current application QA report for those results. This report must not
 be used as evidence for live account operation, lossless sync, Windows or
 SolidWorks integration, or installer readiness.
+
+## Hosted Ubuntu shared libraries
+
+The first hosted actual-application test exposed `libEGL.so.1` missing from the
+Ubuntu 24.04 runner, before QtWidgets could import. CI now explicitly installs
+`libegl1`, `libgl1` and `libopengl0` from official Ubuntu repositories before the
+hash-locked Python runtime. These supply the EGL/OpenGL shared-library boundary
+that PySide6 wheels do not bundle. The Python hash lock is not a complete pinned
+OS image; apt package revisions remain selected by the runner repositories.
+See the [Ubuntu libegl1 package](https://packages.ubuntu.com/noble/libegl1).
