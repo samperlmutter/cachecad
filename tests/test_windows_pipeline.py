@@ -53,9 +53,11 @@ class WindowsWorkflowTests(unittest.TestCase):
         self.assertEqual(setup[0]['with']['python-version'], '3.12.10')
         self.assertEqual(setup[0]['with']['architecture'], 'x64')
         install = [step['run'] for step in self.steps
-                   if 'python -m pip install' in step.get('run', '')]
+                   if '-m pip install' in step.get('run', '')]
         self.assertEqual(len(install), 1)
         command = install[0]
+        self.assertIn('python -m venv .venv-windows', command)
+        self.assertIn(r'.venv-windows\Scripts\python.exe -m pip', command)
         for required in ('--index-url https://pypi.org/simple', '--require-hashes',
                          '--only-binary=:all:', '-r requirements/runtime-windows.lock',
                          '-r requirements/windows-build.lock'):

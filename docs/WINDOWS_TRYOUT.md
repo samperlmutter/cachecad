@@ -26,13 +26,36 @@ The offline checks are tripwires for audited code, **not an OS security sandbox*
 Hash validation is not code signing and does not authenticate a maliciously
 replaced executable or manifest. Do not supply credentials or real CAD projects.
 
+## Try a successful CI installer
+
+1. Open the successful run in the private repository's Actions tab and download
+   `CacheCAD-Windows-Offline-Development-<commit>` under Artifacts. A failed run
+   may have diagnostics only; those are not an installer delivery.
+2. Extract the downloaded ZIP. The installer is under
+   `dist/windows/installer/CacheCAD-Offline-Development-Setup.exe` (the artifact
+   may preserve the repository-relative directory layout).
+3. Compare its SHA-256 with `installer.sha256` and `build-provenance.json`, and
+   confirm `test-results/installed-runtime.json` says `status: passed` for the
+   same installer digest. In PowerShell, use `Get-FileHash <installer> -Algorithm SHA256`.
+4. Run the installer as your normal user, then open **CacheCAD Offline Development**
+   from the Start Menu. Python is bundled. Expect a diagnostic console and an
+   explicitly labeled offline window with placeholder artwork.
+5. Close normally when finished. Remove it through Windows Installed Apps or its
+   Start Menu uninstaller. Do not use real CAD projects or credentials in this build.
+
+The artifact is retained for 30 days; the source and build recipe remain in the
+repository. Windows publisher/reputation warnings are expected for this unsigned
+build; no signing certificate is configured.
+
 ## Build locally on Windows
 
 Use Windows x64, 64-bit CPython 3.12.10, and a clean virtual environment. The pinned
 Inno Setup 6.7.1 compiler must already be installed from its official source.
 The build script does not install/download tools or accept a replacement compiler
 silently. In CI the expected compiler is provided by the Windows runner image;
-its actual reported version and executable SHA-256 are recorded and checked.
+its numeric PE VERSIONINFO file version and executable SHA-256 are recorded and
+checked. The compiler's `/?` output is retained only as a diagnostic because its
+help banner omits the patch version.
 
 From the repository root, in PowerShell:
 

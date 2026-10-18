@@ -2,12 +2,15 @@
 import ast
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGING = ROOT / 'packaging/windows'
@@ -98,6 +101,66 @@ class WindowsPackagingTests(unittest.TestCase):
         for text in ('Inno Setup 6.6.1', 'Inno Setup 6.7.2', 'C:/Inno Setup 6/ISCC.exe'):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 support.inno_version(text)
+
+    def test_pe_file_version_decodes_both_dwords_and_all_four_words(self):
+        self.assertEqual(support.decode_file_version(0x00060007, 0x00010000), (6, 7, 1, 0))
+        self.assertEqual(support.decode_file_version(0x1234abcd, 0x5678ffff),
+                         (0x1234, 0xabcd, 0x5678, 0xffff))
+        for bad in (-1, 2**32, '6', True, None):
+            for pair in ((bad, 0), (0, bad)):
+                with self.subTest(pair=pair), self.assertRaises(ValueError):
+                    support.decode_file_version(*pair)
+
+    def test_numeric_inno_pin_requires_exact_release_and_retains_revision(self):
+        self.assertEqual(support.require_inno_file_version((6, 7, 1, 0)), '6.7.1')
+        self.assertEqual(support.require_inno_file_version((6, 7, 1, 12)), '6.7.1')
+        for version in ((6, 7, 0, 0), (6, 7, 2, 0), (6, 8, 1, 0),
+                        (6, 7, 1), (6, 7, 1, -1), (6, 7, 1, True)):
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                support.require_inno_file_version(version)
+
+    def test_pe_reader_uses_static_resource_table_and_closes_file(self):
+        executable = MagicMock()
+        executable.VS_FIXEDFILEINFO = [SimpleNamespace(Signature=0xfeef04bd,
+                                                       FileVersionMS=0x00060007,
+                                                       FileVersionLS=0x00010000)]
+        factory = MagicMock()
+        factory.return_value.__enter__.return_value = executable
+        module = SimpleNamespace(PE=factory, DIRECTORY_ENTRY={'IMAGE_DIRECTORY_ENTRY_RESOURCE': 2})
+        with patch.dict(sys.modules, {'pefile': module}):
+            self.assertEqual(support.pe_file_version(Path('ISCC.exe')), (6, 7, 1, 0))
+        factory.assert_called_once_with('ISCC.exe', fast_load=True)
+        executable.parse_data_directories.assert_called_once_with(directories=[2])
+        factory.return_value.__exit__.assert_called_once()
+
+    def test_pe_reader_rejects_absent_ambiguous_or_invalid_resource(self):
+        valid = SimpleNamespace(Signature=0xfeef04bd, FileVersionMS=0x00060007, FileVersionLS=0x00010000)
+        for records in ([], [valid, valid], [SimpleNamespace(Signature=0)]):
+            executable = MagicMock()
+            executable.VS_FIXEDFILEINFO = records
+            factory = MagicMock()
+            factory.return_value.__enter__.return_value = executable
+            module = SimpleNamespace(PE=factory, DIRECTORY_ENTRY={'IMAGE_DIRECTORY_ENTRY_RESOURCE': 2})
+            with patch.dict(sys.modules, {'pefile': module}), self.assertRaises(ValueError):
+                support.pe_file_version(Path('ISCC.exe'))
+
+    def test_failed_build_prints_only_last_sixty_diagnostic_lines(self):
+        spec = importlib.util.spec_from_file_location('windows_packaging_build', PACKAGING / 'build.py')
+        build = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {'support': support}):
+            spec.loader.exec_module(build)
+        def fail(command, **kwargs):
+            kwargs['stdout'].write('\n'.join(f'diagnostic-{number}' for number in range(100)))
+            return SimpleNamespace(returncode=2)
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch.object(build.subprocess, 'run', side_effect=fail), patch.object(sys, 'stderr', new_callable=io.StringIO) as stderr:
+                with self.assertRaisesRegex(RuntimeError, 'failed \\(2\\)'):
+                    build.run_logged(['compiler'], Path(temporary) / 'build.log')
+            diagnostic = stderr.getvalue()
+            self.assertIn('Last 60 lines', diagnostic)
+            self.assertIn('diagnostic-40\n', diagnostic)
+            self.assertIn('diagnostic-99\n', diagnostic)
+            self.assertNotIn('diagnostic-39\n', diagnostic)
 
     def test_all_installed_runtime_scenarios_require_real_gui_and_platform(self):
         for scenario in ('success', 'lifecycle', 'close-pending'):

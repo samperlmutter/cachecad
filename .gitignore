@@ -7,3 +7,5 @@ dist/
 .ruff_cache/
 .coverage
 wheelhouse/
+
+.venv-windows/

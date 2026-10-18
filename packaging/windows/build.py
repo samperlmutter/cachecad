@@ -10,17 +10,29 @@ import shutil
 import subprocess
 import sys
 
-from support import EXE_NAME, INSTALLER_NAME, inno_version, sha256, verified_payload
+from support import (EXE_NAME, INSTALLER_NAME, pe_file_version, require_inno_file_version,
+                     sha256, verified_payload)
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def run_logged(command, log, *, env=None):
-    with Path(log).open('w', encoding='utf-8') as stream:
-        process = subprocess.run([str(arg) for arg in command], cwd=ROOT, env=env,
-                                 stdout=stream, stderr=subprocess.STDOUT, timeout=900)
+    try:
+        with Path(log).open('w', encoding='utf-8') as stream:
+            process = subprocess.run([str(arg) for arg in command], cwd=ROOT, env=env,
+                                     stdout=stream, stderr=subprocess.STDOUT, timeout=900)
+    except subprocess.TimeoutExpired as error:
+        print_log_tail(log)
+        raise RuntimeError(f'Build step timed out; see {log}') from error
     if process.returncode:
+        print_log_tail(log)
         raise RuntimeError(f'Build step failed ({process.returncode}); see {log}')
+
+
+def print_log_tail(log):
+    lines = Path(log).read_text(encoding='utf-8', errors='replace').splitlines()[-60:]
+    print(f'--- Last {len(lines)} lines of {log} ---', file=sys.stderr)
+    print('\n'.join(lines), file=sys.stderr)
 
 
 def find_iscc(explicit=None):
@@ -51,7 +63,10 @@ def main():
                                    encoding='utf-8', errors='replace', timeout=30)
     compiler_output = version_probe.stdout + version_probe.stderr
     (logs / 'inno-version.log').write_text(compiler_output, encoding='utf-8')
-    version = inno_version(compiler_output)
+    file_version = pe_file_version(iscc)
+    compiler_output += '\nPE VS_FIXEDFILEINFO.FileVersion=' + '.'.join(map(str, file_version)) + '\n'
+    (logs / 'inno-version.log').write_text(compiler_output, encoding='utf-8')
+    version = require_inno_file_version(file_version)
     source = output / 'app-source'
     run_logged([sys.executable, '-B', ROOT / 'tooling/assemble_app.py', source], logs / 'assemble.log')
     verified_payload(source)
@@ -92,6 +107,8 @@ def main():
         'python': sys.version, 'git_commit': git.stdout.strip(), 'git_worktree_status': status.stdout.splitlines(),
         'runner_image': os.environ.get('ImageVersion'), 'runner_image_os': os.environ.get('ImageOS'),
         'tools': {'inno_setup': version, 'iscc_sha256': sha256(iscc),
+                  'iscc_file_version': '.'.join(map(str, file_version)),
+                  'iscc_version_source': 'PE VS_FIXEDFILEINFO.FileVersionMS/FileVersionLS',
                   'pyinstaller': importlib.metadata.version('pyinstaller')},
         'input_sha256': {name: sha256(ROOT / name) for name in inputs},
         'assembly_manifest_sha256': sha256(source / 'assembly-manifest.json'),

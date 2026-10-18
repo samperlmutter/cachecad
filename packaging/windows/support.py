@@ -75,12 +75,44 @@ def stdlib_hidden_imports(paths):
 
 
 def inno_version(output):
+    """Parse an optional diagnostic version banner; builds use PE metadata instead."""
     match = re.search(r'(?:Inno Setup|Compiler engine version:?)[^\r\n]*?\b(\d+\.\d+\.\d+)\b', output)
     if match is None:
         raise ValueError('Cannot identify the installed Inno Setup compiler version')
     if match.group(1) != INNO_VERSION:
         raise ValueError(f'Inno Setup {INNO_VERSION} required; found {match.group(1)}')
     return match.group(1)
+
+
+def decode_file_version(file_version_ms, file_version_ls):
+    """Decode the four WORDs in Windows VS_FIXEDFILEINFO's two DWORDs."""
+    for value in (file_version_ms, file_version_ls):
+        if type(value) is not int or not 0 <= value <= 0xffffffff:
+            raise ValueError('Invalid PE file-version DWORD')
+    return (file_version_ms >> 16, file_version_ms & 0xffff,
+            file_version_ls >> 16, file_version_ls & 0xffff)
+
+
+def pe_file_version(path):
+    """Read numeric VERSIONINFO without running the executable or trusting /? text."""
+    import pefile
+    with pefile.PE(str(path), fast_load=True) as executable:
+        executable.parse_data_directories(
+            directories=[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_RESOURCE']])
+        records = getattr(executable, 'VS_FIXEDFILEINFO', [])
+        if len(records) != 1 or records[0].Signature != 0xfeef04bd:
+            raise ValueError('Missing, ambiguous or invalid PE fixed file-version resource')
+        return decode_file_version(records[0].FileVersionMS, records[0].FileVersionLS)
+
+
+def require_inno_file_version(version):
+    if len(version) != 4 or any(type(part) is not int or not 0 <= part <= 0xffff for part in version):
+        raise ValueError('Invalid decoded Inno Setup file version')
+    release = '.'.join(str(part) for part in version[:3])
+    if release != INNO_VERSION:
+        actual = '.'.join(str(part) for part in version)
+        raise ValueError(f'Inno Setup {INNO_VERSION} required; PE file version is {actual}')
+    return release
 
 
 def validate_smoke(stdout, scenario, platform):
