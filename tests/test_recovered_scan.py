@@ -238,17 +238,17 @@ class RecoveredScanTests(unittest.TestCase):
         self.assertEqual(len(fixture.build_calls), 1)
         self.assertEqual(set(fixture.service.executed_keys), set(responses))
 
-    def test_cached_root_initialization_residual_is_not_claimed_fixed(self):
-        # Original unrelated availability bug: starting_folders is never assigned
-        # when root is cached. It remains explicitly out of this safety patch.
-        for source in (BASELINE, MAINTAINED):
-            with self.subTest(source=source):
-                fixture = ScanFixture(source, {('root', None): {'files': []}})
-                fixture.analyzer.cached_folders = ['root']
-                with self.assertRaises(UnboundLocalError):
-                    fixture.run()
-                self.assertEqual(fixture.signals.drive_file_list_acquired.calls, [])
-                self.assertEqual(fixture.comparisons, 0)
+    def test_cached_root_initialization_is_fixed_without_changing_baseline(self):
+        original = ScanFixture(BASELINE, {('root', None): {'files': []}})
+        original.analyzer.cached_folders = ['root']
+        with self.assertRaises(UnboundLocalError):
+            original.run()
+        fixed = ScanFixture(MAINTAINED, {('root', None): {'files': []}})
+        fixed.analyzer.cached_folders = ['root', 'root']
+        fixed.run()
+        self.assertEqual(fixed.service.executed_keys, [('root', None)])
+        self.assertEqual(fixed.signals.error_occurred.calls, [])
+        self.assertEqual(fixed.signals.drive_file_list_acquired.calls, [([], )])
 
     def test_maintained_complete_empty_scan_is_valid(self):
         fixture = ScanFixture(MAINTAINED, {('root', None): {'files': []}}).run()

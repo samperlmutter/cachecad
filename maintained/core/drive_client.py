@@ -221,104 +221,137 @@ class DriveClient(QObject):
             print(f'[get_folder_name_from_id] Unexpected error: {e} (project_id: {project_id})')
         return ''
 
-    def get_drive_items_from_project_id(self, project_id, cached_folders=None):
-        if cached_folders is None:
-            cached_folders = []
-        request_queue = deque()
-        all_files = []
-        all_folders = []
-        already_requested_folders = set(cached_folders)
-        scan_failed = False
-        def build_list_request(folder_id, page_token=None, service=self.service):
-            query = f"'{folder_id}' in parents and trashed = false"
-            return service.files().list(q=query, pageToken=page_token or None, supportsAllDrives=True,
-                includeItemsFromAllDrives=True, corpora='allDrives', pageSize=1000,
-                fields='nextPageToken, incompleteSearch, files(id, name, parents, md5Checksum, version, capabilities(canAddChildren), modifiedTime, size, driveId, lastModifyingUser)'), query
-        logging.debug(f'Starting file scan from project_id: {project_id}')
-        tic()
-        if project_id not in cached_folders:
-            starting_folders = [f for f in cached_folders if f != project_id] + [project_id]
-        for folder_id in starting_folders:
-            request, query = build_list_request(folder_id)
-            request_queue.append((request, query))
-        total_batches = 0
-        while request_queue:
-            batch = self.service.new_batch_http_request()
-            batch_size = min(len(request_queue), 100)
-            logging.debug(f'\nExecuting batch #{total_batches + 1} with {batch_size} requests...')
-            total_batches += 1
-            event_loop = QEventLoop()
-            pending = batch_size
-            for _ in range(batch_size):
-                req, q = request_queue.popleft()
-                def make_callback(query=q):
-                    def callback(request_id, response, exception):
-                        nonlocal pending, scan_failed
-                        logging.debug(f'[Callback] Request ID: {request_id}')
-                        if exception:
-                            tb = traceback.format_exc()
-                            logging.error(f'Batch error for query [{query}]: {exception} \n {tb}')
-                            scan_failed = True
-                            pending -= 1
-                            return
-                        if response.get('incompleteSearch'):
-                            logging.error('Drive reported an incomplete search; refusing partial results.')
-                            scan_failed = True
-                            pending -= 1
-                            return
-                        items = response.get('files', [])
-                        logging.debug(f'Found {len(items)} items in response for query [{query}]')
-                        for item in items:
-                            if item.get('capabilities', {}).get('canAddChildren'):
-                                folder_id = item.get('id')
-                                folder_name = item.get('name')
-                                all_folders.append(item)
-                                if folder_id not in already_requested_folders:
-                                    logging.debug(f'Adding Folder: {folder_name} to request queue')
-                                    new_req, new_q = build_list_request(folder_id)
-                                    request_queue.append((new_req, new_q))
-                                else:
-                                    logging.debug(f'   Skipping already-seen folder: {folder_name} ({folder_id})')
-                                already_requested_folders.add(folder_id)
-                            elif item.get('md5Checksum'):
-                                if item.get('id') == '1ej1rRP1tJ2PFvom51bqC11gVnmow5UaX':
-                                    logging.debug(f" - File: {item.get('name')} ({item.get('id')})")
-                                all_files.append(item)
-                        next_token = response.get('nextPageToken')
-                        if next_token:
-                            folder_id = query.split("'")[1]
-                            logging.debug(f'Next page for folder {folder_id}, token: {next_token}')
-                            next_req, _ = build_list_request(folder_id, page_token=next_token)
-                            request_queue.append((next_req, query))
-                        pending -= 1
-                        if pending == 0:
-                            QTimer.singleShot(0, event_loop.quit)
-                    return callback
-                batch.add(req, callback=make_callback())
-            try:
-                logging.debug('Executing batch')
-                batch.execute()
-            except Exception as e:
-                tb = traceback.format_exc()
-                logging.error(f'Batch execution failed: {e} \n {tb}')
-                print(f'Batch execution failed: {e}')
-                scan_failed = True
-            if scan_failed or pending != 0:
-                logging.error('Drive scan incomplete; sync analysis was not allowed to continue.')
-                signal_manager.error_occurred.emit(
-                    'Drive scan incomplete. Sync analysis stopped without generating actions.')
-                return
-        logging.info('\n')
-        logging.info('Finished scanning.')
-        logging.info(f'Drive files found: {len(all_files)}')
-        logging.info(f'Drive folders found: {len(all_folders)}')
-        print(f'Drive files found: {len(all_files)}')
-        print(f'Drive folders found: {len(all_folders)}')
-        toc('Requests from Google:')
-        drive_items = self.build_drive_files(all_folders, all_files, project_id)
-        signal_manager.drive_file_list_acquired.emit(drive_items)
+    def get_drive_items_from_project_id(self, project_id, cached_folders=None, *,
+                                        scan_id=None, on_success=None, on_error=None):
+        """Publish one complete snapshot or an error, preserving its scan identity."""
+        tagged = scan_id is not None or on_success is not None or on_error is not None
+        if tagged and (scan_id is None or not callable(on_success) or not callable(on_error)):
+            raise ValueError('Tagged scans require scan_id, on_success, and on_error')
+        settled = False
 
-    def build_drive_files(self, folders: list, files: list, root_id: str) -> dict[str, DriveItemInfo]:
+        def fail(message):
+            nonlocal settled
+            if settled:
+                return
+            settled = True
+            if tagged:
+                on_error(scan_id, message)
+            else:
+                signal_manager.error_occurred.emit(message)
+
+        def succeed(items):
+            nonlocal settled
+            if settled:
+                return
+            settled = True
+            if tagged:
+                on_success(scan_id, items)
+            else:
+                signal_manager.drive_file_list_acquired.emit(items)
+
+        try:
+            if cached_folders is None:
+                cached_folders = []
+            request_queue = deque()
+            all_files = []
+            all_folders = []
+            already_requested_folders = set(cached_folders)
+            scan_failed = False
+            def build_list_request(folder_id, page_token=None, service=self.service):
+                query = f"'{folder_id}' in parents and trashed = false"
+                return service.files().list(q=query, pageToken=page_token or None, supportsAllDrives=True,
+                    includeItemsFromAllDrives=True, corpora='allDrives', pageSize=1000,
+                    fields='nextPageToken, incompleteSearch, files(id, name, parents, md5Checksum, version, capabilities(canAddChildren), modifiedTime, size, driveId, lastModifyingUser)'), query
+            logging.debug(f'Starting file scan from project_id: {project_id}')
+            tic()
+            starting_folders = list(dict.fromkeys(
+                [f for f in cached_folders if f != project_id] + [project_id]))
+            for folder_id in starting_folders:
+                request, query = build_list_request(folder_id)
+                request_queue.append((request, query))
+            total_batches = 0
+            while request_queue:
+                batch = self.service.new_batch_http_request()
+                batch_size = min(len(request_queue), 100)
+                logging.debug(f'\nExecuting batch #{total_batches + 1} with {batch_size} requests...')
+                total_batches += 1
+                event_loop = QEventLoop()
+                pending = batch_size
+                for _ in range(batch_size):
+                    req, q = request_queue.popleft()
+                    def make_callback(query=q):
+                        def callback(request_id, response, exception):
+                            nonlocal pending, scan_failed
+                            logging.debug(f'[Callback] Request ID: {request_id}')
+                            if exception:
+                                tb = traceback.format_exc()
+                                logging.error(f'Batch error for query [{query}]: {exception} \n {tb}')
+                                scan_failed = True
+                                pending -= 1
+                                return
+                            if response.get('incompleteSearch'):
+                                logging.error('Drive reported an incomplete search; refusing partial results.')
+                                scan_failed = True
+                                pending -= 1
+                                return
+                            items = response.get('files', [])
+                            logging.debug(f'Found {len(items)} items in response for query [{query}]')
+                            for item in items:
+                                if item.get('capabilities', {}).get('canAddChildren'):
+                                    folder_id = item.get('id')
+                                    folder_name = item.get('name')
+                                    all_folders.append(item)
+                                    if folder_id not in already_requested_folders:
+                                        logging.debug(f'Adding Folder: {folder_name} to request queue')
+                                        new_req, new_q = build_list_request(folder_id)
+                                        request_queue.append((new_req, new_q))
+                                    else:
+                                        logging.debug(f'   Skipping already-seen folder: {folder_name} ({folder_id})')
+                                    already_requested_folders.add(folder_id)
+                                elif item.get('md5Checksum'):
+                                    if item.get('id') == '1ej1rRP1tJ2PFvom51bqC11gVnmow5UaX':
+                                        logging.debug(f" - File: {item.get('name')} ({item.get('id')})")
+                                    all_files.append(item)
+                            next_token = response.get('nextPageToken')
+                            if next_token:
+                                folder_id = query.split("'")[1]
+                                logging.debug(f'Next page for folder {folder_id}, token: {next_token}')
+                                next_req, _ = build_list_request(folder_id, page_token=next_token)
+                                request_queue.append((next_req, query))
+                            pending -= 1
+                            if pending == 0:
+                                QTimer.singleShot(0, event_loop.quit)
+                        return callback
+                    batch.add(req, callback=make_callback())
+                try:
+                    logging.debug('Executing batch')
+                    batch.execute()
+                except Exception as e:
+                    tb = traceback.format_exc()
+                    logging.error(f'Batch execution failed: {e} \n {tb}')
+                    print(f'Batch execution failed: {e}')
+                    scan_failed = True
+                if scan_failed or pending != 0:
+                    logging.error('Drive scan incomplete; sync analysis was not allowed to continue.')
+                    fail('Drive scan incomplete. Sync analysis stopped without generating actions.')
+                    return
+            logging.info('\n')
+            logging.info('Finished scanning.')
+            logging.info(f'Drive files found: {len(all_files)}')
+            logging.info(f'Drive folders found: {len(all_folders)}')
+            print(f'Drive files found: {len(all_files)}')
+            print(f'Drive folders found: {len(all_folders)}')
+            toc('Requests from Google:')
+            if tagged:
+                drive_items = self.build_drive_files(all_folders, all_files, project_id, report_error=fail)
+            else:
+                drive_items = self.build_drive_files(all_folders, all_files, project_id)
+            succeed(drive_items)
+        except Exception as error:
+            logging.exception('Drive scan failed before a complete snapshot was available.')
+            fail('Drive scan incomplete: ' + str(error))
+
+    def build_drive_files(self, folders: list, files: list, root_id: str, *, report_error=None) -> dict[str, DriveItemInfo]:
         folder_by_id = {folder['id']: folder for folder in folders}
         INVALID_WIN_CHARS = re.compile(r'[<>:"/\\|?*]')
         RESERVED_NAMES = {'CON', 'PRN', 'AUX', 'NUL', *(f'COM{i}' for i in range(1, 10)), *(f'LPT{i}' for i in range(1, 10))}
@@ -402,7 +435,10 @@ class DriveClient(QObject):
                 seen_files[key] = item
                 unique_drive_items.append(item)
         if len(duplicate_items) > 0:
-            signal_manager.error_occurred.emit('Duplicate items with same name:')
+            if report_error is not None:
+                report_error('Drive scan incomplete: duplicate items with the same name.')
+            else:
+                signal_manager.error_occurred.emit('Duplicate items with same name:')
             for item in duplicate_items:
                 logging.warning(f'{item.path}')
         return unique_drive_items
@@ -439,6 +475,7 @@ class DriveClient(QObject):
         """
         if self.cancelled:
             return None, None
+        media = None
         try:
             local_path = Path(local_path)
             if not local_path.is_file():
@@ -481,6 +518,16 @@ class DriveClient(QObject):
             tb = traceback.format_exc()
             logging.error(f'[download_file] Unexpected error: {e} \n {tb}')
             signal_manager.error_occurred.emit('')
+        finally:
+            if media is not None:
+                try:
+                    # MediaFileUpload owns this stream. Release the staged file
+                    # before its caller removes the temporary upload directory.
+                    media.stream().close()
+                except Exception:
+                    # The remote operation may already have committed. Cleanup
+                    # must not replace its result with a retryable transfer error.
+                    logging.exception('Upload stream cleanup failed; preserving the remote upload outcome.')
         return None
 
     def download_file(self, file_id: str, local_path: str, idx, use_temp: bool = True) -> Path:
@@ -493,6 +540,7 @@ class DriveClient(QObject):
         """
         if self.cancelled:
             return None
+        fh = None
         try:
             temp_path = Path(local_path).parent / f'~$downloading{str(idx)}.temp'
             service = build('drive', 'v3', credentials=self.creds)
@@ -525,6 +573,14 @@ class DriveClient(QObject):
             tb = traceback.format_exc()
             logging.error(f'[download_file] Unexpected error: {e} (file_id: {file_id}) \n {tb}')
             signal_manager.error_occurred.emit('')
+        finally:
+            if fh is not None:
+                try:
+                    # Finish local I/O before verification or publication by
+                    # the executor; Windows cannot replace an open target.
+                    fh.close()
+                except Exception:
+                    logging.exception('Download stream cleanup failed; preserving the transfer outcome for caller verification.')
         return None
 
     def delete_file(self, file_id: str):

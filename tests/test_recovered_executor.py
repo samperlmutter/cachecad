@@ -1,9 +1,12 @@
 """Run selected recovered/maintained methods with in-memory fakes only.
 
-No application module is imported. Pure paths never touch the filesystem.
+No application module is imported. Maintained new uploads use disposable fixture files.
 These tests establish bounded terminal-event behavior, not Qt/thread integration.
 """
+import hashlib
 import logging
+import os
+import tempfile
 from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
 import traceback
@@ -11,6 +14,7 @@ import unittest
 from unittest.mock import Mock
 
 from recovered_harness import load_function, deny_external_effects
+from test_recovered_overwrite import load_staging_function
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,24 +34,44 @@ class Signal:
 )
 class ExecutorTests(unittest.TestCase):
     def setUp(self):
+        if not (ROOT / 'recovered/core/sync_executor.py').is_file() or not (ROOT / 'maintained/core/sync_executor.py').is_file():
+            self.skipTest('Recovered and maintained sources are source-distribution fixtures')
         self.enterContext(deny_external_effects())
 
     def setup_case(self, tree, result=None, error=None, cancelled=False):
         signals = SimpleNamespace(**{name: Signal() for name in
             ('action_failed', 'action_complete', 'error_occurred')})
+        working_directory = '/fake'
+        checksum = 'digest'
+        size = None
+        modified_time = None
+        if tree == 'maintained':
+            folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
+            working_directory = str(folder)
+            local_path = folder / 'project' / 'part.sldprt'
+            local_path.parent.mkdir()
+            local_path.write_bytes(b'fixture')
+            checksum = hashlib.md5(b'fixture').hexdigest()
+            size = local_path.stat().st_size
+            modified_time = local_path.stat().st_mtime
+            if isinstance(result, tuple):
+                result = tuple(checksum if value == 'digest' else value for value in result)
         namespace = {'signal_manager': signals, 'logging': Mock(spec=logging),
-                     'traceback': traceback, 'Path': PurePosixPath}
+                     'traceback': traceback, 'os': os,
+                     'Path': Path if tree == 'maintained' else PurePosixPath}
         source = ROOT / tree / 'core/sync_executor.py'
-        upload = load_function(source, 'SyncExecutor._upload', namespace)
+        upload = (load_staging_function('SyncExecutor._upload', namespace, folder)
+                  if tree == 'maintained' else load_function(source, 'SyncExecutor._upload', namespace))
         delete = load_function(source, 'SyncExecutor._delete_cloud', namespace)
         run = load_function(source, '_FunctionRunnable.run', namespace)
         drive = SimpleNamespace(upload_file=Mock(return_value=result, side_effect=error),
                                 delete_file=Mock(return_value=result, side_effect=error))
-        executor = SimpleNamespace(cancelled=cancelled, working_directory='/fake',
+        executor = SimpleNamespace(cancelled=cancelled, working_directory=working_directory,
                                    project_name='project', drive_client=drive,
                                    get_parent_id=Mock(return_value='parent'),
                                    log_sync_action=Mock())
-        action = (7, SimpleNamespace(path='part.sldprt', drive_id='old', md5_checksum='digest'))
+        action = (7, SimpleNamespace(path='part.sldprt', drive_id='old', md5_checksum=checksum,
+                                     size=size, modified_time=modified_time))
         return executor, action, signals, upload, delete, run
 
     def assert_terminal(self, signals, success):
@@ -95,7 +119,14 @@ class ExecutorTests(unittest.TestCase):
                 obj, action, signals, upload, _, _ = self.setup_case('maintained', ('new', 'digest'))
                 upload(obj, action, revision=revision)
                 self.assert_terminal(signals, True)
-                obj.drive_client.upload_file.assert_called_once_with('/fake/project/part.sldprt', 'parent', 7, 'old' if revision else None)
+                if revision:
+                    obj.drive_client.upload_file.assert_called_once_with(
+                        str(Path(obj.working_directory) / 'project' / 'part.sldprt'), 'parent', 7, 'old')
+                else:
+                    uploaded, parent, idx, existing_id = obj.drive_client.upload_file.call_args.args
+                    self.assertEqual(Path(uploaded).name, 'part.sldprt')
+                    self.assertNotEqual(uploaded, str(Path(obj.working_directory) / 'project' / 'part.sldprt'))
+                    self.assertEqual((parent, idx, existing_id), ('parent', 7, None))
                 obj.log_sync_action.assert_called_once_with(action, id='new')
                 self.assertEqual(signals.action_complete.calls, [(action[1],)])
 

@@ -229,6 +229,73 @@ class SyncExecutor(QObject):
                 logging.warning(f'Updating existing path in path_dict: {path} -> {drive_id}')
 
     def _download(self, action, revision=False):
+        # New files use a verified private staging directory and atomic no-clobber
+        # publication. Revision replacement below remains the original behavior.
+        if not revision:
+            try:
+                import hashlib
+                import stat
+                import tempfile
+                if self.cancelled:
+                    raise RuntimeError('Download cancelled before staging')
+                selected = action[1]
+                relative = Path(selected.path)
+                if relative.is_absolute() or not relative.parts or '..' in relative.parts:
+                    raise ValueError('Download path must remain inside the project')
+                root = (Path(self.working_directory) / self.project_name).resolve()
+                local_path = root / relative
+                if not local_path.resolve().is_relative_to(root):
+                    raise ValueError('Download path resolves outside the project')
+                expected_md5 = selected.md5_checksum
+                expected_size = selected.size
+                if (not isinstance(expected_md5, str) or len(expected_md5) != 32
+                        or any(c not in '0123456789abcdefABCDEF' for c in expected_md5)
+                        or type(expected_size) is not int or expected_size < 0):
+                    raise ValueError('Selected download lacks a valid checksum or size')
+                if os.path.lexists(local_path):
+                    raise FileExistsError('New download destination already exists')
+                local_path.parent.mkdir(parents=True, exist_ok=True)
+                with tempfile.TemporaryDirectory(prefix='.cachecad-download-', dir=str(local_path.parent)) as folder:
+                    staging = Path(folder)
+                    returned = self.drive_client.download_file(
+                        selected.drive_id, str(staging / local_path.name), action[0])
+                    if returned is None:
+                        raise RuntimeError('Download did not return a staged file')
+                    temp_path = Path(returned)
+                    if (temp_path.is_symlink() or temp_path.parent.resolve() != staging.resolve()
+                            or temp_path == local_path):
+                        raise ValueError('Download returned a file outside private staging')
+                    before = temp_path.stat(follow_symlinks=False)
+                    if not stat.S_ISREG(before.st_mode):
+                        raise ValueError('Downloaded staging object is not a regular file')
+                    digest = hashlib.md5()
+                    with temp_path.open('rb') as source:
+                        opened = os.fstat(source.fileno())
+                        for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                            digest.update(chunk)
+                        after = os.fstat(source.fileno())
+                    def fingerprint(info):
+                        return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                    if (not before.st_ino or fingerprint(before) != fingerprint(opened)
+                            or fingerprint(before) != fingerprint(after)
+                            or fingerprint(before) != fingerprint(temp_path.stat(follow_symlinks=False))):
+                        raise RuntimeError('Downloaded staging file changed during verification')
+                    if before.st_size != expected_size or digest.hexdigest() != expected_md5.lower():
+                        raise ValueError('Downloaded bytes do not match the selected action')
+                    if self.cancelled:
+                        raise RuntimeError('Download cancelled before publication')
+                    # os.link creates the destination only if it is absent. No
+                    # rename/replace fallback is allowed on unsupported filesystems.
+                    os.link(str(temp_path), str(local_path), follow_symlinks=False)
+                self.log_sync_action(action)
+            except Exception as e:
+                logging.error(f'New download failed without replacing an existing file: {e}\n{traceback.format_exc()}')
+                signal_manager.action_failed.emit()
+                if not self.cancelled:
+                    signal_manager.error_occurred.emit('')
+                return
+            signal_manager.action_complete.emit(action[1])
+            return
         if self.cancelled:
             signal_manager.action_failed.emit()
             return
@@ -289,7 +356,62 @@ class SyncExecutor(QObject):
             existing_drive_id = action[1].drive_id if revision else None
             idx = action[0]
             logging.info(f'Uploading new file: {path} in parent ID: {parent_id}, existing_drive_id: {str(existing_drive_id)}')
-            new_id, drive_md5 = self.drive_client.upload_file(str(local_path), parent_id, idx, existing_drive_id)
+            if revision:
+                # The legacy revision path has no validated remote conditional
+                # commit. Preserve its API contract; do not claim race protection.
+                new_id, drive_md5 = self.drive_client.upload_file(str(local_path), parent_id, idx, existing_drive_id)
+            else:
+                import hashlib
+                import stat
+                import tempfile
+                relative = Path(path)
+                if relative.is_absolute() or not relative.parts or '..' in relative.parts:
+                    raise ValueError('Upload path must remain inside the project')
+                root = (Path(self.working_directory) / self.project_name).resolve()
+                if local_path.is_symlink() or not local_path.resolve().is_relative_to(root):
+                    raise ValueError('Upload source is a link or resolves outside the project')
+                expected_md5 = action[1].md5_checksum
+                expected_size = action[1].size
+                expected_mtime = action[1].modified_time
+                if (not isinstance(expected_md5, str) or len(expected_md5) != 32
+                        or any(c not in '0123456789abcdefABCDEF' for c in expected_md5)
+                        or type(expected_size) is not int or expected_size < 0
+                        or type(expected_mtime) not in (int, float)):
+                    raise ValueError('Selected upload lacks a valid checksum, size, or timestamp')
+                before = local_path.stat(follow_symlinks=False)
+                if (not stat.S_ISREG(before.st_mode) or not before.st_ino
+                        or before.st_size != expected_size or before.st_mtime != expected_mtime):
+                    raise RuntimeError('Upload source no longer matches the selected action')
+                def fingerprint(info):
+                    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                # Keep the original filename: Drive create derives its name from
+                # the upload path. Only this private read-only copy is uploaded.
+                with tempfile.TemporaryDirectory(prefix='cachecad-upload-') as folder:
+                    staged_path = Path(folder) / local_path.name
+                    digest = hashlib.md5()
+                    with local_path.open('rb') as source, staged_path.open('xb') as target:
+                        opened = os.fstat(source.fileno())
+                        for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                            digest.update(chunk)
+                            target.write(chunk)
+                        after = os.fstat(source.fileno())
+                        target.flush()
+                        os.fsync(target.fileno())
+                    if (fingerprint(before) != fingerprint(opened)
+                            or fingerprint(before) != fingerprint(after)
+                            or fingerprint(before) != fingerprint(local_path.stat(follow_symlinks=False))
+                            or digest.hexdigest() != expected_md5.lower()):
+                        raise RuntimeError('Upload source changed while its snapshot was staged')
+                    staged_digest = hashlib.md5()
+                    with staged_path.open('rb') as staged:
+                        for chunk in iter(lambda: staged.read(1024 * 1024), b''):
+                            staged_digest.update(chunk)
+                    if staged_path.stat().st_size != expected_size or staged_digest.hexdigest() != expected_md5.lower():
+                        raise RuntimeError('Staged upload bytes failed verification')
+                    staged_path.chmod(stat.S_IRUSR)
+                    if self.cancelled:
+                        raise RuntimeError('Upload cancelled before transfer')
+                    new_id, drive_md5 = self.drive_client.upload_file(str(staged_path), parent_id, idx, None)
         except Exception as e:
             logging.error(f'Upload failed before a result was available: {e}\n{traceback.format_exc()}')
             signal_manager.action_failed.emit()
@@ -298,7 +420,9 @@ class SyncExecutor(QObject):
             return
         logging.info(f'File uploaded to : {new_id}')
         logging.info(f'MD5 checksum of uploaded file: {drive_md5}')
-        if new_id is not None and drive_md5 == action[1].md5_checksum:
+        checksum_matches = (drive_md5 == action[1].md5_checksum if revision else
+                            isinstance(drive_md5, str) and drive_md5.lower() == expected_md5.lower())
+        if new_id is not None and checksum_matches:
             logging.info(f'MD5 checksum matches for uploaded file: {local_path}')
             self.log_sync_action(action, id=new_id)
             signal_manager.action_complete.emit(action[1])

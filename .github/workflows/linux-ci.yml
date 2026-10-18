@@ -27,6 +27,9 @@ jobs:
       - name: Validate manifests and run offline tests and lint
         run: |
           python tooling/check.py --ruff --require-recovery-manifest --require-maintained-manifest
+      - name: Assemble verified application source
+        run: |
+          python tooling/assemble_app.py app-source
       - name: Build source archive and wheel
         run: |
           python -m build --no-isolation

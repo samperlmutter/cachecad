@@ -24,6 +24,19 @@ improvement work; its experimental fixes have not been merged into the recovered
 The maintained layer patches original functions directly and records its intentional
 bytecode differences separately.
 
+## Assemble the maintained application source
+
+```sh
+python tooling/assemble_app.py /path/to/new-output-directory
+```
+
+This combines the immutable recovery with reviewed maintenance overlays and
+new helpers, producing a hash-manifested application source tree and byte-reproducible
+ZIP. See [assembly instructions](docs/ASSEMBLY.md) and [maintained changes and limits](maintained/README.md).
+It includes scan failure/retry isolation, OneDrive path warnings and bounded
+new-file transfer protection. Normal revision sync still has unresolved overwrite
+races; this source artifact is not an executable installer.
+
 ## Maintenance checks
 
 Use Python 3.12 and the hash-locked Linux tools:
