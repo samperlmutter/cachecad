@@ -1,0 +1,23 @@
+# INERT TEMPLATE ONLY. Not installed in .github/workflows, never run or uploaded.
+# User has deferred Windows/SolidWorks validation. This is future scaffolding.
+# Direct pins below are not a transitive/hash lock or bit-reproducible build claim.
+name: Candidate Windows build (UNVERIFIED)
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      # Before activation, pin these actions to reviewed full commit SHAs.
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.14'
+      - run: python -m pip install -r requirements/windows-build-pins.txt
+      - run: python tooling/check.py --ruff
+      - run: python -m build
+      # Build only handwritten replacement. Never point PyInstaller at vendor binaries.
+      - run: python -m PyInstaller --clean --noconfirm --onefile --name CacheCAD-Reconstructed --paths src tooling/frozen_entry.py
+      - run: dist/CacheCAD-Reconstructed.exe --demo --json
+      # Deliberately no publication/upload/signing steps.

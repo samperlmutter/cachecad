@@ -1,0 +1,528 @@
+{
+  "schema_version": 1,
+  "target": "CacheCAD 1.2.0 beta 2025-09-28",
+  "installer_sha256": "3d9da1785b1ba3288a60cf0771f7b0189037957947e25348f4fe2bf783d431bd",
+  "application_sha256": "38ef57dd6dacd33c2e831bd380ca2a07756510248debc32d1722a73df8779ce6",
+  "original_modules_executed": false,
+  "full_fidelity_modules_verified": 0,
+  "method": "Static Python 3.12 disassembly and interface metadata followed by manual reconstruction; no original code execution. REA 6.7.0 inspect-pe-resources separately verifies native envelope.",
+  "entries": [
+    {
+      "original_module": "app.app_controller",
+      "status": "partial_reconstruction",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/app.app_controller.dis.txt",
+        "sha256": "837c13b1ef3051e54fbaf98b5c2f6d675811f2a0ca59120bfec24114a36cbd48"
+      },
+      "reconstructed_sources": [
+        "src/cachecad/controller.py"
+      ],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "app.app_version",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/app.app_version.dis.txt",
+        "sha256": "c9ca28aaa21497c20b8e9c318e551792db5efe8e537cfcae636ccc53dcfb410a"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.auth_manager",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.auth_manager.dis.txt",
+        "sha256": "d8ef13ece4c269fd36acab93b2a999e096c2ac3533236641109a73fb8942da76"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.bug_report",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.bug_report.dis.txt",
+        "sha256": "80b046a534a61b576196dfb9aa7a6950fd2545a08fc049a31b2d71e8573fbdb4"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.db_manager",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.db_manager.dis.txt",
+        "sha256": "42a1d5e7ab64beacd16aef5630c6a927cf09407f24f5d0397254c026744dfff7"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.drive_client",
+      "status": "offline_adapter_only",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.drive_client.dis.txt",
+        "sha256": "ee6dadd8210bc6fb488a1ea87d8e43745bbb7ae116aa6ee61ce4f9a5b4199c25"
+      },
+      "reconstructed_sources": [
+        "src/cachecad/services.py"
+      ],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.github_updater",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.github_updater.dis.txt",
+        "sha256": "63bf49f36fe63428e0b7ed0025f46ded572a034d2e818c56f5d2ea9842c438f5"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.local_client",
+      "status": "sandbox_adapter_only",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.local_client.dis.txt",
+        "sha256": "f28f8f94444148139e0c4627238fce30c3baad4975bc26d2ff16ab00198b1f4e"
+      },
+      "reconstructed_sources": [
+        "src/cachecad/services.py"
+      ],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.models",
+      "status": "partial_reconstruction",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.models.dis.txt",
+        "sha256": "09d713967ff34c87a2853f39cbd843bd086de9747dd1419d4825e5ceee671da2"
+      },
+      "reconstructed_sources": [
+        "src/cachecad/models.py"
+      ],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.oauth_server",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.oauth_server.dis.txt",
+        "sha256": "847f2d6c5db160d9b6bebfa1dad6dd8882eccf34ceb47d2f5c46c6d7ad6c0fc2"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.project_manager",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.project_manager.dis.txt",
+        "sha256": "6df5e029f458a18a1c062aa624ade2616d457d35efe5fc98675cf60825a93069"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.service_credential_manager",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.service_credential_manager.dis.txt",
+        "sha256": "dc6adf29cb6034346775fd94f21b7b1625531c637f1da290caa65b6dece6aad2"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.signal_manager",
+      "status": "headless_replacement",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.signal_manager.dis.txt",
+        "sha256": "e6e76f0cf12e3969258f7ece8858e77741dca64d845e7cc5d1891cc738397242"
+      },
+      "reconstructed_sources": [
+        "src/cachecad/signals.py"
+      ],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.single_instance",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.single_instance.dis.txt",
+        "sha256": "3528f2826ac2dfb459ea6bbf8cae8d12705551cdf7b23becfecb2650a43967b7"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.sync_analyzer",
+      "status": "partial_reconstruction",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.sync_analyzer.dis.txt",
+        "sha256": "e2160518994bd42310acb5142ffca30dc07caf531493c21dbb9b0c467915c202"
+      },
+      "reconstructed_sources": [
+        "src/cachecad/controller.py"
+      ],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.sync_executor",
+      "status": "partial_reconstruction",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.sync_executor.dis.txt",
+        "sha256": "69d8412dbf64e93d4e30115b13d03bb3d7a19014836587f2baaa142f18eb40b0"
+      },
+      "reconstructed_sources": [
+        "src/cachecad/controller.py"
+      ],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.thread_manager",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.thread_manager.dis.txt",
+        "sha256": "3f373da0e78945a31ff0db305559c72d75e28e0dccde3cd6762db33af0c8443e"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "core.user_validation",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/core.user_validation.dis.txt",
+        "sha256": "c976d7c16d7855cb2a4c81b43270bed3b3ad02968076dbba13dbc8d3b09a0289"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.bug_report_dialog",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.bug_report_dialog.dis.txt",
+        "sha256": "86ef2c08d81cbbd1654c27cfc79f062ebf76e4a8e4698149df1cf441894a1293"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.button_bar",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.button_bar.dis.txt",
+        "sha256": "1610175ae0275ae771e47eee45ae3cf2c119e7b4ac3c199a7ffa187c2ea75d93"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.cc_logo",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.cc_logo.dis.txt",
+        "sha256": "368a9dc1b599ef12dd70d24d7a35d016c835e5716ce8372a97298a1a1bdb561e"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.create_project_dialog",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.create_project_dialog.dis.txt",
+        "sha256": "d589975d8fe5cedf2db07676338fb642c49c0710a9d15a2eb6ba09c64ad9ef6e"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.initial_settings_dialog",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.initial_settings_dialog.dis.txt",
+        "sha256": "efa1215f6e8c40429e69fed9c13add3260caeae4edc677e7f55b65cd5d483b97"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.main_window",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.main_window.dis.txt",
+        "sha256": "791fc90ef49e28e5735a638da07b7949b417385aa5a741fac557149aa4423c7c"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.open_folder_button",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.open_folder_button.dis.txt",
+        "sha256": "532f63459ca9e1e1a747fe120d321b24a1d778e7a2d48f18b579a03634513072"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.open_url_button",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.open_url_button.dis.txt",
+        "sha256": "9dd285048026e6520b73277bf69d6a8e7e2d730e58e20618b6bd05ca9dc465ca"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.page",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.page.dis.txt",
+        "sha256": "bcee624ebb6a2882be03111055e7261b89cc649ce562fb395fd96b59c1df2ade"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.pages",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.pages.dis.txt",
+        "sha256": "7302756d54d384f7e56001bb9505625eb9e82a42bb8eec423c5045c82fc63269"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.pages.home_page",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.pages.home_page.dis.txt",
+        "sha256": "79ed751ea18ab643e5bcb86f3b966bcd13d132c017abb461b1c8920ad48de852"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.pages.project_page",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.pages.project_page.dis.txt",
+        "sha256": "16ccf0f0f034c4b2540b88bf3867bf8a30ca5571eca2e5c52bf5b00823ae887e"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.pages.selection_page",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.pages.selection_page.dis.txt",
+        "sha256": "42efb58d0cf6dd74f3230addb005fdf102126380154ef6434573538979a1e6af"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.pages.settings_page",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.pages.settings_page.dis.txt",
+        "sha256": "fb04816e212027a95f24f44b9acc41b755a03d4f07b448ca87a624f11071f694"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.project_buttons",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.project_buttons.dis.txt",
+        "sha256": "2ab097727a8240dad1c9ff842a83b22d31b7ec68ee59b72ef02be8f2e22183ee"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.project_list_widget",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.project_list_widget.dis.txt",
+        "sha256": "c74c49daa37be704cbc135804af90b185220979b371b4ae62d55492e7ef638ff"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.remove_project_dialog",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.remove_project_dialog.dis.txt",
+        "sha256": "785c1642d12f23d117d8ce897d2d40b7c9b028b9378ec749f2dd20b2f1ba8f6f"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.reorder_project_list_dialog",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.reorder_project_list_dialog.dis.txt",
+        "sha256": "457e8b53a6cc3d6970c0d2bfb80cf71fccddd09d09be2e1390290075cfd0dd7a"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.signin_button",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.signin_button.dis.txt",
+        "sha256": "97cf69a458f5276c201411592279c784dc31e95091ae8ae4b2f6031df8ebb8bb"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.sponsor_logo",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.sponsor_logo.dis.txt",
+        "sha256": "1f752f2ba4df47a7f54cf5e6553eadc9f04ad707b8b893163e77065b126af86d"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.sync_selection_tree",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.sync_selection_tree.dis.txt",
+        "sha256": "895694d4552e9de9f4e81457bdaa6da54791358a0b82d1b4e85e3832410007c2"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "gui.sync_status_card",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/gui.sync_status_card.dis.txt",
+        "sha256": "d1e388fd4aae74535797a8fd2ae722a480c0443cd09d330ebc1df45e6f0fba1e"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "utils.app_logger",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/utils.app_logger.dis.txt",
+        "sha256": "ed046d5b331e2a1793f13d4832b3715baa7c770e8035a2135018eec20b77fc87"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "utils.app_settings",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/utils.app_settings.dis.txt",
+        "sha256": "2179abfaeb6b1b80ef683e72bd9f36ddfeb3a851b376a56f3ffbc03486e7da21"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "utils.cloud_logging",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/utils.cloud_logging.dis.txt",
+        "sha256": "e790c335ad86a365b32a4a4b32abc640bb352c8429cb7afed3d95ac142a4e14d"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "utils.file_size",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/utils.file_size.dis.txt",
+        "sha256": "356cf8dd0de885f685fc462d8159e8aeb3aeb2f95da3646d6e296b75101d4766"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "utils.oauth_credential_import",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/utils.oauth_credential_import.dis.txt",
+        "sha256": "46ae4eb076ceb34a45b1598568fc50cc207b48d73208e6686353b4a2a9867e4f"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "utils.paths",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/utils.paths.dis.txt",
+        "sha256": "2ac4bb6e14f7f9a15abd84649a2e90204b4dcc89120d536df4a29f84fe470f19"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "utils.styles",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/utils.styles.dis.txt",
+        "sha256": "f7c37ef7a98dc97eb03970bfc1d87ae3a0947bd6f9a01d0d959e5fa1b4a46e95"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "utils.timer",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/utils.timer.dis.txt",
+        "sha256": "c6c82bf2968b0db9eda188db5132ae1b1e897c00cf32386836959f4baaa136b3"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    },
+    {
+      "original_module": "utils.timestamps",
+      "status": "disassembled_not_reconstructed",
+      "static_evidence": {
+        "relative_to_evidence_root": "bytecode/utils.timestamps.dis.txt",
+        "sha256": "f6f5ce2a966665bd4d21845feaa5d33f28358c3df2efcb2438f9185c495e9ef2"
+      },
+      "reconstructed_sources": [],
+      "equivalence_verified": false
+    }
+  ],
+  "new_safety_modules": [
+    "src/cachecad/safety/sync_safety.py",
+    "src/cachecad/safety/overwrite_guard.py",
+    "src/cachecad/safety/onedrive_guard.py"
+  ],
+  "limitations": [
+    "No original GUI/authentication/service runtime executed",
+    "No real Google Drive or OneDrive adapter",
+    "No SolidWorks parser or mate repair",
+    "Local filesystem adapter for controlled fixtures only, not safe against arbitrary concurrent external writers",
+    "Versioned CAS is proven only for MemoryDrive; live Drive conditional commit unverified",
+    "Baselines are in-memory and are not a crash-recoverable journal"
+  ]
+}

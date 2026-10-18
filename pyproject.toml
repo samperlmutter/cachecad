@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools==75.6.0", "wheel==0.45.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cachecad-reconstructed"
+version = "0.1.0"
+description = "Evidence-informed CacheCAD replacement scaffold; not recovered original source"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[project.scripts]
+cachecad-reconstructed = "cachecad.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]

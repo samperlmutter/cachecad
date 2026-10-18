@@ -1,0 +1,3 @@
+# TEMPLATE toolchain. Must resolve and hash-lock on approved Windows build host.
+-r dev-pins.txt
+pyinstaller==6.11.1

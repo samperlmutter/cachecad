@@ -1,0 +1,9 @@
+include README.md pyproject.toml
+include *.json
+recursive-include docs *.md *.json *.txt
+recursive-include requirements *.txt *.lock
+recursive-include templates *.yml
+recursive-include tooling *.py
+recursive-include tools/recovery *.py *.md *.json *.txt
+recursive-include tests *.py
+recursive-include .github/workflows *.yml

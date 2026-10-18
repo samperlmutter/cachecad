@@ -1,0 +1,6 @@
+# Optional tools, selected maintenance versions; not recovered original versions.
+# Direct pins only: NOT a transitive/hash lock. Offline gate needs none of these.
+ruff==0.8.2
+build==1.2.2.post1
+setuptools==75.6.0
+wheel==0.45.1

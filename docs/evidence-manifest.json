@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "category": "static-evidence",
+  "claim": "Byte identity only; does not establish authorship or behavioral equivalence.",
+  "files": [
+    {
+      "path": "bytecode/app.app_controller.dis.txt",
+      "bytes": 91428,
+      "sha256": "837c13b1ef3051e54fbaf98b5c2f6d675811f2a0ca59120bfec24114a36cbd48"
+    },
+    {
+      "path": "bytecode/app.app_version.dis.txt",
+      "bytes": 545,
+      "sha256": "c9ca28aaa21497c20b8e9c318e551792db5efe8e537cfcae636ccc53dcfb410a"
+    },
+    {
+      "path": "bytecode/core.auth_manager.dis.txt",
+      "bytes": 54030,
+      "sha256": "d8ef13ece4c269fd36acab93b2a999e096c2ac3533236641109a73fb8942da76"
+    },
+    {
+      "path": "bytecode/core.bug_report.dis.txt",
+      "bytes": 34822,
+      "sha256": "80b046a534a61b576196dfb9aa7a6950fd2545a08fc049a31b2d71e8573fbdb4"
+    },
+    {
+      "path": "bytecode/core.db_manager.dis.txt",
+      "bytes": 48431,
+      "sha256": "42a1d5e7ab64beacd16aef5630c6a927cf09407f24f5d0397254c026744dfff7"
+    },
+    {
+      "path": "bytecode/core.drive_client.dis.txt",
+      "bytes": 176170,
+      "sha256": "ee6dadd8210bc6fb488a1ea87d8e43745bbb7ae116aa6ee61ce4f9a5b4199c25"
+    },
+    {
+      "path": "bytecode/core.github_updater.dis.txt",
+      "bytes": 32335,
+      "sha256": "63bf49f36fe63428e0b7ed0025f46ded572a034d2e818c56f5d2ea9842c438f5"
+    },
+    {
+      "path": "bytecode/core.local_client.dis.txt",
+      "bytes": 54812,
+      "sha256": "f28f8f94444148139e0c4627238fce30c3baad4975bc26d2ff16ab00198b1f4e"
+    },
+    {
+      "path": "bytecode/core.models.dis.txt",
+      "bytes": 32515,
+      "sha256": "09d713967ff34c87a2853f39cbd843bd086de9747dd1419d4825e5ceee671da2"
+    },
+    {
+      "path": "bytecode/core.oauth_server.dis.txt",
+      "bytes": 12700,
+      "sha256": "847f2d6c5db160d9b6bebfa1dad6dd8882eccf34ceb47d2f5c46c6d7ad6c0fc2"
+    },
+    {
+      "path": "bytecode/core.project_manager.dis.txt",
+      "bytes": 35123,
+      "sha256": "6df5e029f458a18a1c062aa624ade2616d457d35efe5fc98675cf60825a93069"
+    },
+    {
+      "path": "bytecode/core.service_credential_manager.dis.txt",
+      "bytes": 8226,
+      "sha256": "dc6adf29cb6034346775fd94f21b7b1625531c637f1da290caa65b6dece6aad2"
+    },
+    {
+      "path": "bytecode/core.signal_manager.dis.txt",
+      "bytes": 18261,
+      "sha256": "e6e76f0cf12e3969258f7ece8858e77741dca64d845e7cc5d1891cc738397242"
+    },
+    {
+      "path": "bytecode/core.single_instance.dis.txt",
+      "bytes": 10464,
+      "sha256": "3528f2826ac2dfb459ea6bbf8cae8d12705551cdf7b23becfecb2650a43967b7"
+    },
+    {
+      "path": "bytecode/core.sync_analyzer.dis.txt",
+      "bytes": 94219,
+      "sha256": "e2160518994bd42310acb5142ffca30dc07caf531493c21dbb9b0c467915c202"
+    },
+    {
+      "path": "bytecode/core.sync_executor.dis.txt",
+      "bytes": 108806,
+      "sha256": "69d8412dbf64e93d4e30115b13d03bb3d7a19014836587f2baaa142f18eb40b0"
+    },
+    {
+      "path": "bytecode/core.thread_manager.dis.txt",
+      "bytes": 2243,
+      "sha256": "3f373da0e78945a31ff0db305559c72d75e28e0dccde3cd6762db33af0c8443e"
+    },
+    {
+      "path": "bytecode/core.user_validation.dis.txt",
+      "bytes": 20463,
+      "sha256": "c976d7c16d7855cb2a4c81b43270bed3b3ad02968076dbba13dbc8d3b09a0289"
+    },
+    {
+      "path": "bytecode/gui.bug_report_dialog.dis.txt",
+      "bytes": 16809,
+      "sha256": "86ef2c08d81cbbd1654c27cfc79f062ebf76e4a8e4698149df1cf441894a1293"
+    },
+    {
+      "path": "bytecode/gui.button_bar.dis.txt",
+      "bytes": 15525,
+      "sha256": "1610175ae0275ae771e47eee45ae3cf2c119e7b4ac3c199a7ffa187c2ea75d93"
+    },
+    {
+      "path": "bytecode/gui.cc_logo.dis.txt",
+      "bytes": 8179,
+      "sha256": "368a9dc1b599ef12dd70d24d7a35d016c835e5716ce8372a97298a1a1bdb561e"
+    },
+    {
+      "path": "bytecode/gui.create_project_dialog.dis.txt",
+      "bytes": 16894,
+      "sha256": "d589975d8fe5cedf2db07676338fb642c49c0710a9d15a2eb6ba09c64ad9ef6e"
+    },
+    {
+      "path": "bytecode/gui.initial_settings_dialog.dis.txt",
+      "bytes": 30969,
+      "sha256": "efa1215f6e8c40429e69fed9c13add3260caeae4edc677e7f55b65cd5d483b97"
+    },
+    {
+      "path": "bytecode/gui.main_window.dis.txt",
+      "bytes": 62718,
+      "sha256": "791fc90ef49e28e5735a638da07b7949b417385aa5a741fac557149aa4423c7c"
+    },
+    {
+      "path": "bytecode/gui.open_folder_button.dis.txt",
+      "bytes": 11865,
+      "sha256": "532f63459ca9e1e1a747fe120d321b24a1d778e7a2d48f18b579a03634513072"
+    },
+    {
+      "path": "bytecode/gui.open_url_button.dis.txt",
+      "bytes": 6664,
+      "sha256": "9dd285048026e6520b73277bf69d6a8e7e2d730e58e20618b6bd05ca9dc465ca"
+    },
+    {
+      "path": "bytecode/gui.page.dis.txt",
+      "bytes": 1577,
+      "sha256": "bcee624ebb6a2882be03111055e7261b89cc649ce562fb395fd96b59c1df2ade"
+    },
+    {
+      "path": "bytecode/gui.pages.dis.txt",
+      "bytes": 93,
+      "sha256": "7302756d54d384f7e56001bb9505625eb9e82a42bb8eec423c5045c82fc63269"
+    },
+    {
+      "path": "bytecode/gui.pages.home_page.dis.txt",
+      "bytes": 8850,
+      "sha256": "79ed751ea18ab643e5bcb86f3b966bcd13d132c017abb461b1c8920ad48de852"
+    },
+    {
+      "path": "bytecode/gui.pages.project_page.dis.txt",
+      "bytes": 19688,
+      "sha256": "16ccf0f0f034c4b2540b88bf3867bf8a30ca5571eca2e5c52bf5b00823ae887e"
+    },
+    {
+      "path": "bytecode/gui.pages.selection_page.dis.txt",
+      "bytes": 35869,
+      "sha256": "42efb58d0cf6dd74f3230addb005fdf102126380154ef6434573538979a1e6af"
+    },
+    {
+      "path": "bytecode/gui.pages.settings_page.dis.txt",
+      "bytes": 47439,
+      "sha256": "fb04816e212027a95f24f44b9acc41b755a03d4f07b448ca87a624f11071f694"
+    },
+    {
+      "path": "bytecode/gui.project_buttons.dis.txt",
+      "bytes": 18858,
+      "sha256": "2ab097727a8240dad1c9ff842a83b22d31b7ec68ee59b72ef02be8f2e22183ee"
+    },
+    {
+      "path": "bytecode/gui.project_list_widget.dis.txt",
+      "bytes": 10993,
+      "sha256": "c74c49daa37be704cbc135804af90b185220979b371b4ae62d55492e7ef638ff"
+    },
+    {
+      "path": "bytecode/gui.remove_project_dialog.dis.txt",
+      "bytes": 11451,
+      "sha256": "785c1642d12f23d117d8ce897d2d40b7c9b028b9378ec749f2dd20b2f1ba8f6f"
+    },
+    {
+      "path": "bytecode/gui.reorder_project_list_dialog.dis.txt",
+      "bytes": 14777,
+      "sha256": "457e8b53a6cc3d6970c0d2bfb80cf71fccddd09d09be2e1390290075cfd0dd7a"
+    },
+    {
+      "path": "bytecode/gui.signin_button.dis.txt",
+      "bytes": 28167,
+      "sha256": "97cf69a458f5276c201411592279c784dc31e95091ae8ae4b2f6031df8ebb8bb"
+    },
+    {
+      "path": "bytecode/gui.sponsor_logo.dis.txt",
+      "bytes": 16136,
+      "sha256": "1f752f2ba4df47a7f54cf5e6553eadc9f04ad707b8b893163e77065b126af86d"
+    },
+    {
+      "path": "bytecode/gui.sync_selection_tree.dis.txt",
+      "bytes": 79255,
+      "sha256": "895694d4552e9de9f4e81457bdaa6da54791358a0b82d1b4e85e3832410007c2"
+    },
+    {
+      "path": "bytecode/gui.sync_status_card.dis.txt",
+      "bytes": 33550,
+      "sha256": "d1e388fd4aae74535797a8fd2ae722a480c0443cd09d330ebc1df45e6f0fba1e"
+    },
+    {
+      "path": "bytecode/utils.app_logger.dis.txt",
+      "bytes": 10812,
+      "sha256": "ed046d5b331e2a1793f13d4832b3715baa7c770e8035a2135018eec20b77fc87"
+    },
+    {
+      "path": "bytecode/utils.app_settings.dis.txt",
+      "bytes": 21898,
+      "sha256": "2179abfaeb6b1b80ef683e72bd9f36ddfeb3a851b376a56f3ffbc03486e7da21"
+    },
+    {
+      "path": "bytecode/utils.cloud_logging.dis.txt",
+      "bytes": 16521,
+      "sha256": "e790c335ad86a365b32a4a4b32abc640bb352c8429cb7afed3d95ac142a4e14d"
+    },
+    {
+      "path": "bytecode/utils.file_size.dis.txt",
+      "bytes": 2952,
+      "sha256": "356cf8dd0de885f685fc462d8159e8aeb3aeb2f95da3646d6e296b75101d4766"
+    },
+    {
+      "path": "bytecode/utils.oauth_credential_import.dis.txt",
+      "bytes": 18347,
+      "sha256": "46ae4eb076ceb34a45b1598568fc50cc207b48d73208e6686353b4a2a9867e4f"
+    },
+    {
+      "path": "bytecode/utils.paths.dis.txt",
+      "bytes": 42503,
+      "sha256": "2ac4bb6e14f7f9a15abd84649a2e90204b4dcc89120d536df4a29f84fe470f19"
+    },
+    {
+      "path": "bytecode/utils.styles.dis.txt",
+      "bytes": 4150,
+      "sha256": "f7c37ef7a98dc97eb03970bfc1d87ae3a0947bd6f9a01d0d959e5fa1b4a46e95"
+    },
+    {
+      "path": "bytecode/utils.timer.dis.txt",
+      "bytes": 3600,
+      "sha256": "c6c82bf2968b0db9eda188db5132ae1b1e897c00cf32386836959f4baaa136b3"
+    },
+    {
+      "path": "bytecode/utils.timestamps.dis.txt",
+      "bytes": 10680,
+      "sha256": "f6f5ce2a966665bd4d21845feaa5d33f28358c3df2efcb2438f9185c495e9ef2"
+    },
+    {
+      "path": "code-map.json",
+      "bytes": 207894,
+      "sha256": "78f16485fa14e120b0a697a33c598cfdd9c604519148cc4b92ef871ca388ffc5"
+    },
+    {
+      "path": "prototype/dependency-inventory.json",
+      "bytes": 9847,
+      "sha256": "503dbba0cbe1133734dedbc59b2e4ab4096952d110e27578b8898ca9e22c4a0d"
+    },
+    {
+      "path": "provenance.json",
+      "bytes": 1320,
+      "sha256": "72b8f22c03361e077aa01630742de89410347cda6d660330293c2261ba206be2"
+    },
+    {
+      "path": "recovered-interface-inventory.json",
+      "bytes": 78047,
+      "sha256": "462cee6a76a2f9b81488c28dda8621268cdc9553e5b05a5cee2c45dc11ceb8b1"
+    }
+  ]
+}

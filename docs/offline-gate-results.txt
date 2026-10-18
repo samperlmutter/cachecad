@@ -1,0 +1,119 @@
+Portable manifests valid: 53 evidence records, 49 modules
+Evidence hashes verified: 53
+Syntax checked: 24 handwritten Python files
+test_no_implicit_real_project_execution (test_cli.CliTests.test_no_implicit_real_project_execution) ... ok
+test_offline_demo_is_machine_readable_and_converges (test_cli.CliTests.test_offline_demo_is_machine_readable_and_converges) ... ok
+test_unknown_project_option_rejected (test_cli.CliTests.test_unknown_project_option_rejected) ... ok
+test_both_changed_conflict (test_core_workflow.WorkflowTests.test_both_changed_conflict) ... ok
+test_cancel_all_terminal_once (test_core_workflow.WorkflowTests.test_cancel_all_terminal_once) ... ok
+test_corrupt_existing_backup_blocks_replacement (test_core_workflow.WorkflowTests.test_corrupt_existing_backup_blocks_replacement) ... ok
+test_delete_disabled_by_default (test_core_workflow.WorkflowTests.test_delete_disabled_by_default) ... ok
+test_delete_failure_does_not_clear_baseline (test_core_workflow.WorkflowTests.test_delete_failure_does_not_clear_baseline) ... ok
+test_demo (test_core_workflow.WorkflowTests.test_demo) ... ok
+test_download (test_core_workflow.WorkflowTests.test_download) ... ok
+test_failed_new_publish_leaves_no_partial_destination (test_core_workflow.WorkflowTests.test_failed_new_publish_leaves_no_partial_destination) ... ok
+test_internal_symlink_blocks_scan_and_backup (test_core_workflow.WorkflowTests.test_internal_symlink_blocks_scan_and_backup) ... ok
+test_parent_escape_rejected (test_core_workflow.WorkflowTests.test_parent_escape_rejected) ... ok
+test_partial_scan_no_actions (test_core_workflow.WorkflowTests.test_partial_scan_no_actions) ... ok
+test_provider_exception_terminal (test_core_workflow.WorkflowTests.test_provider_exception_terminal) ... ok
+test_remote_cas_rejects_intervening_write (test_core_workflow.WorkflowTests.test_remote_cas_rejects_intervening_write) ... ok
+test_reserved_namespace_rejected_by_both_adapters (test_core_workflow.WorkflowTests.test_reserved_namespace_rejected_by_both_adapters) ... ok
+test_revision_and_backup (test_core_workflow.WorkflowTests.test_revision_and_backup) ... ok
+test_signal_failure_does_not_stop_work (test_core_workflow.WorkflowTests.test_signal_failure_does_not_stop_work) ... ok
+test_stale_local_blocks_upload (test_core_workflow.WorkflowTests.test_stale_local_blocks_upload) ... ok
+test_stale_remote_blocks_download (test_core_workflow.WorkflowTests.test_stale_remote_blocks_download) ... ok
+test_symlink_blocks_scan (test_core_workflow.WorkflowTests.test_symlink_blocks_scan) ... ok
+test_upload_and_repeat_analysis (test_core_workflow.WorkflowTests.test_upload_and_repeat_analysis) ... ok
+test_bad_hash_rejected (test_manifests.ManifestTests.test_bad_hash_rejected) ... ok
+test_conflicting_manifests_rejected (test_manifests.ManifestTests.test_conflicting_manifests_rejected) ... ok
+test_duplicate_rejected (test_manifests.ManifestTests.test_duplicate_rejected) ... ok
+test_missing_source_rejected (test_manifests.ManifestTests.test_missing_source_rejected) ... ok
+test_source_escape_rejected (test_manifests.ManifestTests.test_source_escape_rejected) ... ok
+test_valid_without_private_evidence (test_manifests.ManifestTests.test_valid_without_private_evidence) ... ok
+test_business_name_hint (test_policy_onedrive_guard.OneDriveGuardTests.test_business_name_hint) ... ok
+test_case_and_slashes (test_policy_onedrive_guard.OneDriveGuardTests.test_case_and_slashes) ... ok
+test_custom_root (test_policy_onedrive_guard.OneDriveGuardTests.test_custom_root) ... ok
+test_deduplicate_root_provenance (test_policy_onedrive_guard.OneDriveGuardTests.test_deduplicate_root_provenance) ... ok
+test_dot_segments_escape (test_policy_onedrive_guard.OneDriveGuardTests.test_dot_segments_escape) ... ok
+test_dot_segments_inside (test_policy_onedrive_guard.OneDriveGuardTests.test_dot_segments_inside) ... ok
+test_empty_env_ignored (test_policy_onedrive_guard.OneDriveGuardTests.test_empty_env_ignored) ... ok
+test_extended_drive (test_policy_onedrive_guard.OneDriveGuardTests.test_extended_drive) ... ok
+test_extended_unc (test_policy_onedrive_guard.OneDriveGuardTests.test_extended_unc) ... ok
+test_invalid_discovery_does_not_claim_no_match (test_policy_onedrive_guard.OneDriveGuardTests.test_invalid_discovery_does_not_claim_no_match) ... ok
+test_most_specific_root (test_policy_onedrive_guard.OneDriveGuardTests.test_most_specific_root) ... ok
+test_multiple_accounts (test_policy_onedrive_guard.OneDriveGuardTests.test_multiple_accounts) ... ok
+test_name_is_only_hint (test_policy_onedrive_guard.OneDriveGuardTests.test_name_is_only_hint) ... ok
+test_no_implicit_process_environment (test_policy_onedrive_guard.OneDriveGuardTests.test_no_implicit_process_environment) ... ok
+test_outside_known_roots_not_safety_claim (test_policy_onedrive_guard.OneDriveGuardTests.test_outside_known_roots_not_safety_claim) ... ok
+test_parent_is_not_contained (test_policy_onedrive_guard.OneDriveGuardTests.test_parent_is_not_contained) ... ok
+test_prefix_collision (test_policy_onedrive_guard.OneDriveGuardTests.test_prefix_collision) ... ok
+test_root_itself (test_policy_onedrive_guard.OneDriveGuardTests.test_root_itself) ... ok
+test_substring_is_not_hint (test_policy_onedrive_guard.OneDriveGuardTests.test_substring_is_not_hint) ... ok
+test_unc_boundary (test_policy_onedrive_guard.OneDriveGuardTests.test_unc_boundary) ... ok
+test_unsupported_paths (test_policy_onedrive_guard.OneDriveGuardTests.test_unsupported_paths) ... ok
+test_warning_non_destructive (test_policy_onedrive_guard.OneDriveGuardTests.test_warning_non_destructive) ... ok
+test_absent_cannot_reuse_old_metadata (test_policy_overwrite_guard.OverwriteGuardTests.test_absent_cannot_reuse_old_metadata) ... ok
+test_all_supported_shapes (test_policy_overwrite_guard.OverwriteGuardTests.test_all_supported_shapes) ... ok
+test_cancelled (test_policy_overwrite_guard.OverwriteGuardTests.test_cancelled) ... ok
+test_download_new_destination_appeared (test_policy_overwrite_guard.OverwriteGuardTests.test_download_new_destination_appeared) ... ok
+test_empty_file_is_valid (test_policy_overwrite_guard.OverwriteGuardTests.test_empty_file_is_valid) ... ok
+test_every_local_fingerprint_change_blocks (test_policy_overwrite_guard.OverwriteGuardTests.test_every_local_fingerprint_change_blocks) ... ok
+test_every_remote_fingerprint_change_blocks (test_policy_overwrite_guard.OverwriteGuardTests.test_every_remote_fingerprint_change_blocks) ... ok
+test_incomplete_scan_at_either_time (test_policy_overwrite_guard.OverwriteGuardTests.test_incomplete_scan_at_either_time) ... ok
+test_local_disappeared (test_policy_overwrite_guard.OverwriteGuardTests.test_local_disappeared) ... ok
+test_missing_metadata_blocks_even_if_unchanged (test_policy_overwrite_guard.OverwriteGuardTests.test_missing_metadata_blocks_even_if_unchanged) ... ok
+test_new_action_cannot_overwrite_existing_file (test_policy_overwrite_guard.OverwriteGuardTests.test_new_action_cannot_overwrite_existing_file) ... ok
+test_remote_disappeared (test_policy_overwrite_guard.OverwriteGuardTests.test_remote_disappeared) ... ok
+test_unchanged_revision_passes (test_policy_overwrite_guard.OverwriteGuardTests.test_unchanged_revision_passes) ... ok
+test_unknown_action_and_conflict_block (test_policy_overwrite_guard.OverwriteGuardTests.test_unknown_action_and_conflict_block) ... ok
+test_unknown_is_not_absence (test_policy_overwrite_guard.OverwriteGuardTests.test_unknown_is_not_absence) ... ok
+test_upload_new_destination_appeared (test_policy_overwrite_guard.OverwriteGuardTests.test_upload_new_destination_appeared) ... ok
+test_empty_root_set_rejected (test_policy_sync_safety.CollectorTests.test_empty_root_set_rejected) ... ok
+test_failed_page_never_authorizes_deletes (test_policy_sync_safety.CollectorTests.test_failed_page_never_authorizes_deletes) ... ok
+test_pagination_incomplete_until_last_page (test_policy_sync_safety.CollectorTests.test_pagination_incomplete_until_last_page) ... ok
+test_pending_root_not_complete (test_policy_sync_safety.CollectorTests.test_pending_root_not_complete) ... ok
+test_unknown_page_rejected (test_policy_sync_safety.CollectorTests.test_unknown_page_rejected) ... ok
+test_cancelled_terminal (test_policy_sync_safety.ExecutionTests.test_cancelled_terminal) ... ok
+test_cloud_exception_terminal_and_unjournaled (test_policy_sync_safety.ExecutionTests.test_cloud_exception_terminal_and_unjournaled) ... ok
+test_cloud_failure_never_journaled (test_policy_sync_safety.ExecutionTests.test_cloud_failure_never_journaled) ... ok
+test_cloud_success_journaled_once (test_policy_sync_safety.ExecutionTests.test_cloud_success_journaled_once) ... ok
+test_duplicate_claim_does_not_execute_twice (test_policy_sync_safety.ExecutionTests.test_duplicate_claim_does_not_execute_twice) ... ok
+test_duplicate_manifest (test_policy_sync_safety.ExecutionTests.test_duplicate_manifest) ... ok
+test_exception_becomes_failure (test_policy_sync_safety.ExecutionTests.test_exception_becomes_failure) ... ok
+test_existing_destination_terminal_conflict (test_policy_sync_safety.ExecutionTests.test_existing_destination_terminal_conflict) ... ok
+test_journal_error_is_terminal_failure (test_policy_sync_safety.ExecutionTests.test_journal_error_is_terminal_failure) ... ok
+test_none_result_becomes_failure (test_policy_sync_safety.ExecutionTests.test_none_result_becomes_failure) ... ok
+test_parallel_accounting (test_policy_sync_safety.ExecutionTests.test_parallel_accounting) ... ok
+test_pending_not_complete (test_policy_sync_safety.ExecutionTests.test_pending_not_complete) ... ok
+test_unknown_id (test_policy_sync_safety.ExecutionTests.test_unknown_id) ... ok
+test_complete_listing_only_deletes_logged_unchanged_missing (test_policy_sync_safety.ScanTests.test_complete_listing_only_deletes_logged_unchanged_missing) ... ok
+test_error_overrides_complete_claim (test_policy_sync_safety.ScanTests.test_error_overrides_complete_claim) ... ok
+test_partial_listing_blocks_deletion (test_policy_sync_safety.ScanTests.test_partial_listing_blocks_deletion) ... ok
+test_absolute_path_rejected (test_tooling.IntegrityTests.test_absolute_path_rejected) ... ok
+test_duplicate_rejected (test_tooling.IntegrityTests.test_duplicate_rejected) ... ok
+test_empty_rejected (test_tooling.IntegrityTests.test_empty_rejected) ... ok
+test_missing_detected (test_tooling.IntegrityTests.test_missing_detected) ... ok
+test_parent_escape_rejected (test_tooling.IntegrityTests.test_parent_escape_rejected) ... ok
+test_roundtrip (test_tooling.IntegrityTests.test_roundtrip) ... ok
+test_same_size_tamper_detected (test_tooling.IntegrityTests.test_same_size_tamper_detected) ... ok
+test_symlink_rejected (test_tooling.IntegrityTests.test_symlink_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 96 tests in 0.199s
+
+OK
+test_bad_hash_creates_no_output (test_recovery.RecoveryTests.test_bad_hash_creates_no_output) ... ok
+test_compression_budget (test_recovery.RecoveryTests.test_compression_budget) ... ok
+test_corrupt_bounds_and_truncated_cookie (test_recovery.RecoveryTests.test_corrupt_bounds_and_truncated_cookie) ... ok
+test_duplicate_collision_reserved_and_links (test_recovery.RecoveryTests.test_duplicate_collision_reserved_and_links) ... ok
+test_existing_output_and_symlink_rejected (test_recovery.RecoveryTests.test_existing_output_and_symlink_rejected) ... ok
+test_roundtrip_and_determinism (test_recovery.RecoveryTests.test_roundtrip_and_determinism) ... ok
+test_traversal_and_windows_names (test_recovery.RecoveryTests.test_traversal_and_windows_names) ... ok
+test_windows_invalid_characters_and_device_aliases (test_recovery.RecoveryTests.test_windows_invalid_characters_and_device_aliases) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.004s
+
+OK
+All checks passed!
+Requested offline gates passed. Windows packaging and live integrations are unverified.
