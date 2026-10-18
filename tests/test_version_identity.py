@@ -81,6 +81,7 @@ class VersionIdentityTests(unittest.TestCase):
         self.assertIn('prodvers=' + repr(numbers), resource)
         self.assertIn(repr(self.identity['version']), resource)
 
+    @unittest.skipUnless((ROOT / "packaging/windows/build.py").is_file(), "Application packaging absent from scaffold wheel fixture")
     def test_build_and_installer_require_generated_identity_and_exact_repair(self):
         build = (ROOT / 'packaging/windows/build.py').read_text()
         recipe = (ROOT / 'packaging/windows/cachecad.iss').read_text()

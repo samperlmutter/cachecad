@@ -37,6 +37,7 @@ def main() -> int:
         for directory in ["tests", "tooling", "tools/recovery"]:
             shutil.copytree(ROOT / directory, work / directory,
                             ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        shutil.copy2(ROOT / "version.json", work / "version.json")
         run("-m", "unittest", "discover", "-s", "tests", "-v")
         run("-m", "unittest", "discover", "-s", "tools/recovery/tests", "-v")
     print("Clean offline wheel installation, demo and copied test suites passed.")
