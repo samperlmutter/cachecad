@@ -60,8 +60,11 @@ def assemble(root, output):
         safe_source(root, entry['maintained'])
     # These are reviewed validation tools, never application modules.
     for tool in ('recovered/check_reports.py', 'recovered/check_entrypoint.py', 'tooling/maintained.py'):
-        subprocess.run([sys.executable, str(safe_source(root, tool))], cwd=root, check=True,
-                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            subprocess.run([sys.executable, str(safe_source(root, tool))], cwd=root, check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        except subprocess.CalledProcessError as error:
+            raise ValueError(f'Assembly validation failed in {tool}:\n{error.stdout}\n{error.stderr}') from error
     overlay = {entry['module']: entry for entry in patches['modules']}
     files = {}
     records = []

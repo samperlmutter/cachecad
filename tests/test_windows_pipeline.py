@@ -4,7 +4,7 @@ import copy
 import hashlib
 import importlib.util
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import tempfile
 import unittest
@@ -113,6 +113,15 @@ class WindowsSourceDistributionTests(unittest.TestCase):
         self.assertIn('recursive-include .github/workflows *.yml', directives)
         self.assertIn('recursive-include tests *.py', directives)
         self.assertIn('recursive-include docs *.md *.json *.txt', directives)
+
+    def test_maintained_inventory_uses_portable_manifest_separators(self):
+        from tooling.maintained import manifest_relative_path
+        self.assertEqual(manifest_relative_path(
+            PureWindowsPath('C:/repo/maintained/core/example.py'), PureWindowsPath('C:/repo')),
+            'maintained/core/example.py')
+        self.assertEqual(manifest_relative_path(
+            PurePosixPath('/repo/maintained/core/example.py'), PurePosixPath('/repo')),
+            'maintained/core/example.py')
 
     def test_checked_in_text_is_kept_lf_for_source_hashes_on_windows(self):
         attributes = (ROOT / '.gitattributes').read_text(encoding='utf-8')

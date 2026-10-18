@@ -93,6 +93,11 @@ def safe_file(root, relative, prefix):
     return path
 
 
+def manifest_relative_path(path, root):
+    """Manifest names use POSIX separators on every host, including Windows."""
+    return path.relative_to(root).as_posix()
+
+
 def validate(root):
     manifest = json.loads((root / 'maintained/patch-manifest.json').read_text())
     failures = []
@@ -121,7 +126,7 @@ def validate(root):
     for entry in manifest.get('new_helpers', []):
         if 'baseline' in entry or entry.get('status') != 'new_reviewed_helper':
             failures.append(entry['module'] + ': invalid new-helper provenance')
-    actual = {str(path.relative_to(root)) for path in (root / 'maintained').rglob('*.py')}
+    actual = {manifest_relative_path(path, root) for path in (root / 'maintained').rglob('*.py')}
     if actual != expected:
         failures.append('Maintained source set differs from reviewed patch manifest')
     return failures
