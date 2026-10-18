@@ -71,6 +71,10 @@ jobs:
           python -m unittest discover -s tests -p test_production_auth_review.py -v
           python -m unittest discover -s tests -p test_application_auth_runtime.py -v
           python -m unittest discover -s tests -p test_destructive_confirmation.py -v
+          python -m unittest discover -s tests -p "test_transfer_recovery*.py" -v
+          python -m unittest discover -s tests -p test_transfer_journal.py -v
+          python -m unittest discover -s tests -p test_transfer_results_ui.py -v
+          python -m unittest discover -s tests -p test_sync_history_recovery.py -v
           python -m unittest discover -s tests -p test_remote_refresh_audit.py -v
           python -m unittest discover -s tests -p test_crash_diagnostics.py -v
 
@@ -114,6 +118,14 @@ jobs:
           python -m unittest discover -s tests -p test_application_auth_runtime.py -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s tests -p test_destructive_confirmation.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p "test_transfer_recovery*.py" -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_transfer_journal.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_transfer_results_ui.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_sync_history_recovery.py -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s tests -p test_remote_refresh_audit.py -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -15,7 +15,7 @@ import unittest
 from unittest.mock import Mock
 
 from recovered_harness import load_function, deny_external_effects
-from test_recovered_overwrite import load_staging_function
+from test_recovered_overwrite import bind_recovery_executor, load_staging_function
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -67,9 +67,15 @@ class ExecutorTests(unittest.TestCase):
             staged_path = folder / 'snapshot' / 'part.sldprt'
             staged_path.parent.mkdir()
             staged_path.write_bytes(b'fixture')
+            # Use the real immutable version type for the durable intent.
+            from test_maintained_sync_consent import guard
+            local_version = guard.capture_local_version(local_path)
+            remote_version = guard.RemoteVersion('old', local_path.name, ('parent',),
+                                                 '7', checksum, size)
+            observed = SimpleNamespace(local=local_version, remote=remote_version)
             namespace.update(StaleSyncPlan=RuntimeError,
-                approved_action=lambda *args: SimpleNamespace(local=SimpleNamespace(md5=checksum)),
-                revalidate_action=lambda *args: None,
+                approved_action=lambda *args: observed,
+                revalidate_action=lambda *args: observed,
                 staged_revision_upload=lambda *args: nullcontext(staged_path))
         source = ROOT / tree / 'core/sync_executor.py'
         upload = (load_staging_function('SyncExecutor._upload', namespace, folder)
@@ -82,6 +88,8 @@ class ExecutorTests(unittest.TestCase):
                                    project_name='project', drive_client=drive,
                                    get_parent_id=Mock(return_value='parent'),
                                    log_sync_action=Mock())
+        if tree == 'maintained':
+            bind_recovery_executor(executor, namespace)
         action = (7, SimpleNamespace(path='part.sldprt', drive_id='old', md5_checksum=checksum,
                                      size=size, modified_time=modified_time))
         return executor, action, signals, upload, delete, run
@@ -128,7 +136,8 @@ class ExecutorTests(unittest.TestCase):
     def test_fixed_upload_success_and_revision_preserve_call_contract(self):
         for revision in (False, True):
             with self.subTest(revision=revision):
-                obj, action, signals, upload, _, _ = self.setup_case('maintained', ('new', 'digest'))
+                confirmed_id = 'old' if revision else 'new'
+                obj, action, signals, upload, _, _ = self.setup_case('maintained', (confirmed_id, 'digest'))
                 upload(obj, action, revision=revision)
                 self.assert_terminal(signals, True)
                 if revision:
@@ -139,7 +148,7 @@ class ExecutorTests(unittest.TestCase):
                     self.assertEqual(Path(uploaded).name, 'part.sldprt')
                     self.assertNotEqual(uploaded, str(Path(obj.working_directory) / 'project' / 'part.sldprt'))
                     self.assertEqual((parent, idx, existing_id), ('parent', 7, None))
-                obj.log_sync_action.assert_called_once_with(action, id='new')
+                obj.log_sync_action.assert_called_once_with(action, id=confirmed_id)
                 self.assertEqual(signals.action_complete.calls, [(action[1],)])
 
     def test_fixed_delete_false_or_none_fails_without_logging(self):

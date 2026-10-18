@@ -10,7 +10,7 @@
       "baseline": "recovered/app/app_controller.py",
       "maintained": "maintained/app/app_controller.py",
       "baseline_sha256": "d0d2a638b189933a9c294b903c12aa3e84143eb96edba3893c66087f750f2f11",
-      "maintained_sha256": "fa1ef42ae5fe8aab89f6e0f8dfa409034ed654d04ec72025bf10c5b47ad78b4a",
+      "maintained_sha256": "75ce5701a26b57ce64de4c58cecca0eb7845cb107b2d57389f52b37a1ca428ab",
       "changed_functions": [
         "AppController.__init__",
         "AppController.create_project_from_link",
@@ -26,6 +26,7 @@
         "AppController.on_execute_sync",
         "AppController.on_internet_check",
         "AppController.on_new_installation",
+        "AppController.on_options_clicked",
         "AppController.on_refresh_clicked",
         "AppController.on_settings_clicked",
         "AppController.on_signin_clicked",
@@ -60,6 +61,7 @@
         "AppController.on_scan_succeeded",
         "AppController.on_session_signed_out",
         "AppController.on_sync_guard_failed",
+        "AppController.show_transfer_results",
         "AppController.shutdown"
       ],
       "added_imports": [
@@ -142,7 +144,7 @@
       "baseline": "recovered/core/drive_client.py",
       "maintained": "maintained/core/drive_client.py",
       "baseline_sha256": "2665419d983e07bc5c3b71a6c012ac863ebf23c03d98dd0a2efc79f23b8e5fb4",
-      "maintained_sha256": "3661e9f1e9f794929b292e70c58bb03b18394bb4fab255578b5c6633a5f90bd9",
+      "maintained_sha256": "aa84810479dffc9907af46895e687922b062423396daeed00e0d449298f226f4",
       "changed_functions": [
         "DriveClient.__init__",
         "DriveClient._finish",
@@ -188,7 +190,7 @@
       "baseline": "recovered/core/local_client.py",
       "maintained": "maintained/core/local_client.py",
       "baseline_sha256": "22a9a78e38a89d1aede368b3f51ebf4a785192656b90f0491b672b8d1af1508a",
-      "maintained_sha256": "f76ca70cade2eaf9df70bb5b9cb6a73a42100438d1f3d4a15a32cb4017e07949",
+      "maintained_sha256": "8079804b9aefb93bbdec1266d676cf0dd92e628e017b46066058417de9545164",
       "changed_functions": [
         "LocalClient.__init__",
         "LocalClient.get_local_items_from_path"
@@ -208,23 +210,25 @@
       "baseline": "recovered/core/sync_analyzer.py",
       "maintained": "maintained/core/sync_analyzer.py",
       "baseline_sha256": "625e5604cbe7510e9741c24faf675a3177f1d584e31b1fe7e12e188f8ed6430b",
-      "maintained_sha256": "9dce301934682164688ac8ad976d28f4caccf446485c4688ec0431415198c3d9",
+      "maintained_sha256": "4d7a53d4d4b6de3867c0622e5a94470bd4b64b46b8375a9c6af7a2f870cb02c2",
       "changed_functions": [
         "SyncAnalyzer.__init__",
-        "SyncAnalyzer.start_sync_analysis",
-        "SyncAnalyzer.local_worker",
-        "SyncAnalyzer._on_local_file_list_acquired",
-        "SyncAnalyzer.drive_worker",
-        "SyncAnalyzer._on_drive_file_list_acquired",
-        "SyncAnalyzer.cancel_sync_analysis",
-        "SyncAnalyzer.is_background_running",
-        "SyncAnalyzer._on_local_task_finished",
-        "SyncAnalyzer._on_drive_task_finished",
-        "SyncAnalyzer._on_error",
         "SyncAnalyzer._check_ready",
         "SyncAnalyzer._compare_worker",
-        "SyncAnalyzer.write_folder_dict_csv",
-        "SyncAnalyzer._load_cached_folders"
+        "SyncAnalyzer._load_cached_folders",
+        "SyncAnalyzer._on_drive_file_list_acquired",
+        "SyncAnalyzer._on_drive_task_finished",
+        "SyncAnalyzer._on_error",
+        "SyncAnalyzer._on_local_file_list_acquired",
+        "SyncAnalyzer._on_local_task_finished",
+        "SyncAnalyzer.cancel_sync_analysis",
+        "SyncAnalyzer.compute_sync_actions",
+        "SyncAnalyzer.drive_worker",
+        "SyncAnalyzer.is_background_running",
+        "SyncAnalyzer.local_worker",
+        "SyncAnalyzer.read_sync_log",
+        "SyncAnalyzer.start_sync_analysis",
+        "SyncAnalyzer.write_folder_dict_csv"
       ],
       "regression_tests": "tests/test_recovered_scan_lifecycle.py",
       "status": "intentional_behavior_change_not_original_bytecode_equivalent",
@@ -244,7 +248,8 @@
       ],
       "added_imports": [
         "from PySide6.QtCore import Qt",
-        "from core.sync_consent import capture_scan_snapshot"
+        "from core.sync_consent import capture_scan_snapshot",
+        "from core.sync_history import baseline_entry, read_sync_history"
       ]
     },
     {
@@ -252,7 +257,7 @@
       "baseline": "recovered/core/sync_executor.py",
       "maintained": "maintained/core/sync_executor.py",
       "baseline_sha256": "f56c886c5d950511163412d30c660efe17a2d0710b8fc7600bc942b5267f0d83",
-      "maintained_sha256": "aab00d17a2d2815aada6e6ca201d6727644749518cf49edbd9b3e557e3d4cec1",
+      "maintained_sha256": "ea268034bb87f4916869990a45e865b8ca89836001cd9287ee794bab6ee1ca31",
       "changed_functions": [
         "SyncExecutor.__init__",
         "SyncExecutor._delete_cloud",
@@ -261,8 +266,10 @@
         "SyncExecutor._upload",
         "SyncExecutor.check_if_all_actions_finished",
         "SyncExecutor.get_folders_to_create_on_drive",
+        "SyncExecutor.log_sync_action",
         "SyncExecutor.on_action_complete",
         "SyncExecutor.on_action_failed",
+        "SyncExecutor.pre_sync_checks",
         "SyncExecutor.start_sync",
         "SyncExecutor.sync_worker"
       ],
@@ -273,14 +280,23 @@
       ],
       "added_imports": [
         "from PySide6.QtCore import QTimer",
-        "from core.sync_consent import StaleSyncPlan, approved_action, revalidate_action, staged_revision_upload, validate_selection, project_path, verify_downloaded_revision, verify_folder_creation"
+        "from PySide6.QtCore import Qt",
+        "from core.sync_consent import StaleSyncPlan, approved_action, revalidate_action, staged_revision_upload, validate_selection, project_path, verify_downloaded_revision, verify_folder_creation",
+        "from core.transfer_journal import TransferJournal, PendingTransferRecovery, fsync_directory",
+        "from types import SimpleNamespace",
+        "import stat"
       ],
       "changed_signatures": [
         "SyncExecutor.__init__"
       ],
       "added_nodes": [
         "SyncExecutor._finish_execution",
-        "SyncExecutor.guard_failed"
+        "SyncExecutor._prepare_transfer",
+        "SyncExecutor._settle_transfer",
+        "SyncExecutor._settle_unexpected",
+        "SyncExecutor.guard_failed",
+        "SyncExecutor.on_transfer_outcome",
+        "SyncExecutor.outcome_ready"
       ]
     },
     {
@@ -337,7 +353,23 @@
       "origin": "Immutable observed-version consent and fresh pre-write validation; residual check/write race",
       "regression_tests": "tests/test_maintained_sync_consent.py; tests/test_destructive_review.py",
       "status": "new_reviewed_helper",
-      "maintained_sha256": "d51e61e244f49931f522e7155cf1fdebcbea6ff07697553e5adaa088dc11c40b"
+      "maintained_sha256": "7e540ad9bd4fde354091d24599eb8684adea082ac8197b7386d1c4574fa14f3a"
+    },
+    {
+      "module": "core.sync_history",
+      "maintained": "maintained/core/sync_history.py",
+      "maintained_sha256": "2dbe9831965fa647ec53916bc174986d28f71587b7aa713f5df61b6f627ce065",
+      "origin": "Strict legacy CSV baseline validation and identity binding",
+      "regression_tests": "tests/test_sync_history_recovery.py",
+      "status": "new_reviewed_helper"
+    },
+    {
+      "module": "core.transfer_journal",
+      "maintained": "maintained/core/transfer_journal.py",
+      "maintained_sha256": "a3f415aeffd1d51607c75115168e20e58e146b09ced648d958ca7a223657c3de",
+      "origin": "Durable per-action intent, retained recovery copies and uncertain-outcome retry guard",
+      "regression_tests": "tests/test_transfer_journal.py",
+      "status": "new_reviewed_helper"
     },
     {
       "module": "gui.application_account",
@@ -362,6 +394,14 @@
       "regression_tests": "tests/test_destructive_confirmation.py",
       "status": "new_reviewed_helper",
       "maintained_sha256": "103d16490e1ee441284688884de43817c6c0e6cb0dc379edc54187813ce2329a"
+    },
+    {
+      "module": "gui.transfer_results",
+      "maintained": "maintained/gui/transfer_results.py",
+      "maintained_sha256": "d8b6295cfb65db9a91654851068e9863ad60f14cb798e638c42b9a63fb183042",
+      "origin": "Plain-text per-action mutation outcomes and local recovery evidence",
+      "regression_tests": "tests/test_transfer_results_ui.py",
+      "status": "new_reviewed_helper"
     },
     {
       "module": "utils.application_mode",

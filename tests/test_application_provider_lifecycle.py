@@ -35,7 +35,7 @@ class ProviderLifecycleTests(unittest.TestCase):
         instance = SimpleNamespace(failed_action_count=1, complete_action_count=2,
                                    cancelled_action_count=0, action_tuple=(1, 2, 3),
                                    cancelled=True, deleteLater=Mock(), drive_client=Mock(), _finished=False,
-                                   start_sync=Mock(), on_action_complete=Mock(),
+                                   start_sync=Mock(), outcome_ready=Mock(), on_transfer_outcome=Mock(), on_action_complete=Mock(),
                                    on_action_failed=Mock(), on_sync_cancelled=Mock())
         function = load_function('maintained/core/sync_executor.py', 'SyncExecutor.check_if_all_actions_finished', {
             'logging': Mock(), 'signal_manager': SimpleNamespace(sync_execution_finished=signal),

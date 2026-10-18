@@ -558,14 +558,23 @@ class DriveClient(QObject):
                     return None, None
                 status, response = request.next_chunk()
                 if status:
-                    progress = round(status.progress() * 100, 2)
-                    if idx is not None:
-                        signal_manager.file_progress.emit(idx, progress)
-                    logging.debug(f'Uploading {local_path.name}: {progress}%')
-            if idx is not None:
-                signal_manager.file_progress.emit(idx, 100.0)
+                    try:
+                        progress = round(status.progress() * 100, 2)
+                        if idx is not None:
+                            signal_manager.file_progress.emit(idx, progress)
+                        logging.debug(f'Uploading {local_path.name}: {progress}%')
+                    except Exception:
+                        # Progress is observational, never mutation evidence.
+                        # A callback failure must not stop the chunk loop or
+                        # hide an acknowledged response from this same chunk.
+                        logging.exception('Upload progress notification failed; preserving the transfer outcome.')
             drive_file_id = response.get('id')
             drive_md5 = response.get('md5Checksum')
+            if idx is not None:
+                try:
+                    signal_manager.file_progress.emit(idx, 100.0)
+                except Exception:
+                    logging.exception('Upload completion notification failed; preserving the confirmed response.')
             logging.info(f'Upload complete: {local_path} -> {drive_file_id} in parent {parent_id} (MD5: {drive_md5})')
             return drive_file_id, drive_md5
         except HttpError as e:

@@ -158,6 +158,15 @@ class LocalClient(QObject):
             # pathlib.rglob can suppress traversal errors. An explicit onerror
             # ensures an unreadable subtree cannot masquerade as local deletion.
             for root, dirnames, filenames in os.walk(project_folder, onerror=walk_error):
+                # Recovery material and journals are private app state, never CAD
+                # inputs. Prune the reserved root before os.walk descends into it.
+                if Path(root) == project_folder:
+                    for name in tuple(dirnames):
+                        if name.casefold() == '.cachecad':
+                            internal = Path(root) / name
+                            if internal.is_symlink() or (hasattr(internal, 'is_junction') and internal.is_junction()):
+                                raise OSError('Linked internal project state is not supported')
+                            dirnames.remove(name)
                 for name in dirnames + filenames:
                     path = Path(root) / name
                     if path.is_symlink():

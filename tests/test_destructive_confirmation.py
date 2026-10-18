@@ -387,7 +387,7 @@ def run_ui(folder):
             self.assertIn('confirm again', message)
             self.executor.return_value.guard_failed.emit('download_failed')
             application.processEvents()
-            self.assertIn('Trash/Recycle Bin', self.window.statusBar().currentMessage())
+            self.assertIn('retained recovery record', self.window.statusBar().currentMessage())
             self.executor.return_value.guard_failed.emit('access_token=FIXTURE-PRIVATE-ERROR')
             application.processEvents()
             self.assertNotIn('FIXTURE-PRIVATE-ERROR', self.window.statusBar().currentMessage())

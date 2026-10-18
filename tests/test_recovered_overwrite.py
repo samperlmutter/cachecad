@@ -4,12 +4,14 @@ No recovered module, account, executable, GUI, or service is initialized. Files
 are disposable fixtures. Revision replacement is deliberately outside this fix.
 """
 import hashlib
+import importlib.util
 import logging
 import os
 from pathlib import Path
 import stat
 import tempfile
-from types import SimpleNamespace
+import threading
+from types import MethodType, SimpleNamespace
 import traceback
 import unittest
 from unittest.mock import Mock, patch
@@ -17,6 +19,36 @@ from unittest.mock import Mock, patch
 from recovered_harness import load_function, deny_external_effects, denied
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_recovery_module():
+    """Load the actual stdlib-only journal; never substitute a test journal."""
+    spec = importlib.util.spec_from_file_location(
+        'transfer_journal_fixture', ROOT / 'maintained/core/transfer_journal.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def bind_recovery_executor(executor, namespace):
+    """Attach actual journal/result methods to isolated executor test fixtures."""
+    journal = load_recovery_module()
+    namespace.update(TransferJournal=journal.TransferJournal,
+                     PendingTransferRecovery=journal.PendingTransferRecovery)
+    namespace.setdefault('StaleSyncPlan', RuntimeError)
+    executor._transfer_journal = None
+    executor._result_lock = threading.Lock()
+    executor._settled_actions = set()
+    executor.action_results = []
+    executor.outcome_ready = Signal()
+    if not hasattr(executor, 'guard_failed'):
+        executor.guard_failed = Signal()
+    if not hasattr(executor, 'project_id'):
+        executor.project_id = 'project-id'
+    for name in ('_prepare_transfer', '_settle_transfer'):
+        method = load_function('maintained/core/sync_executor.py', 'SyncExecutor.' + name, namespace)
+        setattr(executor, name, MethodType(method, executor))
+    return journal
 
 
 def load_staging_function(qualname, namespace, fixture_root):
@@ -62,14 +94,16 @@ class NewFileTransferTests(unittest.TestCase):
             ('action_failed', 'action_complete', 'error_occurred')})
         self.namespace = {'signal_manager': self.signals, 'logging': Mock(spec=logging),
                           'Path': Path, 'os': os, 'traceback': traceback}
-        self.upload = load_staging_function('SyncExecutor._upload', self.namespace, self.root)
-        self.download = load_staging_function('SyncExecutor._download', self.namespace, self.root)
         self.drive = SimpleNamespace(upload_file=Mock(return_value=('created', self.md5)),
                                      download_file=Mock(side_effect=self.download_bytes))
         self.obj = SimpleNamespace(cancelled=False, working_directory=str(self.root),
                                    project_name='project', drive_client=self.drive,
                                    get_parent_id=Mock(return_value='parent'),
                                    log_sync_action=Mock())
+        bind_recovery_executor(self.obj, self.namespace)
+        # Compile after adding the actual journal dependencies to the namespace.
+        self.upload = load_staging_function('SyncExecutor._upload', self.namespace, self.root)
+        self.download = load_staging_function('SyncExecutor._download', self.namespace, self.root)
         self.selected = SimpleNamespace(path='part.sldprt', md5_checksum=self.md5,
                                         size=len(self.content), modified_time=0,
                                         drive_id='remote-source')
@@ -259,7 +293,8 @@ class NewFileTransferTests(unittest.TestCase):
     def test_destination_appears_at_atomic_publication_is_never_overwritten(self):
         actual_link = os.link
         def racing_link(src, dst, **kwargs):
-            Path(dst).write_bytes(b'a concurrent local revision')
+            if Path(dst) == self.path:
+                Path(dst).write_bytes(b'a concurrent local revision')
             return actual_link(src, dst, **kwargs)
         with patch.object(os, 'link', side_effect=racing_link):
             self.download(self.obj, self.action)
@@ -269,9 +304,20 @@ class NewFileTransferTests(unittest.TestCase):
         self.assert_staging_cleaned()
 
     def test_unsupported_hardlinks_fail_without_rename_fallback(self):
-        with patch.object(os, 'link', side_effect=OSError('hardlinks unavailable')), \
-                patch.object(os, 'rename', side_effect=AssertionError('unsafe fallback')), \
-                patch.object(os, 'replace', side_effect=AssertionError('unsafe fallback')):
+        actual_link, actual_rename, actual_replace = os.link, os.rename, os.replace
+        def no_publication_link(src, dst, **kwargs):
+            if Path(dst) == self.path:
+                raise OSError('hardlinks unavailable')
+            return actual_link(src, dst, **kwargs)
+        def guarded_move(method):
+            def move(src, dst, **kwargs):
+                if Path(dst) == self.path:
+                    raise AssertionError('unsafe destination replacement fallback')
+                return method(src, dst, **kwargs)
+            return move
+        with patch.object(os, 'link', side_effect=no_publication_link), \
+                patch.object(os, 'rename', side_effect=guarded_move(actual_rename)), \
+                patch.object(os, 'replace', side_effect=guarded_move(actual_replace)):
             self.download(self.obj, self.action)
         self.terminal(False)
         self.assertFalse(self.path.exists())
@@ -283,6 +329,8 @@ class NewFileTransferTests(unittest.TestCase):
                 saved = getattr(self.selected, field)
                 setattr(self.selected, field, value)
                 self.signals.action_failed.calls.clear()
+                self.obj._settled_actions.clear()
+                self.obj.action_results.clear()
                 self.download(self.obj, self.action)
                 self.terminal(False)
                 self.assertFalse(self.path.exists())

@@ -4,6 +4,7 @@ from core.thread_manager import thread_pool
 from core.signal_manager import signal_manager
 from core.models import SyncAction, SyncActionType
 from core.sync_consent import capture_scan_snapshot
+from core.sync_history import baseline_entry, read_sync_history
 from utils.timer import tic, toc
 from collections import Counter
 from utils.paths import get_project_app_folder
@@ -222,12 +223,7 @@ class SyncAnalyzer(QObject):
 
     def read_sync_log(self) -> dict:
         self.sync_log_dict.clear()
-        if self.sync_log_path.exists():
-            with open(self.sync_log_path, mode='r', newline='', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    path = row['path']
-                    self.sync_log_dict[path] = row
+        self.sync_log_dict.update(read_sync_history(self.sync_log_path))
 
     def compute_sync_actions(self):
         actions = []
@@ -237,7 +233,7 @@ class SyncAnalyzer(QObject):
             size = cloud_item.size
             parent_id = cloud_item.parent
             drive_id = cloud_item.id
-            log_entry = self.sync_log_dict.get(path)
+            log_entry = baseline_entry(self.sync_log_dict, path, drive_id)
             modified_by = cloud_item.modified_by
             modified_time = cloud_item.modified_time
             if log_entry:
@@ -252,7 +248,7 @@ class SyncAnalyzer(QObject):
             md5 = local_item.md5_checksum
             size = local_item.size
             parent_id = ''
-            log_entry = self.sync_log_dict.get(path)
+            log_entry = baseline_entry(self.sync_log_dict, path)
             modified_by = ''
             modified_time = local_item.modified_time
             if log_entry:
@@ -266,7 +262,7 @@ class SyncAnalyzer(QObject):
             path = local_item.path
             local_md5 = local_item.md5_checksum
             cloud_md5 = cloud_item.md5_checksum
-            log_entry = self.sync_log_dict.get(path)
+            log_entry = baseline_entry(self.sync_log_dict, path, cloud_item.id)
             modified_by = cloud_item.modified_by
             drive_id = cloud_item.id
             if log_entry and log_entry.get('md5') == local_md5:

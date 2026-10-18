@@ -15,6 +15,7 @@ import unittest
 from unittest.mock import Mock
 
 from recovered_harness import deny_external_effects, load_function
+from test_recovered_overwrite import bind_recovery_executor
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -216,10 +217,15 @@ class IndependentExecutorLifecycleReviewTests(unittest.TestCase):
             _FunctionRunnable=Mock(), validate_selection=Mock(), StaleSyncPlan=guard.StaleSyncPlan)
         self.executor = SimpleNamespace(_started=False, _finished=False, cancelled=False,
             consent=None, action_tuple=(), sync_worker=Mock(), deleteLater=Mock())
+        bind_recovery_executor(self.executor, namespace)
+        self.executor._counted_actions = set()
+        self.executor.outcome_ready = SimpleNamespace(emit=Mock(), disconnect=Mock())
         for name in ('start_sync', '_finish_execution', 'on_action_complete',
-                     'on_action_failed', 'on_sync_cancelled', 'check_if_all_actions_finished'):
+                     'on_action_failed', 'on_sync_cancelled', 'check_if_all_actions_finished',
+                     'on_transfer_outcome'):
             method = load_function('maintained/core/sync_executor.py', 'SyncExecutor.' + name, namespace)
             setattr(self.executor, name, MethodType(method, self.executor))
+        self.executor.outcome_ready.emit.side_effect = self.executor.on_transfer_outcome
 
     def test_all_dropped_actions_finish_once_without_scheduling_a_worker(self):
         self.executor.start_sync()
@@ -229,28 +235,34 @@ class IndependentExecutorLifecycleReviewTests(unittest.TestCase):
         self.executor.deleteLater.assert_called_once_with()
 
     def test_cancellation_before_start_is_never_reset(self):
-        self.executor.action_tuple = ((1, object()),)
+        self.executor.action_tuple = ((1, SimpleNamespace(path='part.step', action='upload_new')),)
         self.executor.on_sync_cancelled()
         self.executor.start_sync()
         self.assertTrue(self.executor.cancelled)
         self.pool.start.assert_not_called()
         self.signals.sync_execution_finished.emit.assert_called_once_with()
+        self.assertEqual(self.executor.cancelled_action_count, 1)
+        self.assertEqual(self.executor.action_results[0]['outcome'], 'not_started')
 
     def test_terminal_emission_is_reentrant_safe_and_disconnects_all_global_slots(self):
         self.signals.sync_execution_finished.emit.side_effect = self.executor._finish_execution
         self.executor._finish_execution()
         self.signals.sync_execution_finished.emit.assert_called_once_with()
         for name, method in (('dropped_actions_acknowledged', 'start_sync'),
-                             ('action_complete', 'on_action_complete'),
-                             ('action_failed', 'on_action_failed'),
                              ('sync_cancelled', 'on_sync_cancelled')):
             getattr(self.signals, name).disconnect.assert_called_once_with(getattr(self.executor, method))
+        self.executor.outcome_ready.disconnect.assert_called_once_with(self.executor.on_transfer_outcome)
+        # Untagged completion/failure UI signals are no longer subscribed to.
+        self.signals.action_complete.disconnect.assert_not_called()
+        self.signals.action_failed.disconnect.assert_not_called()
         self.executor.deleteLater.assert_called_once_with()
 
     def test_late_action_events_after_finish_have_no_effect(self):
         self.executor._finish_execution()
         self.executor.on_action_complete(object())
         self.executor.on_action_failed()
+        self.executor.on_transfer_outcome(dict(action_index=1, path='part.step',
+            action='upload_new', outcome='committed', cancelled=False))
         self.signals.sync_execution_finished.emit.assert_called_once_with()
         self.assertFalse(hasattr(self.executor, 'complete_action_count'))
 

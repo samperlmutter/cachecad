@@ -278,7 +278,16 @@ class AppController:
         self.enable_buttons()
 
     def on_options_clicked(self):
-        pass
+        self.show_transfer_results()
+
+    def show_transfer_results(self):
+        if self.main_window is None or getattr(self, '_shutting_down', False):
+            return
+        from gui.transfer_results import TransferResultsDialog
+        dialog = TransferResultsDialog(getattr(self, 'last_transfer_results', ()), self.main_window,
+                                       context=getattr(self, 'last_transfer_context', {}))
+        dialog.show()
+        self._transfer_results_dialog = dialog
 
     def on_settings_clicked(self):
         signal_manager.page_change.emit(Page.SETTINGS)
@@ -502,10 +511,16 @@ class AppController:
         if getattr(self, '_shutting_down', False) or self.main_window is None:
             return
         messages = {
+            'outcome_unknown': 'A transfer may have changed a file, but its final outcome is unknown. '
+                               'Do not repeat it. Open transfer results and review the local recovery record.',
+            'recovery_required': 'An earlier transfer needs recovery review before this file can be changed again. '
+                                 'Open transfer results or the project .cachecad/recovery folder.',
+            'committed_recording_failed': 'A file change completed, but its local recording is incomplete. '
+                                         'Do not repeat the transfer. Review transfer results and recovery records.',
             'stale': 'Sync stopped because a file or folder changed after the scan. '
                      'Refresh, review the new versions and confirm again. Some earlier files may already have changed.',
-            'download_failed': 'A local replacement could not finish. Check system Trash/Recycle Bin for the '
-                               'original file; recovery is not guaranteed. Refresh and review before retrying.',
+            'download_failed': 'A local transfer could not finish. Review transfer results and any retained '
+                               'recovery record before retrying. Recovery is not guaranteed.',
         }
         message = messages.get(code, 'A sync operation could not finish. Refresh and review the project '
                                      'before retrying; some files may already have changed.')
@@ -523,6 +538,16 @@ class AppController:
         self.sync_executing = False
         if getattr(self, '_shutting_down', False) or not self.signed_in:
             return
+        executor = getattr(self, 'sync_executor', None)
+        self.last_transfer_results = tuple(dict(item) for item in getattr(executor, 'action_results', ()))
+        self.last_transfer_context = {
+            'project_name': str(getattr(executor, 'project_name', 'Unavailable')),
+            'project_id': str(getattr(executor, 'project_id', 'Unavailable')),
+            'project_root': str(Path(getattr(executor, 'working_directory', '.')) /
+                                str(getattr(executor, 'project_name', 'Unavailable'))),
+        }
+        if self.last_transfer_results:
+            self.show_transfer_results()
         self._begin_sync_analysis()
         signal_manager.page_change.emit(Page.PROJECT)
 
@@ -621,6 +646,15 @@ class AppController:
         self.signed_in = False
 
     def on_session_signed_out(self):
+        self.last_transfer_results = ()
+        self.last_transfer_context = {}
+        previous_report = getattr(self, '_transfer_results_dialog', None)
+        if previous_report is not None:
+            try:
+                previous_report.close()
+            except RuntimeError:
+                pass  # Qt may already have deleted the closed report.
+        self._transfer_results_dialog = None
         if self.auth_manager.last_invalidation is not None and (self.sync_executing or hasattr(self, 'sync_executor')):
             self.auth_manager.require_restart()
         if self.sync_executing:

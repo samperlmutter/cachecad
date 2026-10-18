@@ -17,7 +17,7 @@ from unittest.mock import Mock, patch
 import traceback
 
 from recovered_harness import deny_external_effects, load_function
-from test_recovered_overwrite import load_staging_function
+from test_recovered_overwrite import bind_recovery_executor, load_staging_function
 
 ROOT = Path(__file__).resolve().parents[1]
 if not (ROOT / 'maintained/core/sync_consent.py').is_file():
@@ -77,6 +77,7 @@ class ConsentTests(unittest.TestCase):
         self.executor = SimpleNamespace(cancelled=False, working_directory=str(self.folder),
             project_name='project', project_id='project-id', drive_client=self.drive,
             get_parent_id=Mock(return_value='project-id'), log_sync_action=Mock(), guard_failed=Signal())
+        bind_recovery_executor(self.executor, self.namespace)
 
     def get(self, **kwargs):
         return SimpleNamespace(execute=lambda: dict(self.responses[kwargs['fileId']]))
@@ -93,6 +94,10 @@ class ConsentTests(unittest.TestCase):
         return path
 
     def prepare(self, kind='upload_revision'):
+        # Each approval fixture represents a fresh executor run. Production
+        # deduplicates outcomes within a run, so reset only fixture run state.
+        self.executor._settled_actions.clear()
+        self.executor.action_results.clear()
         local_exists = kind not in ('delete_cloud', 'download_new')
         remote_exists = kind not in ('delete_local', 'upload_new')
         if not local_exists and self.path.exists():
@@ -450,16 +455,26 @@ class ConsentTests(unittest.TestCase):
         self.prepare()
         self.executor.log_sync_action.side_effect = OSError('fixture log error')
         self.run_action('upload_revision')
-        self.assertEqual(self.signals.action_failed.calls, [()])
-        self.assertEqual(self.signals.action_complete.calls, [])
-        self.assertEqual(self.executor.guard_failed.calls, [('failed',)])
+        self.assertEqual(self.signals.action_failed.calls, [])
+        self.assertEqual(self.signals.action_complete.calls, [(self.selected,)])
+        self.assertEqual(self.executor.guard_failed.calls, [('committed_recording_failed',)])
+        self.assertEqual(self.executor.action_results[0]['outcome'], 'committed_recording_failed')
 
     def test_download_publication_failure_uses_safe_recovery_code(self):
         self.prepare('download_revision')
-        with patch.object(os, 'link', side_effect=OSError('fixture unsupported filesystem')):
+        actual_link = os.link
+        def fail_publication(source, destination, **kwargs):
+            if Path(destination) == self.path:
+                raise OSError('fixture unsupported filesystem')
+            return actual_link(source, destination, **kwargs)
+        with patch.object(os, 'link', side_effect=fail_publication):
             self.run_action('download_revision')
         self.assert_failed()
-        self.assertEqual(self.executor.guard_failed.calls, [('download_failed',)])
+        self.assertEqual(self.executor.guard_failed.calls, [('outcome_unknown',)])
+        self.assertEqual(self.executor.action_results[0]['outcome'], 'unknown')
+        recovery = Path(self.executor.action_results[0]['recovery_dir'])
+        self.assertEqual((recovery / 'backup.bin').read_bytes(), self.local_bytes)
+        self.assertEqual((recovery / 'incoming.bin').read_bytes(), self.remote_bytes)
         self.assertEqual(self.signals.error_occurred.calls, [])
 
 

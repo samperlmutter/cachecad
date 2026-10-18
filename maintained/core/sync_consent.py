@@ -111,7 +111,8 @@ def _project_root(snapshot):
 def project_path(root, relative):
     root = Path(root)
     relative = Path(relative)
-    if relative.is_absolute() or not relative.parts or '..' in relative.parts:
+    if (relative.is_absolute() or not relative.parts or '..' in relative.parts
+            or relative.parts[0].casefold() == '.cachecad'):
         raise StaleSyncPlan('a selected path leaves the project')
     if root.is_symlink() or not root.is_dir():
         raise StaleSyncPlan('the project folder is unavailable or is a link')

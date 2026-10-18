@@ -37,6 +37,8 @@ It includes scan failure/retry isolation, OneDrive path warnings and bounded
 new-file transfer protection. Existing overwrite/delete selections now require
 [explicit destructive consent and observed-version checks](docs/DESTRUCTIVE_SYNC_SAFETY.md).
 Revision sync remains available, with a documented residual check/write race.
+[Durable transfer recovery](docs/TRANSFER_RECOVERY.md) retains local evidence, distinguishes
+unknown commits, and prevents blind retries of unresolved writes.
 [Local crash reports](docs/CRASH_DIAGNOSTICS.md) record sanitized diagnostics without uploads.
 [Crash hardening evidence](docs/CRASH_HARDENING_AUDIT.md) separates reproduced defects
 from unconfirmed causes of reported crashes. This source artifact is not an installer.
