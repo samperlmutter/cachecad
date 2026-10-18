@@ -61,13 +61,43 @@ class OfflineLauncherSafetyTests(unittest.TestCase):
                           socket.gethostbyname, socket.gethostbyname_ex,
                           socket.socket.connect, socket.socket.connect_ex,
                           socket.socket.bind, socket.socket.sendto,
-                          subprocess.Popen, os.system, webbrowser.open,
+                          os.system, webbrowser.open,
                           webbrowser.open_new, webbrowser.open_new_tab):
             with self.subTest(operation=operation):
                 self.assertIs(operation, deny)
                 with self.assertRaisesRegex(RuntimeError, 'disabled'):
                     operation()
-        self.assertEqual(len(attempts), 13)
+        self.assertEqual(len(attempts), 12)
+
+    def test_popen_stays_subclassable_but_denies_before_subclass_initialization(self):
+        original_popen = subprocess.Popen
+        audit, attempts, _ = self.install_tripwires()
+        initialized = []
+
+        # Windows asyncio declares this subclass while importing. Its real
+        # initializer creates native pipes before calling Popen.__init__, so
+        # blocking only the base initializer would be too late.
+        class WindowsStylePopen(subprocess.Popen):
+            def __init__(self, *args, **kwargs):
+                initialized.append('native pipe creation would happen here')
+                super().__init__(*args, **kwargs)
+
+        self.assertTrue(issubclass(subprocess.Popen, original_popen))
+        for constructor in (subprocess.Popen, WindowsStylePopen):
+            with self.subTest(constructor=constructor), self.assertRaisesRegex(RuntimeError, 'disabled'):
+                constructor(['synthetic-command-never-started'])
+        self.assertEqual(initialized, [])
+        # The independent audit barrier still rejects retained original handles.
+        with self.assertRaisesRegex(RuntimeError, 'disabled'):
+            audit('subprocess.Popen', ('synthetic-command-never-started', [], None, None))
+        self.assertEqual(attempts, ['network/process/browser'] * 3)
+
+    def test_subprocess_helpers_still_cannot_construct_a_child_process(self):
+        _, attempts, _ = self.install_tripwires()
+        for operation in (subprocess.run, subprocess.call, subprocess.check_call, subprocess.check_output):
+            with self.subTest(operation=operation), self.assertRaisesRegex(RuntimeError, 'disabled'):
+                operation(['synthetic-command-never-started'])
+        self.assertEqual(attempts, ['network/process/browser'] * 4)
 
     def test_network_and_process_audit_events_are_denied(self):
         audit, _, _ = self.install_tripwires()

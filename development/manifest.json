@@ -10,7 +10,7 @@
     {
       "source": "development/launch.py",
       "destination": "development/launch.py",
-      "sha256": "e59710a23cc1079a2530b47512ea054959aa6e8b2dde7e9eed5d45efafc2bdac"
+      "sha256": "0464cd69e1351602b77ab991fdb2da506c6ff8555a4709bff6266a25c3236ac5"
     },
     {
       "source": "development/build_resources.py",

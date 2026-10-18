@@ -192,7 +192,13 @@ def install_tripwires(profile):
             return original_open(path, flags, mode)
         return original_open(path, flags, mode, dir_fd=dir_fd)
     os.open = guarded_open
-    subprocess.Popen = deny
+    class DeniedPopen(subprocess.Popen):
+        # asyncio.windows_utils subclasses Popen at import time. Preserve that
+        # interface, but reject allocation before even a subclass __init__ can
+        # create Windows pipes or start a child process.
+        def __new__(cls, *args, **kwargs):
+            deny()
+    subprocess.Popen = DeniedPopen
     os.system = deny
     if hasattr(os, 'startfile'):
         os.startfile = deny
