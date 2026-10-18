@@ -1,5 +1,5 @@
 name: Linux offline reconstruction checks
-on:
+"on":
   push:
   pull_request:
   workflow_dispatch:
@@ -22,11 +22,15 @@ jobs:
         with:
           python-version: '3.12.14'
       - name: Install hash-locked Linux tools
-        run: python -m pip install --index-url https://pypi.org/simple --only-binary=:all: --require-hashes -r requirements/linux-build.lock
+        run: |
+          python -m pip install --index-url https://pypi.org/simple --only-binary=:all: --require-hashes -r requirements/linux-build.lock
       - name: Validate manifests and run offline tests and lint
-        run: python tooling/check.py --ruff
+        run: |
+          python tooling/check.py --ruff
       - name: Build source archive and wheel
-        run: python -m build --no-isolation
+        run: |
+          python -m build --no-isolation
       - name: Validate wheel in clean environment
-        run: python tooling/validate_wheel.py dist/cachecad_reconstructed-0.1.0-py3-none-any.whl
+        run: |
+          python tooling/validate_wheel.py dist/cachecad_reconstructed-0.1.0-py3-none-any.whl
       # No secrets, original binaries, cloud accounts, deploy, or artifact upload.
