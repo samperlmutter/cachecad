@@ -36,13 +36,20 @@ def print_log_tail(log):
 
 
 def find_iscc(explicit=None):
-    candidates = [explicit, shutil.which('ISCC.exe'),
-                  Path(os.environ.get('ProgramFiles(x86)', 'C:/Program Files (x86)')) / 'Inno Setup 6/ISCC.exe',
-                  Path(os.environ.get('ProgramFiles', 'C:/Program Files')) / 'Inno Setup 6/ISCC.exe']
+    # PATH may contain a Chocolatey forwarding shim whose PE version is zero.
+    # Select a complete installed compiler, never infer its engine from the shim.
+    candidates = ([explicit] if explicit else [
+        Path(os.environ.get('ProgramFiles(x86)', 'C:/Program Files (x86)')) / 'Inno Setup 6/ISCC.exe',
+        Path(os.environ.get('ProgramFiles', 'C:/Program Files')) / 'Inno Setup 6/ISCC.exe',
+        shutil.which('ISCC.exe'),
+    ])
     for candidate in candidates:
-        if candidate and Path(candidate).is_file():
-            return Path(candidate).resolve()
-    raise FileNotFoundError('Preinstalled official Inno Setup 6.7.1 compiler not found; no download attempted')
+        if candidate:
+            path = Path(candidate).resolve()
+            if path.is_file() and (path.parent / 'ISCmplr.dll').is_file():
+                return path
+    raise FileNotFoundError('Complete Inno Setup 6.7.1 installation not found (ISCC.exe plus ISCmplr.dll); PATH shims are not accepted')
+
 
 
 def main():

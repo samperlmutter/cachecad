@@ -156,6 +156,27 @@ class WindowsPackagingTests(unittest.TestCase):
             with patch.dict(sys.modules, {'pefile': module}), self.assertRaises(ValueError):
                 support.pe_file_version(Path('ISCC.exe'))
 
+    def test_compiler_discovery_rejects_path_shim_and_prefers_full_installation(self):
+        spec = importlib.util.spec_from_file_location('windows_packaging_build', PACKAGING / 'build.py')
+        build = importlib.util.module_from_spec(spec)
+        with patch.dict(sys.modules, {'support': support}):
+            spec.loader.exec_module(build)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            shim = root / 'shim/ISCC.exe'
+            real = root / 'programs/Inno Setup 6/ISCC.exe'
+            for path in (shim, real):
+                path.parent.mkdir(parents=True)
+                path.write_bytes(b'fixture')
+            (real.parent / 'ISCmplr.dll').write_bytes(b'fixture engine')
+            with patch.dict(build.os.environ, {'ProgramFiles(x86)': str(root / 'programs'), 'ProgramFiles': str(root / 'other')}), patch.object(build.shutil, 'which', return_value=str(shim)):
+                self.assertEqual(build.find_iscc(), real.resolve())
+                with self.assertRaises(FileNotFoundError):
+                    build.find_iscc(shim)
+                (real.parent / 'ISCmplr.dll').unlink()
+                with self.assertRaises(FileNotFoundError):
+                    build.find_iscc()
+
     def test_failed_build_prints_only_last_sixty_diagnostic_lines(self):
         spec = importlib.util.spec_from_file_location('windows_packaging_build', PACKAGING / 'build.py')
         build = importlib.util.module_from_spec(spec)
