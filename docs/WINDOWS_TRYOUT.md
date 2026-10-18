@@ -28,7 +28,7 @@ replaced executable or manifest. Do not supply credentials or real CAD projects.
 
 ## Build locally on Windows
 
-Use Windows x64, 64-bit CPython 3.12, and a clean virtual environment. The pinned
+Use Windows x64, 64-bit CPython 3.12.10, and a clean virtual environment. The pinned
 Inno Setup 6.7.1 compiler must already be installed from its official source.
 The build script does not install/download tools or accept a replacement compiler
 silently. In CI the expected compiler is provided by the Windows runner image;

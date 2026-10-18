@@ -149,3 +149,15 @@ installer guarantee, or SolidWorks compatibility test.
 [PyInstaller is not a cross-compiler](https://pyinstaller.org/en/stable/index.html):
 Windows freezing, installed-application startup and uninstall checks must run
 on Windows. Nothing in this dependency preparation substitutes for those tests.
+
+## Windows interpreter pin
+
+The first Windows job showed that setup-python has no Windows x64 distribution
+for 3.12.14. The official actions/python-versions manifest lists 3.12.10 as the
+latest Windows 3.12 binary, so Windows CI pins 3.12.10; Linux remains 3.12.14.
+The source assembler still requires every reviewed compiled-structure fingerprint
+to match on that interpreter before packaging. Wheel compatibility is CPython
+3.12 ABI based, not evidence that every Python patch is interchangeable. This
+older Windows interpreter is for the isolated development tryout, not a claim
+of current production security support.
+Source: https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json

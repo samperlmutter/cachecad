@@ -50,7 +50,7 @@ class WindowsWorkflowTests(unittest.TestCase):
         setup = [step for step in self.steps
                  if step.get('uses', '').startswith('actions/setup-python@')]
         self.assertEqual(len(setup), 1)
-        self.assertEqual(setup[0]['with']['python-version'], '3.12.14')
+        self.assertEqual(setup[0]['with']['python-version'], '3.12.10')
         self.assertEqual(setup[0]['with']['architecture'], 'x64')
         install = [step['run'] for step in self.steps
                    if 'python -m pip install' in step.get('run', '')]
