@@ -91,11 +91,11 @@ class CanonicalRecoveryPathTests(unittest.TestCase):
         alias_root.mkdir()
         real_resolve = Path.resolve
         def resolve(path, *args, **kwargs):
-            return self.root if path == alias_root else real_resolve(path, *args, **kwargs)
+            return real_resolve(self.root, strict=True) if path == alias_root else real_resolve(path, *args, **kwargs)
         observed = self.guard.capture_local_version(self.path)
         with patch.object(Path, 'resolve', resolve):
             store = self.journal.TransferJournal(alias_root, 'project-id')
-            self.assertEqual(store.project_root, self.root)
+            self.assertEqual(store.project_root, real_resolve(self.root, strict=True))
             operation = store.prepare_intent(action_kind='delete_local', path=self.path.name,
                                              approved_local=observed)
             operation.preserve_local_backup(self.path, md5=observed.md5, size=observed.size,
