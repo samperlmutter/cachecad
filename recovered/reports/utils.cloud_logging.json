@@ -1,0 +1,38 @@
+{
+  "module": "utils.cloud_logging",
+  "method": "compile-only recursive code-object comparison",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "source_sha256": "a727c34023fa6d3f65a90d95281bd291ae1f5b3300669bdbab7f56f4ef6a98a2",
+  "pyz_sha256": "5482479f417d650d4a3be34def973534b172902baceeed48f9bc877ebb883ea2",
+  "original_marshaled_module_sha256": "573ef5a23b33cd448de4811a4ee91c617eeea72dbede6406b98a023c9e97d766",
+  "code_objects_compared": 10,
+  "compared_fields": [
+    "co_code",
+    "co_argcount",
+    "co_posonlyargcount",
+    "co_kwonlyargcount",
+    "co_nlocals",
+    "co_stacksize",
+    "co_flags",
+    "co_names",
+    "co_varnames",
+    "co_freevars",
+    "co_cellvars",
+    "co_name",
+    "co_qualname",
+    "co_exceptiontable",
+    "co_consts recursively, including exact constant types"
+  ],
+  "excluded_fields": [
+    "co_filename",
+    "co_firstlineno",
+    "co_linetable"
+  ],
+  "original_structure_sha256": "fe91ed3a777c443e4782ca6eca4e5c57a5d27ebbe9a5d389713f29775297bf5c",
+  "candidate_structure_sha256": "fe91ed3a777c443e4782ca6eca4e5c57a5d27ebbe9a5d389713f29775297bf5c",
+  "match": true,
+  "differences": [],
+  "original_executed": false,
+  "candidate_executed": false,
+  "limitation": "Matching compiler structure does not verify dependencies, runtime integration, or source formatting/comments."
+}

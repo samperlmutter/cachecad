@@ -1,0 +1,38 @@
+{
+  "module": "core.drive_client",
+  "method": "compile-only recursive code-object comparison",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "source_sha256": "2665419d983e07bc5c3b71a6c012ac863ebf23c03d98dd0a2efc79f23b8e5fb4",
+  "pyz_sha256": "5482479f417d650d4a3be34def973534b172902baceeed48f9bc877ebb883ea2",
+  "original_marshaled_module_sha256": "23c086ed28abd17d7311139be53100cdb630c2350d9b4f9213ea2cd4f4d37d6d",
+  "code_objects_compared": 29,
+  "compared_fields": [
+    "co_code",
+    "co_argcount",
+    "co_posonlyargcount",
+    "co_kwonlyargcount",
+    "co_nlocals",
+    "co_stacksize",
+    "co_flags",
+    "co_names",
+    "co_varnames",
+    "co_freevars",
+    "co_cellvars",
+    "co_name",
+    "co_qualname",
+    "co_exceptiontable",
+    "co_consts recursively, including exact constant types"
+  ],
+  "excluded_fields": [
+    "co_filename",
+    "co_firstlineno",
+    "co_linetable"
+  ],
+  "original_structure_sha256": "1c0e5a3de572c3924e45b722b6ee9b3c356ec5f13915d8c8d79f30870198a428",
+  "candidate_structure_sha256": "1c0e5a3de572c3924e45b722b6ee9b3c356ec5f13915d8c8d79f30870198a428",
+  "match": true,
+  "differences": [],
+  "original_executed": false,
+  "candidate_executed": false,
+  "limitation": "Matching compiler structure does not verify dependencies, runtime integration, or source formatting/comments."
+}

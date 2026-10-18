@@ -1,0 +1,38 @@
+{
+  "module": "app.app_version",
+  "method": "compile-only recursive code-object comparison",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "source_sha256": "9f10084335f436bbe3ea1dd4234c13dfd0ba743d5bd06edcf41dbc4958d120de",
+  "pyz_sha256": "5482479f417d650d4a3be34def973534b172902baceeed48f9bc877ebb883ea2",
+  "original_marshaled_module_sha256": "74bbe264b0378f2018a4f383f7a35edace7567ae209d79996f05dd816d1e3e5f",
+  "code_objects_compared": 1,
+  "compared_fields": [
+    "co_code",
+    "co_argcount",
+    "co_posonlyargcount",
+    "co_kwonlyargcount",
+    "co_nlocals",
+    "co_stacksize",
+    "co_flags",
+    "co_names",
+    "co_varnames",
+    "co_freevars",
+    "co_cellvars",
+    "co_name",
+    "co_qualname",
+    "co_exceptiontable",
+    "co_consts recursively, including exact constant types"
+  ],
+  "excluded_fields": [
+    "co_filename",
+    "co_firstlineno",
+    "co_linetable"
+  ],
+  "original_structure_sha256": "758b0d83fc6da710bd2ef00e42de9c2d6a9497bf22b6852b3867a5823506f5ad",
+  "candidate_structure_sha256": "758b0d83fc6da710bd2ef00e42de9c2d6a9497bf22b6852b3867a5823506f5ad",
+  "match": true,
+  "differences": [],
+  "original_executed": false,
+  "candidate_executed": false,
+  "limitation": "Matching compiler structure does not verify dependencies, runtime integration, or source formatting/comments."
+}

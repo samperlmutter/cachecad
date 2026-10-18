@@ -1,32 +1,56 @@
-# CacheCAD reconstruction maintenance workspace
+# CacheCAD source recovery and maintenance
 
-This is a handwritten, evidence-informed replacement scaffold. It is not the
-original author's recovered source, a verified behavioral clone, or a release of
-CacheCAD. The static analysis inventory contains 49 first-party modules; an
-inventoried/disassembled module is not necessarily implemented here. Consult the
-reconstruction status/provenance documents for the implemented subset.
+The `recovered/` directory contains source reconstructed from the original
+CacheCAD 1.2.0 beta (2025-09-28) Python 3.12 code objects. Each claimed exact
+module is compiled and compared recursively against the pinned original binary's
+code, constants, names, signatures, flags and exception tables. Original source
+locations, formatting and comments are not recovered. The reviewed
+[recovery manifest](recovered/recovery-manifest.json) is the authoritative status
+for all 49 first-party PYZ modules; the separate CArchive entrypoint is tracked
+under `recovered/entrypoint/`.
 
-## Offline development
+Embedded credentials are intentionally removed from one recovered module. That
+module is explicitly non-matching. No original credentials are included or used.
+Original behavior and bugs remain in the recovery baseline. Matching compiled
+structure is evidence of faithful recovery, not runtime validation or a claim
+that the app is fixed.
 
-Python 3.12 is required. Core checks use the standard library only:
+The earlier `src/cachecad/` code is a new, evidence-informed offline replacement
+prototype with mock services and safety tests. Its demo and packaged wheel are
+**not the recovered original application**. It remains here as experimental
+improvement work; fixes have not yet been integrated into the recovered baseline.
+
+## Maintenance checks
+
+Use Python 3.12 and the hash-locked Linux tools:
 
 ```sh
-python tooling/check.py --evidence-root ..
+python -m pip install --require-hashes -r requirements/linux-build.lock
+python tooling/check.py --require-recovery-manifest --ruff
+```
+
+This runs source-only compiled-fingerprint checks, comparator regression tests,
+synthetic prototype tests, extraction-tool tests and lint. It never imports or
+executes recovered application modules. Reports and source hashes are bound to
+the reviewed recovery manifest; reducing the verified module set fails the gate.
+
+For independent original-byte revalidation, privately extract the pinned release
+as documented in [recovery tooling](tools/recovery/), then run
+`recovered/compare_bytecode.py` against its PYZ. Do not publish the installer,
+extracted binaries, original bytecode, disassemblies or credential-bearing data.
+The fingerprint gate trusts the reviewed manifest; changing both source and its
+expected fingerprint is not independent evidence.
+
+The earlier offline demo is available with:
+
+```sh
 PYTHONPATH=src python -m cachecad --demo --json
 ```
 
-On Windows PowerShell, set `$env:PYTHONPATH = "src"` before invoking the demo.
-The demo uses disposable local data. Do not point development tests at live
-projects, credentials, or cloud accounts. No original executable or recovered
-bytecode is loaded or run by the maintenance gate.
+It uses disposable fixtures and fake services. Do not use live projects or
+credentials for development tests. No executable installer has been rebuilt.
+Runtime dependencies, Qt resources, Windows/SolidWorks validation, packaging,
+signing and live Google Drive integration remain separate next stages.
 
-Use `python tooling/check.py` when the separate static evidence directory is
-unavailable; it explicitly reports that evidence verification was skipped.
-A source-only test pass does not establish provenance or original-app parity.
-
-See [development and provenance instructions](docs/DEVELOPMENT.md),
-[recovery tooling](tools/recovery/), and the inert
-[Windows packaging template](templates/windows-build.yml).
-
-Windows/SolidWorks validation, installer construction, signing, live cloud sync,
-and publication are deferred. Nothing in the pipeline pushes or publishes code.
+See [development instructions](docs/DEVELOPMENT.md) and
+[the recovery baseline notes](recovered/README.md).

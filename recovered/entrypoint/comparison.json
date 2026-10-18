@@ -1,0 +1,34 @@
+{
+  "module": "main (CArchive entrypoint outside 49 PYZ modules)",
+  "source_sha256": "99593b055d92f7c2e3591eeea8f94bea518ce2bee25aa0d0bd371edd280993f2",
+  "original_marshaled_sha256": "c8cced824d84a988077bb3da39b0cb0e67a7b0246c4c872e92452b9cb297d5f0",
+  "original_structure_sha256": "56009f81ff8fda12f7d394aa3852c102ececf5511a8cd1f1690c30cd789e4c87",
+  "candidate_structure_sha256": "56009f81ff8fda12f7d394aa3852c102ececf5511a8cd1f1690c30cd789e4c87",
+  "code_objects_compared": 2,
+  "match": true,
+  "differences": [],
+  "compared_fields": [
+    "co_code",
+    "co_argcount",
+    "co_posonlyargcount",
+    "co_kwonlyargcount",
+    "co_nlocals",
+    "co_stacksize",
+    "co_flags",
+    "co_names",
+    "co_varnames",
+    "co_freevars",
+    "co_cellvars",
+    "co_name",
+    "co_qualname",
+    "co_exceptiontable",
+    "co_consts recursively"
+  ],
+  "excluded_fields": [
+    "co_filename",
+    "co_firstlineno",
+    "co_linetable"
+  ],
+  "original_executed": false,
+  "candidate_executed": false
+}

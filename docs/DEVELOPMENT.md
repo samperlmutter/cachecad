@@ -121,3 +121,23 @@ hash references, and checks that named reconstructed sources exist inside the
 package. Without `--evidence-root`, this is structural provenance validation,
 not verification of private evidence bytes. The optional evidence-root flag
 still performs the full 53-file hash verification and fails on missing files.
+
+## Faithful recovery gate (separate from replacement tests)
+
+The complete maintenance gate requires hash-locked PyYAML and parses the actual
+Linux workflow before testing. This closes the previous gap where plain YAML
+scalars containing colon-space could pass Python tests but fail GitHub parsing.
+Application runtime code still has no added PyYAML dependency.
+
+`tooling/check.py` also runs synthetic tests from `recovered/test_*.py` and, when
+`recovered/recovery-manifest.json` is present, invokes `recovered/check_reports.py`.
+The latter compiles recovered text and verifies source/report hashes and original
+structural fingerprints. It does not import or execute recovered modules.
+Use `--require-recovery-manifest` for the finalized recovery publication so an
+absent reviewed manifest fails rather than skipping this gate. A stale manifest
+fails; refresh only after independent evidence-backed review.
+
+Ruff targets only replacement sources and maintenance tools. Recovered original
+source is deliberately excluded: stylistic or bug fixes would invalidate faithful
+compiler-structure matching. Full evidence comparison still requires the pinned
+original PYZ locally; CI validates the reviewed structural reference hashes.

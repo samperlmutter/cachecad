@@ -5,9 +5,10 @@
   "rea_version": "6.7.0",
   "rea_operation": "inspect-pe-resources",
   "rea_evidence_id": "ev_e3dcf4afd7ed9ab72edc9b198ecf112d634ad69392fafaaf74bbb7ec7122b4e9",
-  "source_kind": "independently handwritten reconstruction informed by static evidence",
+  "source_kind": "src/cachecad: independently handwritten replacement prototype; recovered/: original-source reconstruction checked against original compiled structures, except explicitly sanitized credential module.",
   "original_code_execution": false,
   "original_binary_distribution": false,
   "public_repository_created": false,
-  "artifact_license": "No redistribution rights for the original app or third-party components are asserted."
+  "artifact_license": "No redistribution rights for the original app or third-party components are asserted.",
+  "recovery_manifest": "recovered/recovery-manifest.json"
 }

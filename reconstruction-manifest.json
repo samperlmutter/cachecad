@@ -524,5 +524,6 @@
     "Local filesystem adapter for controlled fixtures only, not safe against arbitrary concurrent external writers",
     "Versioned CAS is proven only for MemoryDrive; live Drive conditional commit unverified",
     "Baselines are in-memory and are not a crash-recoverable journal"
-  ]
+  ],
+  "scope": "Historical replacement prototype mapping under src/cachecad only. Faithful original source recovery statuses are maintained separately in recovered/recovery-manifest.json."
 }
