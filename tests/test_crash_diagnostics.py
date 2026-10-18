@@ -148,6 +148,18 @@ class CrashDiagnosticsTests(unittest.TestCase):
         self.assertFalse(diag.CrashDiagnostics().activate(invalid))
         self.assertEqual(invalid.read_text(), 'untouched')
 
+    def test_native_ready_protocol_accepts_unix_and_windows_line_endings(self):
+        for ending in (b'\n', b'\r\n'):
+            with self.subTest(ending=ending):
+                response = b'CACHECAD_DIAGNOSTICS_READY' + ending
+                program = ("import os, sys; os.write(1, " + repr(response)
+                           + "); sys.stdin.buffer.read()")
+                self.assertTrue(self.owner.enable_native([sys.executable, '-B', '-c', program]))
+                child = self.owner._native
+                self.owner.close()
+                self.assertIsNotNone(child.poll())
+        self.assertEqual(read_reports(self.directory), [])
+
     def test_unready_real_helper_is_reaped_and_capture_fails_safely(self):
         launched = []
         real_popen = subprocess.Popen

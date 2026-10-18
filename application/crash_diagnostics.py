@@ -346,7 +346,10 @@ class CrashDiagnostics:
                 finally:
                     ready.set()
             threading.Thread(target=read_ready, daemon=True).start()
-            if not ready.wait(10) or result != [b'CACHECAD_DIAGNOSTICS_READY\n']:
+            # Text stdout translates LF to CRLF on Windows. Accept exactly the
+            # two platform line endings without relaxing the readiness token.
+            if not ready.wait(10) or result not in ([b'CACHECAD_DIAGNOSTICS_READY\n'],
+                                                    [b'CACHECAD_DIAGNOSTICS_READY\r\n']):
                 raise RuntimeError('Native diagnostics helper unavailable')
             process.stdout.close()
             self._native = process
