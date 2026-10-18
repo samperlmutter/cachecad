@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "baseline_commit": "6111b1f35b5f7f006cbed9deb7f519a899475795",
+  "baseline_recovery_manifest": "recovered/recovery-manifest.json",
+  "method": "Real recovered function ASTs tested with injected mocks; original module imports and live services never executed.",
+  "runtime_scope": "Selected functions only; Qt/thread/whole-app integration unverified.",
+  "modules": [
+    {
+      "module": "core.drive_client",
+      "baseline": "recovered/core/drive_client.py",
+      "maintained": "maintained/core/drive_client.py",
+      "baseline_sha256": "2665419d983e07bc5c3b71a6c012ac863ebf23c03d98dd0a2efc79f23b8e5fb4",
+      "maintained_sha256": "acaf8e396fd950caff2350e2b53e9c8b0e7135d42b04bb346d3ebcf657996870",
+      "changed_functions": [
+        "DriveClient.get_drive_items_from_project_id"
+      ],
+      "regression_tests": "tests/test_recovered_scan.py",
+      "status": "intentional_behavior_change_not_original_bytecode_equivalent"
+    },
+    {
+      "module": "core.sync_executor",
+      "baseline": "recovered/core/sync_executor.py",
+      "maintained": "maintained/core/sync_executor.py",
+      "baseline_sha256": "f56c886c5d950511163412d30c660efe17a2d0710b8fc7600bc942b5267f0d83",
+      "maintained_sha256": "5b950f90c5730a864e42ab7269ddc345fd1d54c1a2955938271ad49023d3bf2c",
+      "changed_functions": [
+        "SyncExecutor._upload",
+        "SyncExecutor._delete_cloud"
+      ],
+      "regression_tests": "tests/test_recovered_executor.py",
+      "status": "intentional_behavior_change_not_original_bytecode_equivalent"
+    },
+    {
+      "module": "core.github_updater",
+      "baseline": "recovered/core/github_updater.py",
+      "maintained": "maintained/core/github_updater.py",
+      "baseline_sha256": "c0d502b00f14a213d26a7a59f82dd9a758444dd259f46d771cf322c022d87a7b",
+      "maintained_sha256": "734563def007437beb620cc681c385dff082d5c5a0cc6f0cf4162543c2359b7d",
+      "changed_functions": [
+        "GithubUpdater.download_latest_version"
+      ],
+      "regression_tests": "tests/test_recovered_updater.py",
+      "status": "intentional_behavior_change_not_original_bytecode_equivalent"
+    }
+  ]
+}

@@ -26,7 +26,7 @@ jobs:
           python -m pip install --index-url https://pypi.org/simple --only-binary=:all: --require-hashes -r requirements/linux-build.lock
       - name: Validate manifests and run offline tests and lint
         run: |
-          python tooling/check.py --ruff --require-recovery-manifest
+          python tooling/check.py --ruff --require-recovery-manifest --require-maintained-manifest
       - name: Build source archive and wheel
         run: |
           python -m build --no-isolation

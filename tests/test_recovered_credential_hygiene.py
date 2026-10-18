@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1] / 'recovered'
+ROOT = Path(__file__).resolve().parents[1]
 PATTERNS = [
     re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),
     re.compile(r'AIza[0-9A-Za-z_-]{35}'),
@@ -16,10 +16,12 @@ PATTERNS = [
 
 class CredentialHygieneTests(unittest.TestCase):
     def test_recovered_sources_reports_do_not_embed_credentials(self):
-        if not ROOT.is_dir():
+        if not (ROOT / 'recovered').is_dir():
             self.skipTest('Recovery source is not included in replacement wheel fixture')
         hits = []
-        for path in ROOT.rglob('*'):
+        paths = [path for directory in ('recovered', 'maintained')
+                 for path in (ROOT / directory).rglob('*')]
+        for path in paths:
             if path.is_file() and path.suffix in {'.py', '.json', '.md'}:
                 text = path.read_text(encoding='utf-8')
                 if any(pattern.search(text) for pattern in PATTERNS):

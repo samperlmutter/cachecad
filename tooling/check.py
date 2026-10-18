@@ -21,6 +21,8 @@ def main() -> int:
     parser.add_argument("--ruff", action="store_true", help="Also run installed, pinned optional linter")
     parser.add_argument("--require-recovery-manifest", action="store_true",
                         help="Fail if the reviewed recovery manifest is absent")
+    parser.add_argument("--require-maintained-manifest", action="store_true",
+                        help="Fail if the reviewed maintained patch manifest is absent")
     args = parser.parse_args()
     env = dict(os.environ, PYTHONPATH=os.pathsep.join([str(ROOT / "src"), str(ROOT)]),
                PYTHONDONTWRITEBYTECODE="1")
@@ -50,7 +52,7 @@ def main() -> int:
     else:
         print("Evidence check NOT RUN; supply --evidence-root for provenance gate.", flush=True)
     sources = []
-    for directory in ["src", "tests", "tooling", "tools/recovery", "recovered"]:
+    for directory in ["src", "tests", "tooling", "tools/recovery", "recovered", "maintained"]:
         for path in sorted((ROOT / directory).rglob("*.py")):
             ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             sources.append(path)
@@ -77,6 +79,17 @@ def main() -> int:
         return 1
     else:
         print("Recovery fingerprint gate NOT RUN: reviewed manifest not present", flush=True)
+    maintained_manifest = ROOT / "maintained/patch-manifest.json"
+    if maintained_manifest.is_file():
+        result = subprocess.run([sys.executable, "tooling/maintained.py"], cwd=ROOT,
+                                env=env, check=False)
+        if result.returncode:
+            return result.returncode
+    elif args.require_maintained_manifest:
+        print("Required maintained patch manifest is absent", file=sys.stderr)
+        return 1
+    else:
+        print("Maintained scope gate NOT RUN: reviewed manifest not present", flush=True)
     if args.ruff:
         result = subprocess.run([sys.executable, "-m", "ruff", "check", "src", "tests", "tooling", "tools/recovery"], cwd=ROOT,
                                 env=env, check=False)

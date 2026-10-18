@@ -11,14 +11,18 @@ under `recovered/entrypoint/`.
 
 Embedded credentials are intentionally removed from one recovered module. That
 module is explicitly non-matching. No original credentials are included or used.
-Original behavior and bugs remain in the recovery baseline. Matching compiled
+Original behavior and bugs remain in the recovery baseline.
+The separate [`maintained/` patch layer](maintained/) contains narrowly reviewed
+corrections with runtime regression tests against actual recovered functions. Matching compiled
 structure is evidence of faithful recovery, not runtime validation or a claim
 that the app is fixed.
 
 The earlier `src/cachecad/` code is a new, evidence-informed offline replacement
 prototype with mock services and safety tests. Its demo and packaged wheel are
 **not the recovered original application**. It remains here as experimental
-improvement work; fixes have not yet been integrated into the recovered baseline.
+improvement work; its experimental fixes have not been merged into the recovered baseline.
+The maintained layer patches original functions directly and records its intentional
+bytecode differences separately.
 
 ## Maintenance checks
 
@@ -26,12 +30,13 @@ Use Python 3.12 and the hash-locked Linux tools:
 
 ```sh
 python -m pip install --require-hashes -r requirements/linux-build.lock
-python tooling/check.py --require-recovery-manifest --ruff
+python tooling/check.py --require-recovery-manifest --require-maintained-manifest --ruff
 ```
 
 This runs source-only compiled-fingerprint checks, comparator regression tests,
-synthetic prototype tests, extraction-tool tests and lint. It never imports or
-executes recovered application modules. Reports and source hashes are bound to
+synthetic prototype tests, extraction-tool tests and lint. It never imports recovered application modules. Selected inspected function bodies
+are executed only by isolated mocked regression tests, without top-level
+initialization, real credentials, network services or user project files. Reports and source hashes are bound to
 the reviewed recovery manifest; reducing the verified module set fails the gate.
 
 For independent original-byte revalidation, privately extract the pinned release

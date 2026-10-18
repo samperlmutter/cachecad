@@ -8,3 +8,4 @@ recursive-include tools/recovery *.py *.md *.json *.txt
 recursive-include tests *.py
 recursive-include .github/workflows *.yml
 recursive-include recovered *.py *.json *.md
+recursive-include maintained *.py *.json *.md
