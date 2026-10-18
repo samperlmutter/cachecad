@@ -2,6 +2,7 @@
 from contextlib import redirect_stderr
 import importlib.util
 import io
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -82,6 +83,49 @@ class PreservedProfileTests(unittest.TestCase):
         marker.write_text('{"schema":1}')
         with self.assertRaisesRegex(ValueError, 'legacy'):
             launcher.prepare_profile(self.profile, startup_check=True, preserved_profile_check=True)
+
+
+    def test_snapshots_never_reopen_active_lock_and_keep_every_data_file(self):
+        lock = self.profile / '.cachecad-profile.lock'
+        lock.write_bytes(b'\x00')
+        data = self.profile / 'app_data'
+        data.mkdir()
+        settings = data / 'settings.json'
+        settings.write_bytes(b'{"keep":"synthetic setting"}')
+        cache = data / 'google-session.dpapi'
+        cache.write_bytes(b'CacheCAD-DPAPI-v1\x00SYNTHETIC')
+        # An identically named nested user file is not the private root lock.
+        nested = data / '.cachecad-profile.lock'
+        nested.write_bytes(b'preserve this ordinary fixture file')
+        expected = {path.relative_to(self.profile).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+                    for path in self.profile.rglob('*') if path.is_file() and path != lock}
+        original_read = Path.read_bytes
+        def locked_read(path):
+            if path == lock:
+                raise PermissionError('Synthetic Windows byte-range lock violation')
+            return original_read(path)
+        with patch.object(Path, 'read_bytes', locked_read):
+            self.assertEqual(launcher.snapshot_preserved_profile(self.profile), expected)
+            self.assertEqual(launcher.snapshot_preserved_profile(self.profile), expected)
+            settings.write_bytes(b'{"changed":true}')
+            self.assertNotEqual(launcher.snapshot_preserved_profile(self.profile), expected)
+        self.assertEqual(lock.read_bytes(), b'\x00')
+
+    @unittest.skipUnless(os.name == 'nt', 'Requires native Windows mandatory byte-range locking')
+    def test_native_windows_lock_remains_exclusive_during_preserved_snapshot(self):
+        spec = importlib.util.spec_from_file_location('_upgrade_profile_lock',
+                                                      ROOT / 'maintained/utils/profile_lock.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with module.ProfileLock(self.profile) as lock:
+            with self.assertRaises(PermissionError):
+                lock.path.read_bytes()
+            snapshot = launcher.snapshot_preserved_profile(self.profile)
+            self.assertNotIn('.cachecad-profile.lock', snapshot)
+            self.assertEqual(snapshot, launcher.snapshot_preserved_profile(self.profile))
+            with self.assertRaises(module.ProfileLockError):
+                module.ProfileLock(self.profile).acquire()
+        self.assertEqual(lock.path.read_bytes(), b'\x00')
 
 
 if __name__ == '__main__':

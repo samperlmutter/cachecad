@@ -329,6 +329,23 @@ def diagnostic_fault(mode):
         os.abort()
 
 
+def snapshot_preserved_profile(profile):
+    """Hash fixture data while retaining the active profile-exclusion lock.
+
+    Windows byte-range locks deny reads through another handle, including from
+    this process. The runtime lock is not user data: never reopen it here. The
+    external installer test still checks its bytes after this process exits.
+    """
+    preserved = {}
+    for path in profile.rglob('*'):
+        if path.is_symlink() or (hasattr(path, 'is_junction') and path.is_junction()):
+            raise ValueError('Linked upgrade fixture content is not accepted')
+        relative = path.relative_to(profile).as_posix()
+        if relative != '.cachecad-profile.lock' and path.is_file():
+            preserved[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return preserved
+
+
 def run_application(args, root, diagnostics, lifetime=None, pending_updates=None):
     from utils.application_mode import configure_application, default_profile_root
     if args.platform or args.startup_check:
@@ -338,13 +355,8 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
         from core.windows_update_install import ApplicationRunLease
         lifetime.enter_context(ApplicationRunLease())
     with application_profile(args, default_profile_root()) as profile:
-        preserved = {}
-        if getattr(args, 'preserved_profile_check', False):
-            for path in profile.rglob('*'):
-                if path.is_symlink() or (hasattr(path, 'is_junction') and path.is_junction()):
-                    raise ValueError('Linked upgrade fixture content is not accepted')
-                if path.is_file():
-                    preserved[path.relative_to(profile).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+        preserved = (snapshot_preserved_profile(profile)
+                     if getattr(args, 'preserved_profile_check', False) else {})
         diagnostics.activate(profile / 'diagnostics')
         diagnostics.mark('profile_ready')
         native_capture = diagnostics.enable_native(native_helper_command(args, root, profile))
@@ -458,8 +470,7 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
                                       and p.relative_to(profile).as_posix() not in preserved],
                     errors=list(slot_errors))
                 if getattr(args, 'preserved_profile_check', False):
-                    after = {path.relative_to(profile).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
-                             for path in profile.rglob('*') if path.is_file()}
+                    after = snapshot_preserved_profile(profile)
                     result['preserved_profile_unchanged'] = after == preserved
                     if after != preserved:
                         result['errors'].append('Preserved upgrade fixture bytes changed during startup')
