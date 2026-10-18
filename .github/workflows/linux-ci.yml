@@ -55,13 +55,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libegl1 libgl1 libopengl0
-      - name: Install hash-locked real Qt development runtime
+      - name: Install hash-locked Qt and Google SDK runtime
         run: |
           python -m pip install --index-url https://pypi.org/simple --only-binary=:all: --require-hashes -r requirements/runtime-linux.lock
-      - name: Exercise actual assembled application with offline fixtures
+      - name: Exercise actual application and isolated regression fixtures
         run: |
           export CACHECAD_RUNTIME_PYTHON="$(command -v python)"
           python -m unittest discover -s tests -p test_offline_runtime.py -v
+          python -m unittest discover -s tests -p test_desktop_signin.py -v
+          python -m unittest discover -s tests -p test_signin_security_review.py -v
+          python -m unittest discover -s tests -p test_signin_gui_runtime.py -v
+          python -m unittest discover -s tests -p test_google_session.py -v
+          python -m unittest discover -s tests -p test_windows_token_store.py -v
+          python -m unittest discover -s tests -p test_profile_lock.py -v
+          python -m unittest discover -s tests -p test_production_auth_review.py -v
+          python -m unittest discover -s tests -p test_application_auth_runtime.py -v
 
   windows-installer:
     needs: [offline, offline-qt]
@@ -85,16 +93,33 @@ jobs:
           python -m venv .venv-windows
           .\.venv-windows\Scripts\python.exe -m pip install --index-url https://pypi.org/simple --only-binary=:all: --require-hashes -r requirements/runtime-windows.lock -r requirements/windows-build.lock
           "$env:GITHUB_WORKSPACE\.venv-windows\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Verify Google session and native DPAPI without real credentials
+        run: |
+          $env:CACHECAD_RUNTIME_PYTHON = (Get-Command python).Source
+          python -m unittest discover -s tests -p test_google_session.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_windows_token_store.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_profile_lock.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_desktop_signin.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_signin_security_review.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_production_auth_review.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_application_auth_runtime.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build actual maintained application and per-user installer
         run: |
           python packaging/windows/build.py --output dist/windows
       - name: Install and exercise installed application on Windows
         run: |
-          python packaging/windows/test_installer.py --installer dist/windows/installer/CacheCAD-Offline-Development-Setup.exe --report-dir dist/windows/test-results
-      - name: Upload tested Windows offline development installer
+          python packaging/windows/test_installer.py --installer dist/windows/installer/CacheCAD-Setup.exe --report-dir dist/windows/test-results
+      - name: Upload tested Windows application installer
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: CacheCAD-Windows-Offline-Development-${{ github.sha }}
+          name: CacheCAD-Windows-Application-${{ github.sha }}
           path: |
             dist/windows/installer/*.exe
             dist/windows/installer.sha256

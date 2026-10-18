@@ -45,14 +45,19 @@ Linux runtime and generated neutral placeholder assets are included. Authenticat
 live services and transfers are disabled in this development mode. Hosted CI tests
 startup, failure/retry/stale-result isolation and closing a pending scan.
 
-## Windows offline-development installer
+## Windows application and Google sign-in
 
-The Windows pipeline builds a self-contained per-user installer from the same
-verified application source. It installs and exercises the installed executable
-on a standard Windows 2022 runner before publishing a private CI artifact.
-See [Windows tryout instructions](docs/WINDOWS_TRYOUT.md) for the exact artifact,
-unsigned-installer warning, test scope and build prerequisites. This development
-installer uses placeholder artwork and disables login and real transfers.
+The existing verified Windows artifact is an **offline-development build** with
+placeholder artwork. The maintained production application path is being wired to
+real Google Desktop OAuth, Windows-protected persistent credentials, refresh and
+the actual Drive client. End users will sign in using the application owner's
+client configuration; they will not create their own OAuth clients.
+
+See [production Google setup](docs/PRODUCTION_GOOGLE_SETUP.md) for owner setup,
+consent/scope requirements and the remaining release gates. A successful signed-out
+installer startup test does not validate a live Google grant, real sync, or CAD
+compatibility. The separate identity-only development launcher is retained for
+tests; it is not the production authentication architecture.
 
 ## Maintenance checks
 
@@ -83,10 +88,11 @@ PYTHONPATH=src python -m cachecad --demo --json
 ```
 
 It uses disposable fixtures and fake services. Do not use live projects or
-credentials for development tests. No executable installer has been rebuilt.
-The offline runtime lock and neutral Qt resources now support the actual
-development launcher. Production resources, Windows/SolidWorks validation,
-installer packaging, signing and live Google Drive integration remain open.
+credentials for development tests. The actual application installer is a separate
+artifact from this earlier demo. Windows CI has verified building, installing,
+starting the installed application with the native Windows Qt backend, and
+uninstalling the offline development build. Production artwork, signing,
+SolidWorks validation and live Google Drive integration remain open.
 
 See [development instructions](docs/DEVELOPMENT.md) and
 [the recovery baseline notes](recovered/README.md).

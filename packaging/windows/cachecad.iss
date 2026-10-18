@@ -1,4 +1,4 @@
-; Personal/noncommercial offline development tryout; no original branding/assets.
+; Real maintained application; owner Desktop client configuration is optional build input.
 #ifndef BundleDir
   #error BundleDir must identify the validated PyInstaller onedir output
 #endif
@@ -7,13 +7,13 @@
 #endif
 
 [Setup]
-AppId={{4A03D312-83C5-4EC3-9C46-8CE43DA792EA}
-AppName=CacheCAD Offline Development
+AppId={{D24539B1-3941-4273-9C44-A62A05A91623}
+AppName=CacheCAD
 AppVersion=0.1.0
-AppVerName=CacheCAD Offline Development 0.1.0
+AppVerName=CacheCAD Reconstructed 0.1.0
 AppPublisher=Local reconstruction development build
-DefaultDirName={localappdata}\Programs\CacheCAD Offline Development
-DefaultGroupName=CacheCAD Offline Development
+DefaultDirName={localappdata}\Programs\CacheCAD Reconstructed
+DefaultGroupName=CacheCAD
 DisableProgramGroupPage=no
 AllowNoIcons=yes
 PrivilegesRequired=lowest
@@ -21,24 +21,24 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#OutputDir}
-OutputBaseFilename=CacheCAD-Offline-Development-Setup
+OutputBaseFilename=CacheCAD-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayName=CacheCAD Offline Development
-UninstallDisplayIcon={app}\CacheCAD-Offline.exe
+UninstallDisplayName=CacheCAD Reconstructed
+UninstallDisplayIcon={app}\CacheCAD.exe
 Uninstallable=yes
 CloseApplications=no
 RestartApplications=no
 SetupLogging=yes
-InfoBeforeFile=OFFLINE-README.txt
-VersionInfoDescription=CacheCAD offline development installer (disposable data)
+InfoBeforeFile=APPLICATION-README.txt
+VersionInfoDescription=CacheCAD reconstructed application installer
 
 [Files]
 Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\CacheCAD Offline Development"; Filename: "{app}\CacheCAD-Offline.exe"; WorkingDir: "{app}"
-Name: "{group}\Uninstall CacheCAD Offline Development"; Filename: "{uninstallexe}"
+Name: "{group}\CacheCAD"; Filename: "{app}\CacheCAD.exe"; WorkingDir: "{app}"
+Name: "{group}\Uninstall CacheCAD"; Filename: "{uninstallexe}"
 
-; Intentionally no [Run], [UninstallRun], services, autorun, downloads or file associations.
+; No automatic launch, services, autorun, downloads, file associations or profile deletion.

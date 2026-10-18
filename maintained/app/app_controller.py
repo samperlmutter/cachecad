@@ -34,20 +34,26 @@ from utils.development_mode import current as current_development_mode
 class AppController:
     def __init__(self):
         self.development = current_development_mode()
+        self.application = None
+        self._shutting_down = False
+        self._retired_databases = []
         try:
             if self.development is None:
                 from core.auth_manager import AuthManager
-                self.single = SingleInstance('CacheCAD ' + APP_VERSION)
-                if not self.single.is_primary:
-                    sys.exit(0)
-                self.auth_manager = AuthManager()
+                from utils.application_mode import current
+                self.application = current()
+                if self.application is None:
+                    raise RuntimeError('Use application/launch.py for the real application')
+                # The launcher holds a profile-wide OS lock before any state read.
+                self.single = None
+                self.auth_manager = AuthManager(self.application)
             else:
                 self.single = None
                 self.auth_manager = None
             self.creds = None
             self.user = None
             self.signed_in = False
-            self.has_internet = self.development is None
+            self.has_internet = False
             self.main_window = None
             self.project_name = None
             self.project_id = None
@@ -69,13 +75,11 @@ class AppController:
                 self.working_directory = self.development.require_profile_path(self.working_directory)
             self.project_manager = ProjectManager(self.working_directory)
             signal_manager.project_list_changed.connect(self.on_project_list_changed)
-            signal_manager.user_validation_data_fetched.connect(self.on_user_validation_data_fetched)
             signal_manager.project_read_only.connect(self.debug_slot)
         except Exception as e:
             tb = traceback.format_exc()
-            logging.error(f'Error initializing AppController: {e}\n{tb}')
-            if self.development is not None:
-                raise
+            logging.error('Application initialization failed')
+            raise
 
     def set_main_window(self, window):
         self.main_window = window
@@ -105,17 +109,30 @@ class AppController:
             if self.development.drive_client_factory is not None:
                 self._configure_offline_drive(self.development.drive_client_factory())
             return
-        if self.auth_manager.check_creds():
-            self.creds = self.auth_manager.get_creds()
-            signal_manager.auth_success.emit(self.creds)
-        from core.bug_report import BugReport
-        self.bug_report = BugReport()
-        def on_other_instance_message(msg):
-            if msg == 'raise-window':
-                self.main_window.showNormal()
-                self.main_window.activateWindow()
-                self.main_window.raise_()
-        self.single.messageReceived.connect(on_other_instance_message)
+        self.bug_report = None
+        from gui.application_account import ApplicationAccount
+        old_button = window.signin_button
+        signal_manager.user_profile_loaded.disconnect(old_button.set_btn_to_signout)
+        signal_manager.has_internet.disconnect(old_button.on_internet_check)
+        row = old_button.parentWidget().layout().itemAt(0).layout()
+        window.signin_button = ApplicationAccount(self, old_button.parentWidget())
+        row.replaceWidget(old_button, window.signin_button)
+        old_button.hide()
+        old_button.deleteLater()
+        self.auth_manager.status_changed.connect(self.on_account_status)
+        signal_manager.sign_out.connect(self.on_session_signed_out)
+        self._configure_owned_ui()
+        if self.single is not None:
+            def on_other_instance_message(msg):
+                if msg == 'raise-window':
+                    self.main_window.showNormal()
+                    self.main_window.activateWindow()
+                    self.main_window.raise_()
+            self.single.messageReceived.connect(on_other_instance_message)
+        from PySide6.QtWidgets import QApplication
+        QApplication.instance().aboutToQuit.connect(self.shutdown)
+        if not self.application.startup_check:
+            self.auth_manager.restore()
 
     def _configure_offline_drive(self, drive_client):
         if self.development is None:
@@ -138,6 +155,8 @@ class AppController:
     def create_project_from_link(self, link, read_only=False):
         if getattr(self, 'development', None) is not None:
             return 'External projects are disabled in offline development. Use a local fixture.'
+        if not self.signed_in or self.buttons_disabled:
+            return 'Sign in to Google before creating a project.'
         logging.info(f'Creating project from link: {link}')
         link = link.strip()
         id = 'None'
@@ -176,11 +195,9 @@ class AppController:
             if not hasattr(self, 'sync_analyzer'):
                 return
         elif not self.auth_manager.check_creds():
-            self.auth_manager.refresh_token()
-            if not self.auth_manager.check_creds():
-                self.signed_in = False
-                return
-        if self.buttons_disabled or self.sync_executing:
+            self.signed_in = False
+            return
+        if not self.signed_in or self.buttons_disabled or self.sync_executing:
             return
         project = item.data(Qt.UserRole)
         if not confirm_project_location(Path(self.working_directory) / project['name'], self.main_window):
@@ -262,26 +279,17 @@ class AppController:
         pass
 
     def on_settings_clicked(self):
-        logging.info('Settings button clicked')
         signal_manager.page_change.emit(Page.SETTINGS)
-        if getattr(self, 'development', None) is not None:
-            return
-        from core.github_updater import github_updater
-        signal_manager.latest_app_version.emit(github_updater.get_latest_release_info())
 
     def on_bug_clicked(self):
         if getattr(self, 'development', None) is not None:
             return
-        logging.info('Bug Report Clicked')
-        dlg = BugReportDialog(self)
-        dlg.exec()
+        self.main_window.show_status_message('Remote diagnostics are unavailable in this build. No report was sent.', 10000)
 
     def on_bug_report(self, idx, report):
         if getattr(self, 'development', None) is not None:
             return
-        project, _ = self.get_project_list()[idx]
-        project_path = Path(self.working_directory) / project
-        self.bug_report.new_bug_report(project_path, report, self.user)
+        self.on_bug_clicked()
 
     def enable_buttons(self):
         logging.debug('emitting enable buttons')
@@ -299,36 +307,44 @@ class AppController:
     def on_signin_clicked(self):
         if getattr(self, 'development', None) is not None:
             return
-        if not self.signed_in:
-            self.auth_manager.authorize()
-        else:
+        if self.auth_manager.state == 'cleanup_required':
             self.auth_manager.sign_out()
-            self.signed_in = False
-            signal_manager.disable_buttons.emit()
-            self.buttons_disabled = True
+        elif not self.signed_in and not self.auth_manager.check_creds():
+            self.auth_manager.authorize()
 
     def user_clicked_sign_in(self):
         if getattr(self, 'development', None) is not None:
             return
-        print('Sign-in button clicked')
-        logging.info('Sign-in button clicked')
-        self.auth_manager.authorize()
+        self.on_signin_clicked()
 
     def on_auth_started(self):
-        print('Auth started... show spinner or loading UI')
-        logging.info('Auth started... show spinner or loading UI')
+        if getattr(self, 'development', None) is not None:
+            return
+        self.disable_buttons()
 
     def on_auth_success(self, creds):
         if getattr(self, 'development', None) is not None:
             return
-        if hasattr(self, 'sync_analyzer'):
-            self.sync_analyzer.cancel_sync_analysis()
-        self.signed_in = True
+        if self._shutting_down or creds is not self.auth_manager.get_creds() or self.auth_manager.identity is None:
+            return
+        self._retire_sync_clients()
         self.creds = creds
         from core.drive_client import DriveClient
-        self.drive_client = DriveClient(self.creds)
+        try:
+            client = DriveClient(creds)
+            if client.service is None:
+                raise RuntimeError('Drive service unavailable')
+        except Exception:
+            self.signed_in = False
+            self.disable_buttons()
+            self.main_window.show_status_message('Signed in, but Drive could not start. Sign out and retry.', 15000)
+            return
+        # DriveClient may process Qt events while its service is constructed.
+        if self._shutting_down or creds is not self.auth_manager.get_creds():
+            client.cancelled = True
+            return
+        self.drive_client = client
         self.local_client = LocalClient()
-        self.drive_client.get_user_profile()
         self.db_manager = DBManager()
         analyzer = SyncAnalyzer(self.drive_client, self.local_client, self.db_manager)
         self.sync_analyzer = analyzer
@@ -336,24 +352,25 @@ class AppController:
         analyzer.analysis_succeeded.connect(lambda generation, downloads, uploads, paths: self.on_scan_succeeded(analyzer, generation, downloads, uploads, paths))
         analyzer.analysis_failed.connect(lambda generation, message: self.on_scan_failed(analyzer, generation, message))
         analyzer.analysis_cancelled.connect(lambda generation: self.on_scan_cancelled(analyzer, generation))
+        self.user = {'email': self.auth_manager.identity.email, 'sub': self.auth_manager.identity.sub}
+        self.signed_in = True
         self._clear_sync_plan()
         self.enable_buttons()
 
     def on_user_profile_loaded(self, user_data: dict, args):
         if getattr(self, 'development', None) is not None:
             return
-        self.user = user_data
-        from core.user_validation import UserValidation
-        self.user_validation = UserValidation()
+        # Identity comes only from the validated ID token, never profile-image URLs.
 
     def on_auth_failed(self, error_msg):
-        logging.error('Auth failed: %s', error_msg)
-        print('Auth failed:', error_msg)
+        if getattr(self, 'development', None) is not None:
+            return
+        self.main_window.show_status_message(error_msg, 12000)
+        if not self.auth_manager.check_creds():
+            self.disable_buttons()
 
     def on_internet_check(self, has_internet):
-        if not has_internet:
-            self.creds = None
-            self.signed_in = False
+        self.has_internet = bool(has_internet)
 
     def on_upload_card_clicked(self):
         if not self.analysis_ready or self.buttons_disabled:
@@ -375,8 +392,10 @@ class AppController:
         if self.sync_executing:
             signal_manager.sync_cancelled.emit()
             logging.info('Sync cancelled by user.')
-            self.sync_executing = False
+            # Keep account switching blocked until the executor's terminal result.
         else:
+            if getattr(self, 'sync_analyzer', None) is None:
+                return
             if not self.sync_analyzer._settled:
                 self.sync_analyzer.cancel_sync_analysis()
             signal_manager.page_change.emit(Page.PROJECT)
@@ -384,10 +403,11 @@ class AppController:
     def on_execute_sync(self, action_list):
         if getattr(self, 'development', None) is not None:
             return
-        if not self.analysis_ready or self.sync_executing or self.buttons_disabled:
+        if not self.signed_in or not self.analysis_ready or self.sync_executing or self.buttons_disabled:
             return
         self.disable_buttons()
         self.sync_executing = True
+        self._executor_unsettled = True
         self.analysis_ready = False
         self.sync_executor = SyncExecutor(self.drive_client, self.local_client, self.project_name, self.project_id, self.working_directory, action_list, self.path_dict)
 
@@ -399,7 +419,10 @@ class AppController:
             signal_manager.dropped_actions_acknowledged.emit()
 
     def on_sync_execution_finished(self):
+        self._executor_unsettled = False
         self.sync_executing = False
+        if getattr(self, '_shutting_down', False) or not self.signed_in:
+            return
         self._begin_sync_analysis()
         signal_manager.page_change.emit(Page.PROJECT)
 
@@ -408,41 +431,30 @@ class AppController:
             return
         settings.set_working_directory(new_directory)
         self.working_directory = settings.get_working_directory()
+        self.project_manager.working_dir = self.working_directory
         logging.info(f'Working directory changed to: {self.working_directory}')
 
     def on_new_installation(self):
         if getattr(self, 'development', None) is not None:
             return
-        logging.info('New installation detected - running initial settings dialog')
-        select_working_directory()
+        # First launch stays signed out. Folder choice remains in Settings.
 
     def prompt_for_usage_data(self):
         if getattr(self, 'development', None) is not None:
             return
-        dlg = CacheCADUsageDialog()
-        if dlg.exec() == QDialog.Accepted:
-            print(dlg.get_results())
+        # This derivative has no usage-data collection service.
 
     def on_download_app_update(self):
         if getattr(self, 'development', None) is not None:
             return
-        from core.github_updater import github_updater
-        if github_updater.download_latest_version():
-            downloads = Path.home() / 'Downloads'
-            os.startfile(downloads)
+        self.main_window.show_status_message('Updates are not configured by this application’s owner.', 10000)
 
     def on_error_occurred(self, error_str):
         pass
 
     def on_user_validation_data_fetched(self, banned_domains: set, banned_user_hashes: set):
-        logging.info('User validation data fetched!')
-        user_email_hash = self.user.get('email_hash', '')
-        user_email_doimain = self.user.get('email_domain', '')
-        if user_email_hash in banned_user_hashes or user_email_doimain in banned_domains:
-            logging.error(f"Banned user attempted to use the app: {self.user.get('email', '')}")
-            self.show_banned_user_dialog()
-            signal_manager.sign_in_clicked.emit()
-            return
+        # Vendor account bans and licensing services are not used by this app.
+        return
 
     def show_banned_user_dialog(self):
         from PySide6.QtWidgets import QMessageBox
@@ -452,3 +464,100 @@ class AppController:
         logging.debug('Signal received with args:', args, kwargs)
         tb = ''.join(traceback.format_stack())
         logging.debug(tb)
+
+    def _configure_owned_ui(self):
+        from PySide6.QtWidgets import QTextBrowser, QLabel, QPushButton
+        window = self.main_window
+        window.setWindowTitle('CacheCAD Reconstructed')
+        window.sponsor_label.hide()
+        window.sponsor_logo.hide()
+        window.bug_btn.setToolTip('Remote diagnostics are unavailable; no report is sent')
+        for browser in window.pages[Page.HOME].findChildren(QTextBrowser):
+            browser.setOpenExternalLinks(False)
+            browser.setOpenLinks(False)
+            browser.setPlainText('CacheCAD Reconstructed connects your local project folders to Google Drive. '
+                'Sign in with Google to select a Drive folder, compare files and choose transfers. '
+                'Google permission is requested only when you click Sign in. '
+                'Saved sessions are encrypted for your Windows account. '
+                'This build has no remote usage reporting, diagnostics or automatic updater. '
+                'Review each sync plan before changing your files.')
+        page = window.pages[Page.SETTINGS]
+        page.latest_version_label.setText('Automatic updates are not configured.')
+        page.update_button.setText('Updates unavailable')
+        page.update_button.setEnabled(False)
+        for label in page.findChildren(QLabel):
+            if label.text().startswith(('Update user data:', 'This is the only info collected')):
+                label.hide()
+        for button in page.findChildren(QPushButton):
+            if button.text() == 'Update Usage Info':
+                button.hide()
+        window.settings_btn.setEnabled(True)
+
+    def on_account_status(self, state, message):
+        if state in ('authorize', 'restore', 'sign_out', 'disconnect', 'cancelling'):
+            self.disable_buttons()
+        elif state == 'signed_in' and self.signed_in and not self.sync_executing:
+            self.enable_buttons()
+        if self.main_window is not None:
+            self.main_window.settings_btn.setEnabled(not self.sync_executing)
+
+    def _retire_sync_clients(self):
+        if getattr(self, 'sync_analyzer', None) is not None:
+            self.sync_analyzer.cancel_sync_analysis()
+            self.sync_analyzer = None
+        if hasattr(self, 'drive_client'):
+            self.drive_client.cancelled = True
+            for signal, slot in ((signal_manager.token_refreshed, self.drive_client.on_token_refresh),
+                                 (signal_manager.sync_execution_finished, self.drive_client.on_sync_finished),
+                                 (signal_manager.sync_cancelled, self.drive_client.on_sync_cancelled)):
+                try:
+                    signal.disconnect(slot)
+                except (RuntimeError, TypeError):
+                    pass
+            del self.drive_client
+        if hasattr(self, 'db_manager'):
+            self._retired_databases.append(self.db_manager)
+            del self.db_manager
+        self.signed_in = False
+
+    def on_session_signed_out(self):
+        if self.auth_manager.last_invalidation is not None and (self.sync_executing or hasattr(self, 'sync_executor')):
+            self.auth_manager.require_restart()
+        if self.sync_executing:
+            signal_manager.sync_cancelled.emit()
+            self.sync_executing = False
+        self._retire_sync_clients()
+        self.creds = self.user = None
+        self.project_name = self.project_id = None
+        self._clear_sync_plan()
+        self.disable_buttons()
+        self.main_window.settings_btn.setEnabled(True)
+        signal_manager.page_change.emit(Page.HOME)
+
+    def on_local_signout(self):
+        if self.sync_executing or getattr(self, '_executor_unsettled', False):
+            self.main_window.show_status_message('Wait for the current transfer to finish before signing out.', 10000)
+            return
+        if getattr(self, 'sync_analyzer', None) is not None:
+            self.sync_analyzer.cancel_sync_analysis()
+        self.auth_manager.sign_out()
+
+    def on_disconnect_clicked(self):
+        if self.sync_executing or getattr(self, '_executor_unsettled', False):
+            self.main_window.show_status_message('Wait for the current transfer to finish before disconnecting.', 10000)
+            return
+        from gui.application_account import confirm_disconnect
+        if confirm_disconnect(self.main_window):
+            if getattr(self, 'sync_analyzer', None) is not None:
+                self.sync_analyzer.cancel_sync_analysis()
+            self.auth_manager.disconnect()
+
+    def shutdown(self):
+        self._shutting_down = True
+        if self.sync_executing:
+            signal_manager.sync_cancelled.emit()
+        if getattr(self, 'sync_analyzer', None) is not None:
+            self.sync_analyzer.cancel_sync_analysis()
+        self.signed_in = False
+        self.creds = self.user = None
+        return self.auth_manager.shutdown() if self.auth_manager is not None else True

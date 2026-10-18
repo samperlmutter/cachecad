@@ -1,146 +1,107 @@
-# Windows offline-development installer
+# Windows maintained application installer
 
-This recipe builds an **unsigned Windows x64 development tryout** of the actual
-reconstructed Qt application. It is not the vendor installer or a production
-release. Use only for the user's personal/noncommercial development evaluation;
-redistribution rights for recovered code have not been established.
+The current recipe packages the actual recovered-plus-maintained Qt application as
+`CacheCAD.exe` and `CacheCAD-Setup.exe`. This is an unsigned development build of
+the real application path. Release rights, Google verification, controlled live
+sync and CAD compatibility remain release gates. Neutral authored artwork replaces
+upstream assets.
 
-## What starts
+## What is included
 
-`CacheCAD-Offline.exe` opens `gui.main_window.MainWindow` and the real maintained
-controller. It uses authored placeholder images and a new disposable temporary
-profile on every launch. Closing normally removes that profile. Sign-in, live
-Drive transfers, updates, external links, and real-project selection are disabled.
-The visible console is intentional for diagnostics.
+- Real Google Desktop OAuth with state, PKCE and verified identity; one app-owner
+  client configuration, not an OAuth project for every end user.
+- Windows CurrentUser DPAPI session storage, refresh, local sign-out and separate
+  explicit Google disconnect/revocation.
+- The actual maintained Drive client, local scanner, analyzer and executor.
+- Bundled Python, Qt, official Google API/auth SDKs, discovery data, CA certificates
+  and dependency license notices. No installed Python is required.
+- Hash-verified maintained source under `_internal/app-source`. Development
+  synthetic launchers, the obsolete original entrypoint and retired vendor account,
+  telemetry and updater modules are excluded from the application payload.
 
-Python, PySide6/Qt and the dependencies required for this mode are bundled in a
-PyInstaller onedir layout. An installed Python is not needed to launch it. Qt DLLs
-remain separate, and upstream package metadata/license notices plus CPython's
-license are retained in `_internal`. No vendor artwork or credentials are used.
-The source is `_internal/app-source`; an early source-only import mechanism reads
-reviewed source bytes after hash verification. Application packages are excluded
-from PyInstaller's frozen module archive, so archived bytecode cannot substitute
-for the source that was checked. The real `google.oauth2.credentials.Credentials`
-class and its import dependencies are included because the recovered Qt signal
-declarations use that class as a type. Importing the class does not create/load
-credentials or log in. Live application account modules remain blocked by the
-launcher; the Google Cloud and Drive API SDKs and browser OAuth flow package are
-excluded. Network/process tripwires remain active before application imports.
+The default CI build contains no owner OAuth configuration. It opens the genuine
+signed-out application with a visible distributor-setup requirement. It cannot
+sign in until the application owner supplies its client metadata. See
+[owner Google setup](PRODUCTION_GOOGLE_SETUP.md). No real account, grant, token or
+CAD project is used by CI.
 
-The offline checks are tripwires for audited code, **not an OS security sandbox**.
-Hash validation is not code signing and does not authenticate a maliciously
-replaced executable or manifest. Do not supply credentials or real CAD projects.
+The earlier offline installer and identity-only launcher remain historical test
+work. Their success does not prove this new artifact works. Use the matching new
+commit's terminal CI report.
 
-## Try a successful CI installer
+## Download and try
 
-1. Open the successful run in the private repository's Actions tab and download
-   `CacheCAD-Windows-Offline-Development-<commit>` under Artifacts. A failed run
-   may have diagnostics only; those are not an installer delivery.
-2. Extract the downloaded ZIP. The installer is under
-   `dist/windows/installer/CacheCAD-Offline-Development-Setup.exe` (the artifact
-   may preserve the repository-relative directory layout).
-3. Compare its SHA-256 with `installer.sha256` and `build-provenance.json`, and
-   confirm `test-results/installed-runtime.json` says `status: passed` for the
-   same installer digest. In PowerShell, use `Get-FileHash <installer> -Algorithm SHA256`.
-4. Run the installer as your normal user, then open **CacheCAD Offline Development**
-   from the Start Menu. Python is bundled. Expect a diagnostic console and an
-   explicitly labeled offline window with placeholder artwork.
-5. Close normally when finished. Remove it through Windows Installed Apps or its
-   Start Menu uninstaller. Do not use real CAD projects or credentials in this build.
+1. Open a successful run in the private repository's Actions tab. Download
+   `CacheCAD-Windows-Application-<commit>` from Artifacts.
+2. Extract the ZIP and find `CacheCAD-Setup.exe`, `installer.sha256`,
+   `build-provenance.json` and `test-results/installed-runtime.json`. Artifact ZIPs
+   may preserve subdirectories.
+3. Check the installer SHA-256 matches both provenance and the terminal report.
+   The report must say `status: passed` for that same installer digest.
+4. Install as your normal Windows user and open its CacheCAD Start Menu shortcut.
+   The unsigned publisher/reputation warning is expected; this guide does not
+   recommend disabling security protections.
+5. An unconfigured build explains that its distributor must configure Google.
+   End users should not create their own OAuth clients. Before any real project
+   transfer, use an approved disposable test project and retain independent backups.
+6. Close normally. Uninstall through Installed Apps or the Start Menu uninstaller.
+   Persistent application state and protected login are separate from installed
+   program files; use local sign-out before uninstalling if you want the remembered
+   session removed. Google revocation is a separate explicit action.
 
-The artifact is retained for 30 days; the source and build recipe remain in the
-repository. Windows publisher/reputation warnings are expected for this unsigned
-build; no signing certificate is configured.
+Artifacts expire after 30 days. Source recipes remain in the repository.
 
-## Build locally on Windows
+## Build on Windows
 
-Use Windows x64, 64-bit CPython 3.12.10, and a clean virtual environment. The pinned
-Inno Setup 6.7.1 compiler must already be installed from its official source.
-The build script does not install/download tools or accept a replacement compiler
-silently. In CI the expected compiler is provided by the Windows runner image;
-the actual compiler-engine release is checked by compiling the authored
-`version-probe.iss` with `Output=no`. This produces no installer and executes no
-installer code. The normal compiler banner reports the version returned by
-`ISCmplr.dll`; both that DLL and `ISCC.exe` are hashed. The `/?` output and wrapper
-PE file version are diagnostic only: the help banner omits the patch version and
-the wrapper's numeric version may be `0.0.0.0`.
-
-From the repository root, in PowerShell:
+Use Windows x64, CPython 3.12.10 x64 and the official Inno Setup 6.7.1 compiler.
+The build validates the actual compiler-engine banner and hashes ISCC.exe and
+ISCmplr.dll; it does not silently download or accept a different compiler.
 
 ```powershell
 py -3.12 -m venv .venv-windows
 .\.venv-windows\Scripts\python.exe -m pip install --only-binary=:all: --require-hashes -r requirements/windows-build.lock -r requirements/runtime-windows.lock
 .\.venv-windows\Scripts\python.exe packaging/windows/build.py --output dist/windows
-.\.venv-windows\Scripts\python.exe packaging/windows/test_installer.py --installer dist/windows/installer/CacheCAD-Offline-Development-Setup.exe --report-dir dist/windows/test-results
+.\.venv-windows\Scripts\python.exe packaging/windows/test_installer.py --installer dist/windows/installer/CacheCAD-Setup.exe --report-dir dist/windows/test-results
 ```
 
-The output directory must be new. Use a new path for another build. If ISCC is
-outside its normal installation directory, pass `--iscc C:\path\to\ISCC.exe`.
-The exact version requirement still applies. Lock scope and package provenance
-are documented in [WINDOWS_DEPENDENCIES.md](WINDOWS_DEPENDENCIES.md).
+The output directory must be new. The owner may explicitly supply
+`--client-config PATH` to the build after configuring its own Desktop client. The
+build validates accepted metadata and records it in the packaged source manifest.
+Never provide a service-account key, access/refresh token or upstream credential.
+Client creation, console changes and live grants are owner actions, not build steps.
+Dependency lock scope is documented in [WINDOWS_DEPENDENCIES.md](WINDOWS_DEPENDENCIES.md).
 
-The build includes only manifest-checked application data, checks both Windows
-and offscreen Qt platform plugins are present, then compiles the per-user
-installer. It does not start the installed application automatically. The setup
-adds Start Menu launch/uninstall shortcuts, an uninstall entry and no services,
-autorun entries, file associations, or network rules. The default directory is
-`%LOCALAPPDATA%\Programs\CacheCAD Offline Development`. No elevation is requested.
+## Installed-app evidence
 
-## What the installed-app test verifies
+The Windows integration test installs the actual installer into a fresh directory
+with spaces, with a unique Start Menu group. It checks installer exit status,
+installed executable, resolved shortcut target/arguments and per-user uninstall
+registration. It launches the installed EXE with a sanitized environment and
+system-only PATH, rather than running source or a portable shortcut.
 
-The integration test refuses to run if this development app is already installed
-for the current user. It installs into a new temporary directory with spaces in
-its name and a unique Start Menu group. It checks the executable, shortcut and
-per-user uninstall registration before launching the installed executable with
-an environment stripped of Python/Qt overrides and a system-only PATH.
+The real signed-out window must render and exit cleanly using both the offscreen
+and native Windows Qt plugins. Startup-check mode denies network, browser and
+process effects, skips session restoration, uses a disposable profile, and never
+fabricates a signed-in user, credential or successful scan. Reports require verified
+source loading, no credentials/Drive client, no callback errors or external attempts,
+clean worker shutdown, unchanged installed bytes and removed disposable profiles.
+The test finally invokes the installed uninstaller and verifies removal of the
+installation, Start Menu group and uninstall registry entry.
 
-Four launches must pass with the actual Qt GUI rendered:
+These checks prove bounded installed startup, not live OAuth, real Drive sync,
+manual visual QA, all Windows versions, revision race safety or SolidWorks mates.
+Native startup is mandatory; offscreen success is not a substitute. DPAPI also has
+a Windows-only synthetic round-trip test. Protocol/session tests use injected
+fixtures outside the production payload.
 
-1. `success` with the offscreen Qt plugin: one synthetic file scan and upload plan.
-2. `lifecycle` with offscreen: cancel, injected failure, retry, and stale callbacks.
-3. `close-pending` with offscreen: close during a delayed scan, without DB writes.
-4. `success` with the native Windows Qt plugin, proving that plugin starts too.
+Require `installed-runtime.json` terminal success and its matching digest; a
+successful build alone is insufficient. Windows installer/EXE byte-for-byte
+reproducibility is not claimed. Source assembly is separately deterministic.
 
-Every result must report frozen execution and the verified-source loader, the
-expected GUI, platform and scan outcomes, zero external attempts, zero forbidden
-account modules/credential files, no callback errors, and no remaining workers.
-The full installation tree must be byte-unchanged and disposable profiles removed
-after each run. Finally it invokes the installed uninstaller and requires the
-install directory, unique Start Menu group and uninstall registry entry to vanish.
-Uninstall is attempted even if a smoke scenario fails.
+## References
 
-Native Windows startup is mandatory in the integration gate; it is not silently
-replaced with offscreen success. This is not manual visual QA or a comprehensive
-Windows-version compatibility test. It does not validate real accounts or sync.
-
-## Evidence and status
-
-- `build-provenance.json`: commit, dirty-tree status, Python/runner/tool versions,
-  lock/recipe/source-manifest hashes, installer hash and full bundle file hashes.
-- `installer.sha256`: the installer digest for this build.
-- `test-results/installed-runtime.json`: terminal install/launch/uninstall status.
-- Per-scenario JSON and stdout/stderr logs, plus Inno install/uninstall logs.
-- `build-logs/`: assembly, PyInstaller, compiler-version and compiler logs.
-
-A successful build alone leaves installed-runtime verification **pending** in
-build provenance; require the matching installer SHA-256 and `status: passed` in
-the integration report. Portable source/unit tests cannot establish Windows
-startup. A Windows run has not been performed merely because this recipe exists.
-Do not describe the EXE/installer as byte-identical across builds: timestamps,
-compiler and runner inputs are not completely pinned, and repeat-build binary
-reproducibility has not been demonstrated. The reconstructed source assembly has
-its own separate deterministic checks.
-
-The installer is unsigned. Windows may warn about its publisher/reputation; this
-guide does not recommend disabling security protections. Review its source and
-provenance and test only where you are comfortable running the development build.
-
-## Primary references
-
-- [PyInstaller spec files and data](https://pyinstaller.org/en/stable/spec-files.html)
+- [Google owner setup and verification](PRODUCTION_GOOGLE_SETUP.md)
 - [PyInstaller runtime paths](https://pyinstaller.org/en/stable/runtime-information.html)
 - [Inno Setup least-privilege installs](https://jrsoftware.org/ishelp/topic_setup_privilegesrequired.htm)
-- [Inno Setup compiler options](https://jrsoftware.org/ishelp/topic_compilercmdline.htm)
-- [Inno Setup install options](https://jrsoftware.org/ishelp/topic_setupcmdline.htm)
-- [Inno Setup uninstall options](https://jrsoftware.org/ishelp/topic_uninstcmdline.htm)
-- [Official Windows 2022 runner image inventory](https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md)
+- [Inno Setup installer options](https://jrsoftware.org/ishelp/topic_setupcmdline.htm)
+- [Windows 2022 runner inventory](https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md)

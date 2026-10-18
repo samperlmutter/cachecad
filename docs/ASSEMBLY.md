@@ -41,3 +41,23 @@ added, and no original executable or application code is run by assembly.
 Linux CI assembles this artifact after required source gates. Regression tests
 check repeated byte identity, all payload hashes/origins, sanitized-source
 mutation rejection, existing-output refusal, traversal and symlink rejection.
+
+## Actual application payload versus test launchers
+
+`python tooling/assemble_app.py NEW_OUTPUT --production` requires the reviewed
+`application/manifest.json` bootstrap, including the real launcher and neutral
+resource module. It deliberately does not read or include `development/manifest.json`
+or its synthetic scenario launchers. The production source tree still contains
+reviewed maintained compatibility helpers used by the recovered graph; those do
+not supply fake Drive results. Every emitted bootstrap byte is checked against
+its declared hash and recorded in the assembly manifest.
+
+This flag describes payload composition, not a production-readiness certification.
+Owner OAuth configuration, consent verification, authorized live-account testing,
+and unresolved revision-sync/CAD validation remain separate release gates.
+
+The production payload also omits the original root `main.py`, original OAuth
+callback server, credential-bearing sanitized module, vendor account-validation,
+telemetry, bug-report and updater modules, and unused identity-test dialog. Their
+baseline recovery remains preserved and validated in the repository. The manifest
+records this explicit exclusion set; production starts only `application/launch.py`.

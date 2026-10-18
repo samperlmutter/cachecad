@@ -77,6 +77,52 @@ class AssemblyHelperTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'helper payload hash differs'):
                     assemble(root, Path(temp) / 'output')
 
+    def test_production_requires_application_bootstrap(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'repo'
+            self.fixture(root)
+            with patch('tooling.assemble_app.subprocess.run'):
+                with self.assertRaisesRegex(ValueError, 'requires reviewed application'):
+                    assemble(root, Path(temp) / 'output', production=True)
+
+    def test_production_excludes_development_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'repo'
+            self.fixture(root)
+            (root / 'application').mkdir()
+            records = []
+            for name in ('launch.py', 'resources_rc.py'):
+                raw = b'# reviewed synthetic bootstrap fixture\n'
+                source = 'application/' + name
+                (root / source).write_bytes(raw)
+                records.append(dict(source=source, destination=source, sha256=hashlib.sha256(raw).hexdigest()))
+            (root / 'application/manifest.json').write_text(json.dumps({'files': records}))
+            (root / 'development').mkdir()
+            # Invalid development content is never consulted in production mode.
+            (root / 'development/manifest.json').write_text('not json')
+            with patch('tooling.assemble_app.subprocess.run'):
+                manifest = assemble(root, Path(temp) / 'output', production=True)
+            self.assertTrue(manifest['production_payload'])
+            self.assertFalse(manifest['offline_development'])
+            self.assertFalse((Path(temp) / 'output/main.py').exists())
+            self.assertIn('utils.oauth_credential_import', manifest['excluded_modules'])
+            self.assertFalse(any(entry['path'].startswith('development/') for entry in manifest['files']))
+
+    def test_application_bootstrap_hash_and_destination_checked(self):
+        for destination, digest in [('application/../escape.py', 'valid'), ('application/launch.py', 'wrong')]:
+            with self.subTest(destination=destination, digest=digest), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp) / 'repo'
+                self.fixture(root)
+                (root / 'application').mkdir()
+                raw = b'# source\n'
+                (root / 'application/launch.py').write_bytes(raw)
+                record = dict(source='application/launch.py', destination=destination,
+                              sha256=hashlib.sha256(raw).hexdigest() if digest == 'valid' else '0' * 64)
+                (root / 'application/manifest.json').write_text(json.dumps({'files': [record]}))
+                with patch('tooling.assemble_app.subprocess.run'):
+                    with self.assertRaises(ValueError):
+                        assemble(root, Path(temp) / 'output', production=True)
+
 
 @unittest.skipUnless((ROOT / 'maintained/patch-manifest.json').is_file(),
                      'Application source fixtures absent in replacement wheel tests')
@@ -105,7 +151,8 @@ class AssemblyIntegrationTests(unittest.TestCase):
             patch_manifest = json.loads((ROOT / 'maintained/patch-manifest.json').read_text())
             helper_count = len(patch_manifest.get('new_helpers', []))
             development_count = len(json.loads((ROOT / 'development/manifest.json').read_text())['files']) if (ROOT / 'development/manifest.json').exists() else 0
-            self.assertEqual(len(a['files']), 50 + helper_count + development_count)
+            application_count = len(json.loads((ROOT / 'application/manifest.json').read_text())['files']) if (ROOT / 'application/manifest.json').exists() else 0
+            self.assertEqual(len(a['files']), 50 + helper_count + development_count + application_count)
             self.assertEqual(sum(r['origin'] == 'new-helper' for r in a['files']), helper_count)
             self.assertEqual(sum(r['origin'] == 'maintained' for r in a['files']),
                              len(patch_manifest['modules']))
@@ -115,7 +162,7 @@ class AssemblyIntegrationTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(raw).hexdigest(), record['sha256'])
                 self.assertEqual(raw, (ROOT / record['source']).read_bytes())
             with zipfile.ZipFile(first / 'app-source.zip') as archive:
-                self.assertEqual(len(archive.namelist()), 51 + helper_count + development_count)
+                self.assertEqual(len(archive.namelist()), 51 + helper_count + development_count + application_count)
                 self.assertEqual(archive.namelist(), sorted(archive.namelist()))
                 self.assertFalse(any('cachecad/' in name for name in archive.namelist()))
                 self.assertEqual(json.loads(archive.read('assembly-manifest.json')), a)

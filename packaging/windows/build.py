@@ -1,4 +1,4 @@
-"""Build the unsigned Windows x64 offline-development installer; never download tools."""
+"""Build the unsigned Windows x64 installer for the real maintained application."""
 import argparse
 from datetime import datetime, timezone
 import importlib.metadata
@@ -10,7 +10,8 @@ import shutil
 import subprocess
 import sys
 
-from support import (EXE_NAME, INSTALLER_NAME, inno_version, pe_file_version,
+from support import (API_DISTRIBUTIONS, API_IMPORTS, EXE_NAME, INSTALLER_NAME,
+                     add_owner_client_config, inno_version, pe_file_version,
                      sha256, verified_payload)
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -56,6 +57,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--iscc', type=Path)
+    parser.add_argument('--client-config', type=Path,
+                        help='Explicit owner-supplied Google Desktop client metadata to bundle; never tokens')
     args = parser.parse_args()
     if sys.platform != 'win32' or platform.machine().lower() not in ('amd64', 'x86_64') or sys.maxsize <= 2**32:
         parser.error('Build on native x64 Windows with 64-bit CPython 3.12')
@@ -89,7 +92,10 @@ def main():
         print_log_tail(probe_log)
         raise
     source = output / 'app-source'
-    run_logged([sys.executable, '-B', ROOT / 'tooling/assemble_app.py', source], logs / 'assemble.log')
+    run_logged([sys.executable, '-B', ROOT / 'tooling/assemble_app.py', source, '--production'], logs / 'assemble.log')
+    owner_client_sha256 = None
+    if args.client_config is not None:
+        owner_client_sha256 = add_owner_client_config(source, args.client_config)
     verified_payload(source)
     environment = dict(os.environ, CACHECAD_APP_SOURCE=str(source), PYTHONDONTWRITEBYTECODE='1')
     environment.pop('PYTHONPATH', None)
@@ -97,13 +103,15 @@ def main():
     run_logged([sys.executable, '-m', 'PyInstaller', '--clean', '--noconfirm',
                 '--distpath', output / 'bundle', '--workpath', output / 'pyinstaller-work',
                 ROOT / 'packaging/windows/cachecad.spec'], logs / 'pyinstaller.log', env=environment)
-    bundle = output / 'bundle/CacheCAD-Offline'
+    bundle = output / 'bundle/CacheCAD'
     if not (bundle / EXE_NAME).is_file():
         raise RuntimeError('Frozen executable is missing')
     original = verified_payload(source)
     bundled = verified_payload(bundle / '_internal/app-source')
     if {key: sha256(value) for key, value in original.items()} != {key: sha256(value) for key, value in bundled.items()}:
         raise RuntimeError('Bundled source differs from reviewed assembly')
+    if not list(bundle.rglob('drive.v3.json')):
+        raise RuntimeError('Official Drive v3 discovery document is missing')
     # These DLLs prove both test platforms can be attempted; runtime tests establish loading.
     for plugin in ('qwindows.dll', 'qoffscreen.dll'):
         if not list(bundle.rglob(plugin)):
@@ -118,12 +126,22 @@ def main():
     git = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True, capture_output=True, check=True)
     status = subprocess.run(['git', 'status', '--porcelain'], cwd=ROOT, text=True, capture_output=True, check=True)
     inputs = ['requirements/runtime-windows.lock', 'requirements/windows-build.lock',
-              'development/manifest.json', 'packaging/windows/cachecad.spec',
+              'application/manifest.json', 'application/launch.py',
+              'application/resources_rc.py', 'packaging/windows/cachecad.spec',
               'packaging/windows/cachecad.iss', 'packaging/windows/build.py',
               'packaging/windows/support.py', 'packaging/windows/test_installer.py',
-              'packaging/windows/OFFLINE-README.txt', 'packaging/windows/version-probe.iss']
+              'packaging/windows/APPLICATION-README.txt', 'packaging/windows/version-probe.iss']
     provenance = {
-        'schema_version': 1, 'kind': 'unsigned offline development installer; personal/noncommercial tryout',
+        'schema_version': 3,
+        'kind': 'unsigned maintained application installer; real Google auth and Drive SDK',
+        'launch_modes': {'default': 'application', 'startup_check_argument': '--startup-check',
+                         'authentication': 'real OAuth credentials, Windows DPAPI persistence',
+                         'oauth_configuration': 'owner-supplied Desktop client; optional build input or local configuration'},
+        'owner_client_configuration': {'included': owner_client_sha256 is not None,
+                                       'sanitized_sha256': owner_client_sha256},
+        'google_sdk': {'hidden_imports': list(API_IMPORTS),
+                       'distributions': {name: importlib.metadata.version(name)
+                                         for name in API_DISTRIBUTIONS}},
         'created_utc': datetime.now(timezone.utc).isoformat(), 'platform': platform.platform(),
         'python': sys.version, 'git_commit': git.stdout.strip(), 'git_worktree_status': status.stdout.splitlines(),
         'runner_image': os.environ.get('ImageVersion'), 'runner_image_os': os.environ.get('ImageOS'),
@@ -137,6 +155,9 @@ def main():
         'bundle_files': [{'path': path.relative_to(bundle).as_posix(), 'sha256': sha256(path), 'bytes': path.stat().st_size}
                          for path in sorted(bundle.rglob('*')) if path.is_file()],
         'verification': {'bundled_source_hashes_match': True, 'installed_runtime_test': 'pending',
+                         'required_installed_smokes': {'signed_out_application': 2},
+                         'development_payload_absent': True,
+                         'live_authentication_verified': False,
                          'binary_reproducibility': 'not established', 'code_signed': False},
     }
     (output / 'build-provenance.json').write_text(json.dumps(provenance, indent=2, sort_keys=True) + '\n', encoding='utf-8')

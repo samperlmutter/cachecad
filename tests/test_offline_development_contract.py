@@ -164,7 +164,7 @@ class OfflineDevelopmentContractTests(unittest.TestCase):
                                    deleteLater=Mock())
         method(executor)
         identity.assert_not_called()
-        self.assertEqual(imports, ['utils.development_mode'])
+        self.assertEqual(imports, [])
         signal.emit.assert_called_once_with()
         executor.deleteLater.assert_called_once_with()
 

@@ -10,10 +10,12 @@
       "baseline": "recovered/app/app_controller.py",
       "maintained": "maintained/app/app_controller.py",
       "baseline_sha256": "d0d2a638b189933a9c294b903c12aa3e84143eb96edba3893c66087f750f2f11",
-      "maintained_sha256": "4397447d825fd330a6bfad666f9503453fc5769dff40aa3f44084b5f3f107b83",
+      "maintained_sha256": "f5c8dac3d13a9a5436e40d7625bed568a1e4f552561dcfce3f38848c48e5cbd8",
       "changed_functions": [
         "AppController.__init__",
         "AppController.create_project_from_link",
+        "AppController.on_auth_failed",
+        "AppController.on_auth_started",
         "AppController.on_auth_success",
         "AppController.on_back_button_clicked",
         "AppController.on_bug_clicked",
@@ -22,6 +24,7 @@
         "AppController.on_download_app_update",
         "AppController.on_download_card_clicked",
         "AppController.on_execute_sync",
+        "AppController.on_internet_check",
         "AppController.on_new_installation",
         "AppController.on_refresh_clicked",
         "AppController.on_settings_clicked",
@@ -30,23 +33,31 @@
         "AppController.on_sync_execution_finished",
         "AppController.on_upload_card_clicked",
         "AppController.on_user_profile_loaded",
+        "AppController.on_user_validation_data_fetched",
         "AppController.project_selected",
         "AppController.prompt_for_usage_data",
         "AppController.set_main_window",
         "AppController.user_clicked_sign_in"
       ],
-      "regression_tests": "tests/test_recovered_scan_lifecycle.py",
+      "regression_tests": "tests/test_recovered_scan_lifecycle.py; tests/test_application_auth_runtime.py",
       "status": "intentional_behavior_change_not_original_bytecode_equivalent",
       "added_nodes": [
         "AppController._begin_sync_analysis",
         "AppController._clear_sync_plan",
         "AppController._configure_offline_drive",
+        "AppController._configure_owned_ui",
+        "AppController._retire_sync_clients",
         "AppController._scan_is_current",
         "AppController._settle_scan",
+        "AppController.on_account_status",
+        "AppController.on_disconnect_clicked",
+        "AppController.on_local_signout",
         "AppController.on_scan_cancelled",
         "AppController.on_scan_failed",
         "AppController.on_scan_started",
-        "AppController.on_scan_succeeded"
+        "AppController.on_scan_succeeded",
+        "AppController.on_session_signed_out",
+        "AppController.shutdown"
       ],
       "added_imports": [
         "from PySide6.QtWidgets import QMessageBox",
@@ -62,18 +73,79 @@
       ]
     },
     {
+      "module": "core.auth_manager",
+      "baseline": "recovered/core/auth_manager.py",
+      "maintained": "maintained/core/auth_manager.py",
+      "baseline_sha256": "d3e469cdbdc55cb69c11ac6df489861fd74d0e4efff6490f5110e7e4ae79522e",
+      "maintained_sha256": "25760714f58035383e223add9e13f57e481818123467598b10714c1792a06c11",
+      "changed_functions": [
+        "AuthManager.__init__",
+        "AuthManager._auth_worker",
+        "AuthManager.authorize",
+        "AuthManager.check_creds",
+        "AuthManager.has_internet",
+        "AuthManager.refresh_token",
+        "AuthManager.sign_out",
+        "_FunctionRunnable.run"
+      ],
+      "changed_signatures": [
+        "AuthManager.__init__",
+        "AuthManager._auth_worker",
+        "AuthManager.refresh_token"
+      ],
+      "added_nodes": [
+        "AuthManager._completed",
+        "AuthManager._invalidated",
+        "AuthManager._on_invalidated",
+        "AuthManager._receive",
+        "AuthManager._set_state",
+        "AuthManager._settle",
+        "AuthManager._start",
+        "AuthManager.cancel",
+        "AuthManager.disconnect",
+        "AuthManager.require_restart",
+        "AuthManager.restore",
+        "AuthManager.shutdown",
+        "AuthManager.status_changed",
+        "SAFE_MESSAGES"
+      ],
+      "added_imports": [
+        "from PySide6.QtCore import QObject, QRunnable, Signal, QTimer, Qt"
+      ],
+      "removed_imports": [
+        "import logging",
+        "import os",
+        "import socket",
+        "import sys",
+        "import traceback",
+        "import webbrowser",
+        "from PySide6.QtCore import QObject, QRunnable, QEventLoop",
+        "from core.oauth_server import OAuthServer",
+        "from core.thread_manager import thread_pool",
+        "from google.auth.exceptions import RefreshError",
+        "from google.auth.transport.requests import Request",
+        "from google.oauth2.credentials import Credentials",
+        "from google_auth_oauthlib.flow import InstalledAppFlow",
+        "from utils.oauth_credential_import import OauthCredentialImport",
+        "from utils.paths import APP_DATA_DIR"
+      ],
+      "regression_tests": "tests/test_application_auth_runtime.py; tests/test_google_session.py; tests/test_production_auth_review.py",
+      "status": "intentional_behavior_change_not_original_bytecode_equivalent"
+    },
+    {
       "module": "core.drive_client",
       "baseline": "recovered/core/drive_client.py",
       "maintained": "maintained/core/drive_client.py",
       "baseline_sha256": "2665419d983e07bc5c3b71a6c012ac863ebf23c03d98dd0a2efc79f23b8e5fb4",
-      "maintained_sha256": "53ff795cae99ca5314ab18f2fbcc07322116b894b325922ed4c29795725f06ec",
+      "maintained_sha256": "4eac766576fef39a4d9f570cb77d062c281a9a6f0fec49adfc9c6ebfd58b3bf3",
       "changed_functions": [
-        "DriveClient.get_drive_items_from_project_id",
+        "DriveClient.__init__",
         "DriveClient.build_drive_files",
-        "DriveClient.upload_file",
-        "DriveClient.download_file"
+        "DriveClient.download_file",
+        "DriveClient.get_drive_items_from_project_id",
+        "DriveClient.upload_file"
       ],
-      "regression_tests": "tests/test_recovered_scan.py; tests/test_recovered_scan_outcomes.py; tests/test_recovered_transfer_cleanup.py",
+      "regression_tests": "tests/test_recovered_scan.py; tests/test_recovered_scan_outcomes.py; tests/test_recovered_transfer_cleanup.py; tests/test_application_provider_lifecycle.py",
       "status": "intentional_behavior_change_not_original_bytecode_equivalent",
       "changed_signatures": [
         "DriveClient.get_drive_items_from_project_id",
@@ -160,14 +232,14 @@
       "baseline": "recovered/core/sync_executor.py",
       "maintained": "maintained/core/sync_executor.py",
       "baseline_sha256": "f56c886c5d950511163412d30c660efe17a2d0710b8fc7600bc942b5267f0d83",
-      "maintained_sha256": "ca51008e7763cec40f0657a8727469297582ac5ad9e83acc75d2dce4f4d171f8",
+      "maintained_sha256": "8a25610a84a7ba13b13ca15d36bebd1cf2ea514fbb9a4792326918a502e323f3",
       "changed_functions": [
         "SyncExecutor._delete_cloud",
         "SyncExecutor._download",
         "SyncExecutor._upload",
         "SyncExecutor.check_if_all_actions_finished"
       ],
-      "regression_tests": "tests/test_recovered_executor.py; tests/test_recovered_overwrite.py",
+      "regression_tests": "tests/test_recovered_executor.py; tests/test_recovered_overwrite.py; tests/test_application_provider_lifecycle.py",
       "status": "intentional_behavior_change_not_original_bytecode_equivalent",
       "removed_imports": [
         "from utils.cloud_logging import cloud_logging"
@@ -206,6 +278,54 @@
   ],
   "new_helpers": [
     {
+      "module": "core.desktop_signin",
+      "maintained": "maintained/core/desktop_signin.py",
+      "maintained_sha256": "913bf6601bca2b765ebece85a5c0db4bf9dc241593fdcb21bb8e3be567a31752",
+      "origin": "Identity-only Google Desktop OAuth with own client configuration, state/PKCE/nonce verification and no token persistence",
+      "regression_tests": "tests/test_desktop_signin.py",
+      "status": "new_reviewed_helper"
+    },
+    {
+      "module": "core.google_session",
+      "maintained": "maintained/core/google_session.py",
+      "maintained_sha256": "b8535b68a9a0fa5f135b4412878305f7fea0a3c34d0078ea11912c8025624ad6",
+      "origin": "Real Google SDK credentials, protected persistence and refresh/revocation lifecycle",
+      "regression_tests": "tests/test_google_session.py; tests/test_production_auth_review.py",
+      "status": "new_reviewed_helper"
+    },
+    {
+      "module": "gui.application_account",
+      "maintained": "maintained/gui/application_account.py",
+      "maintained_sha256": "5ad9d3991e9d0dc03a58653e34c8d47fbcda44b415a086463c5cdca7a4aec5bb",
+      "origin": "Real account status/sign-in/cancel/local-signout/disconnect widget",
+      "regression_tests": "tests/test_application_auth_runtime.py",
+      "status": "new_reviewed_helper"
+    },
+    {
+      "module": "gui.desktop_signin_dialog",
+      "maintained": "maintained/gui/desktop_signin_dialog.py",
+      "maintained_sha256": "18b124cba6a04832c3570727ec145e4bff4c6325b6852ef67ccd3aab38fa3279",
+      "origin": "Actual application identity-only Qt dialog; isolated worker lifecycle and no Drive/global authentication signals",
+      "regression_tests": "tests/test_signin_gui_runtime.py",
+      "status": "new_reviewed_helper"
+    },
+    {
+      "module": "utils.application_mode",
+      "maintained": "maintained/utils/application_mode.py",
+      "maintained_sha256": "e7e603a223df290a1d0ea940852123d9f03a92c95051033abb3b49fa0a6961d6",
+      "origin": "Explicit real application profile/client configuration; no synthetic backend",
+      "regression_tests": "tests/test_application_auth_runtime.py",
+      "status": "new_reviewed_helper"
+    },
+    {
+      "module": "utils.development_mode",
+      "maintained": "maintained/utils/development_mode.py",
+      "maintained_sha256": "322b32bfdf640c8f9e37e860a7e15efc90b0becd8ff8e8d6241a682bcac771f7",
+      "origin": "Explicit process-local offline development configuration, no environment toggle or credentials",
+      "regression_tests": "tests/test_offline_development_contract.py",
+      "status": "new_reviewed_helper"
+    },
+    {
       "module": "utils.onedrive_guard",
       "maintained": "maintained/utils/onedrive_guard.py",
       "maintained_sha256": "c196a35b9799ed5836228d882fc8d41cb41a67523cc9c450c855810916491ab3",
@@ -222,11 +342,19 @@
       "status": "new_reviewed_helper"
     },
     {
-      "module": "utils.development_mode",
-      "maintained": "maintained/utils/development_mode.py",
-      "maintained_sha256": "322b32bfdf640c8f9e37e860a7e15efc90b0becd8ff8e8d6241a682bcac771f7",
-      "origin": "Explicit process-local offline development configuration, no environment toggle or credentials",
-      "regression_tests": "tests/test_offline_development_contract.py",
+      "module": "utils.profile_lock",
+      "maintained": "maintained/utils/profile_lock.py",
+      "maintained_sha256": "6a93ad50f2490f2865f13bf9f3a3a496818ad51ed2a63774f2e9fd6bac5dcc90",
+      "origin": "Cross-process exclusive owned profile lifetime lock",
+      "regression_tests": "tests/test_profile_lock.py",
+      "status": "new_reviewed_helper"
+    },
+    {
+      "module": "utils.windows_token_store",
+      "maintained": "maintained/utils/windows_token_store.py",
+      "maintained_sha256": "cbe7d47026621486c5bebe271448fa27882900222a2ba1942d08b305583bec88",
+      "origin": "Windows CurrentUser DPAPI encrypted atomic session storage",
+      "regression_tests": "tests/test_windows_token_store.py; tests/test_production_auth_review.py",
       "status": "new_reviewed_helper"
     }
   ]

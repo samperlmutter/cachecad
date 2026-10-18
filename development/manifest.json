@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "kind": "offline-scanner-development; generated placeholder assets; no vendor assets",
+  "kind": "offline scanner and explicit identity-only sign-in development; placeholder assets; no vendor assets",
   "files": [
     {
       "source": "development/README.md",
@@ -31,6 +31,16 @@
       "source": "requirements/runtime-linux.lock",
       "destination": "development/runtime-linux.lock",
       "sha256": "45b7100d99141a8ab8e7debe31c600f26d48de4fea8086a25d72902493001208"
+    },
+    {
+      "source": "development/signin.py",
+      "destination": "development/signin.py",
+      "sha256": "ff5eb52e3b8ef6ac59d054f539eed9f9f4761925a93e1ed6361f857bea555c89"
+    },
+    {
+      "source": "development/entrypoint.py",
+      "destination": "development/entrypoint.py",
+      "sha256": "08872d72df1331ce585152daef5b5dfe81af0b93f92e88606608f64e24ed0584"
     }
   ]
 }

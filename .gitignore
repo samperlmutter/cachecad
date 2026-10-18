@@ -9,3 +9,9 @@ dist/
 wheelhouse/
 
 .venv-windows/
+
+# User-owned OAuth configuration and token caches must remain outside source.
+client_secret*.json
+credentials*.json
+token.json
+creds.json

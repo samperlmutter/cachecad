@@ -10,6 +10,12 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 STAMP = (2026, 1, 1, 0, 0, 0)
+# Reviewed retired entrypoints/vendor integrations have no place in a user payload.
+PRODUCTION_EXCLUDED_MODULES = frozenset({
+    'core.bug_report', 'core.service_credential_manager', 'core.user_validation',
+    'core.github_updater', 'core.oauth_server', 'utils.oauth_credential_import',
+    'utils.cloud_logging', 'utils.app_logger', 'gui.desktop_signin_dialog',
+})
 
 
 def sha(raw):
@@ -31,7 +37,7 @@ def safe_source(root, relative):
     return path
 
 
-def assemble(root, output):
+def assemble(root, output, *, production=False):
     root, output = Path(root).absolute(), Path(output).absolute()
     if output.exists() or output.is_symlink():
         raise ValueError('Output must be a new directory')
@@ -70,6 +76,8 @@ def assemble(root, output):
     records = []
     for entry in recovery['entries']:
         module = entry['module']
+        if production and module in PRODUCTION_EXCLUDED_MODULES:
+            continue
         original = entry['source']
         raw = safe_source(root, original).read_bytes()
         if sha(raw) != entry['source_sha256']:
@@ -98,6 +106,8 @@ def assemble(root, output):
     if set(overlay) - {entry['module'] for entry in recovery['entries']}:
         raise ValueError('Overlay module absent from recovery baseline')
     for entry in patches.get('new_helpers', []):
+        if production and entry['module'] in PRODUCTION_EXCLUDED_MODULES:
+            continue
         source = entry['maintained']
         raw = safe_source(root, source).read_bytes()
         if sha(raw) != entry['maintained_sha256']:
@@ -115,12 +125,13 @@ def assemble(root, output):
     entrypoint_report = json.loads(safe_source(root, 'recovered/entrypoint/comparison.json').read_text())
     if sha(raw) != entrypoint_report['source_sha256']:
         raise ValueError('Entrypoint payload hash differs')
-    files['main.py'] = raw
-    records.append(dict(path='main.py', sha256=sha(raw), origin='recovered-entrypoint',
-                        source='recovered/entrypoint/main.py', baseline_commit=baseline))
+    if not production:
+        files['main.py'] = raw
+        records.append(dict(path='main.py', sha256=sha(raw), origin='recovered-entrypoint',
+                            source='recovered/entrypoint/main.py', baseline_commit=baseline))
     development_manifest = root / 'development/manifest.json'
     development_files = []
-    if development_manifest.is_file():
+    if development_manifest.is_file() and not production:
         development_files = json.loads(safe_source(root, 'development/manifest.json').read_text())['files']
         for entry in development_files:
             source = entry['source']
@@ -136,10 +147,33 @@ def assemble(root, output):
             files[destination] = raw
             records.append(dict(path=destination, sha256=sha(raw), origin='offline-development',
                                 source=source, baseline_commit=baseline))
+    application_files = []
+    application_manifest = root / 'application/manifest.json'
+    if application_manifest.is_file():
+        application_files = json.loads(safe_source(root, 'application/manifest.json').read_text())['files']
+        for entry in application_files:
+            source, destination = entry['source'], entry['destination']
+            relative = PurePosixPath(destination)
+            if not source.startswith('application/'):
+                raise ValueError('Unapproved application bootstrap source')
+            if (relative.is_absolute() or '..' in relative.parts or '\\' in destination
+                    or not relative.parts or relative.parts[0] != 'application'):
+                raise ValueError('Unsafe application bootstrap destination')
+            raw = safe_source(root, source).read_bytes()
+            if sha(raw) != entry['sha256'] or destination in files:
+                raise ValueError('Application bootstrap hash/collision failure')
+            files[destination] = raw
+            records.append(dict(path=destination, sha256=sha(raw), origin='maintained-application-bootstrap',
+                                source=source, baseline_commit=baseline))
+    if production and not {'application/launch.py', 'application/resources_rc.py'}.issubset(files):
+        raise ValueError('Production assembly requires reviewed application launcher and resources')
     manifest = dict(schema_version=1, artifact_kind='application source with optional offline development launcher; not an installer',
                     runtime_verified=False, baseline_commit=baseline,
                     missing_runtime_inputs=['production resources and branding', 'authorized account configuration', 'installed target runtime'],
                     offline_development=bool(development_files),
+                    maintained_application=bool(application_files),
+                    production_payload=production,
+                    excluded_modules=sorted(PRODUCTION_EXCLUDED_MODULES) if production else [],
                     files=sorted(records, key=lambda record: record['path']))
     files['assembly-manifest.json'] = (json.dumps(manifest, indent=2, sort_keys=True) + '\n').encode()
     output.mkdir()  # Atomic refusal if another process created the target.
@@ -161,8 +195,9 @@ def assemble(root, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--production', action='store_true', help='Exclude development fixtures; require reviewed application bootstrap')
     args = parser.parse_args()
-    manifest = assemble(ROOT, args.output)
+    manifest = assemble(ROOT, args.output, production=args.production)
     print(f"Assembled {len(manifest['files'])} source files; runtime unverified: {args.output}")
 
 

@@ -82,11 +82,30 @@ class WindowsWorkflowTests(unittest.TestCase):
         self.assertLess(test, index)
         for step in (self.steps[build], self.steps[test], upload):
             self.assertIn(step.get('if', 'success()'), ('success()', '${{ success() }}'))
-        self.assertIn('--installer dist/windows/installer/CacheCAD-Offline-Development-Setup.exe',
+        self.assertIn('--installer dist/windows/installer/CacheCAD-Setup.exe',
                       self.steps[test]['run'])
         self.assertEqual(upload['with']['if-no-files-found'], 'error')
         self.assertLessEqual(upload['with']['retention-days'], 30)
         self.assertIn('${{ github.sha }}', upload['with']['name'])
+
+    def test_real_session_and_native_dpapi_tests_run_before_build_and_fail_closed(self):
+        index = next(index for index, step in enumerate(self.steps)
+                     if 'test_windows_token_store.py' in step.get('run', ''))
+        command = self.steps[index]['run']
+        for name in ('test_google_session.py', 'test_windows_token_store.py', 'test_profile_lock.py',
+                     'test_desktop_signin.py', 'test_signin_security_review.py',
+                     'test_production_auth_review.py', 'test_application_auth_runtime.py'):
+            self.assertIn(name, command)
+        self.assertIn('$env:CACHECAD_RUNTIME_PYTHON = (Get-Command python).Source', command)
+        self.assertEqual(command.count('python -m unittest'),
+                         command.count('if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'))
+        build = next(index for index, step in enumerate(self.steps)
+                     if 'python packaging/windows/build.py ' in step.get('run', ''))
+        self.assertLess(index, build)
+        linux = '\n'.join(step.get('run', '') for step in self.workflow['jobs']['offline-qt']['steps'])
+        for name in ('test_google_session.py', 'test_application_auth_runtime.py',
+                     'test_production_auth_review.py'):
+            self.assertIn(name, linux)
 
     def test_artifact_paths_cannot_sweep_up_sources_secrets_or_original_binaries(self):
         allowed = {'dist/windows/installer/*.exe', 'dist/windows/installer.sha256',
@@ -166,8 +185,7 @@ class WindowsPackagingSafetyTests(unittest.TestCase):
         root = self.temporary / 'application'
         root.mkdir()
         records = []
-        for name in ('development/launch.py', 'development/resources_rc.py',
-                     'development/build_resources.py', 'src/gui/main_window.py'):
+        for name in self.support.REQUIRED_SOURCE:
             path = root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(b"raise AssertionError('packaging must not execute this source')\n")
@@ -224,7 +242,7 @@ class WindowsPackagingSafetyTests(unittest.TestCase):
 
     def test_source_dependency_discovery_parses_without_importing_application(self):
         root, _ = self.fixture()
-        source = root / 'development/launch.py'
+        source = root / 'application/launch.py'
         source.write_text("import json, pathlib\nfrom email.message import Message\n"
                           "import google.auth\nfrom core import auth_manager\n"
                           "raise AssertionError('must not run')\n", encoding='utf-8')
@@ -243,7 +261,7 @@ class WindowsPackagingSafetyTests(unittest.TestCase):
         settings = dict(re.findall(r'(?m)^([A-Za-z]+)=(.*)$', active))
         self.assertEqual(settings['PrivilegesRequired'], 'lowest')
         self.assertNotIn('PrivilegesRequiredOverridesAllowed', settings)
-        self.assertEqual(settings['DefaultDirName'], r'{localappdata}\Programs\CacheCAD Offline Development')
+        self.assertEqual(settings['DefaultDirName'], r'{localappdata}\Programs\CacheCAD Reconstructed')
         self.assertEqual(settings['Uninstallable'], 'yes')
         self.assertEqual(settings['CloseApplications'], 'no')
         self.assertEqual(settings['RestartApplications'], 'no')
@@ -251,19 +269,19 @@ class WindowsPackagingSafetyTests(unittest.TestCase):
         self.assertEqual(sections, ['Setup', 'Files', 'Icons'])
         self.assertNotRegex(active.lower(), r'runonce|\\currentversion\\run|startup|download|hklm')
 
-    def test_frozen_recipe_excludes_first_party_and_live_account_modules_from_pyz(self):
+    def test_frozen_recipe_excludes_first_party_only_from_pyz(self):
         spec = (ROOT / 'packaging/windows/cachecad.spec').read_text(encoding='utf-8')
         self.assertIn('verified_payload(source)', spec)
-        self.assertIn('excludes=list(SOURCE_PACKAGES + LIVE_PACKAGES)', spec)
+        self.assertIn('excludes=list(SOURCE_PACKAGES)', spec)
         self.assertIn('for name, *_ in a.pure:', spec)
         self.assertIn('noarchive=False', spec)
         self.assertIn('console=True', spec)
         self.assertIn('upx=False', spec)
         self.assertEqual(set(self.support.SOURCE_PACKAGES),
-                         {'app', 'core', 'gui', 'utils', 'resources_rc', 'build_resources'})
-        self.assertTrue({'google.cloud', 'google.api_core', 'googleapiclient', 'google_auth_oauthlib', 'requests'}
-                        <= set(self.support.LIVE_PACKAGES))
-        self.assertNotIn('google', self.support.LIVE_PACKAGES)
+                         {'app', 'core', 'gui', 'utils', 'resources_rc', 'build_resources',
+                          'application', 'development', 'launch', 'signin'})
+        self.assertIn('googleapiclient.discovery', self.support.API_IMPORTS)
+        self.assertNotIn('googleapiclient', self.support.SOURCE_PACKAGES)
 
     def smoke_record(self, scenario='success', platform='windows'):
         outcomes = {'success': {'cancelled': [], 'failed': [], 'succeeded': [1]},

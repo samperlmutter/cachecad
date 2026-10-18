@@ -19,7 +19,7 @@ class CredentialHygieneTests(unittest.TestCase):
         if not (ROOT / 'recovered').is_dir():
             self.skipTest('Recovery source is not included in replacement wheel fixture')
         hits = []
-        paths = [path for directory in ('recovered', 'maintained', 'development')
+        paths = [path for directory in ('recovered', 'maintained', 'development', 'application')
                  for path in (ROOT / directory).rglob('*')]
         for path in paths:
             if path.is_file() and path.suffix in {'.py', '.json', '.md'}:

@@ -25,8 +25,7 @@ if (PACKAGING / 'support.py').is_file():
 class WindowsPackagingTests(unittest.TestCase):
     def payload(self, root):
         files = []
-        for name in ('development/launch.py', 'development/resources_rc.py',
-                     'development/build_resources.py', 'src/gui/main_window.py'):
+        for name in support.REQUIRED_SOURCE:
             path = root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('# Reviewed test source.\n', encoding='utf-8')
@@ -79,7 +78,7 @@ class WindowsPackagingTests(unittest.TestCase):
 
     def test_manifest_rejects_windows_and_posix_traversal_and_duplicates(self):
         for name in ('../outside.py', '/outside.py', r'..\outside.py', 'C:/outside.py',
-                     'development/launch.py'):
+                     'application/launch.py'):
             with self.subTest(name=name), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 files = self.payload(root)
@@ -96,21 +95,22 @@ class WindowsPackagingTests(unittest.TestCase):
                             'from . import relative\n')
             self.assertEqual(support.stdlib_hidden_imports([path]), ['csv', 'sqlite3', 'zoneinfo'])
 
-    def test_recovered_signal_type_is_bundled_without_google_cloud_or_account_apps(self):
+    def test_recovered_signal_type_and_real_sdk_are_bundled_with_source_only_app(self):
         source = ROOT / 'recovered/core/signal_manager.py'
         tree = ast.parse(source.read_text(encoding='utf-8'))
         self.assertTrue(any(isinstance(node, ast.ImportFrom) and node.module == 'google.oauth2.credentials'
                             and any(alias.name == 'Credentials' for alias in node.names) for node in ast.walk(tree)))
         self.assertIn('google.oauth2.credentials', support.TYPE_IMPORTS)
         recipe = (PACKAGING / 'cachecad.spec').read_text()
-        self.assertIn('hidden += list(TYPE_IMPORTS)', recipe)
-        self.assertIn("'google-auth'", recipe)
+        self.assertIn('hidden += list(TYPE_IMPORTS) + list(API_IMPORTS)', recipe)
+        self.assertIn('locked_distributions(runtime_lock)', recipe)
         for name in ('google', 'google.auth', 'google.oauth2.credentials', 'google.auth.crypt.rsa'):
             self.assertFalse(support.excluded_frozen_module(name), name)
-        for name in ('core.auth_manager', 'core.drive_client', 'google.cloud', 'google.cloud.logging',
-                     'google.api_core.client_options', 'googleapiclient.discovery', 'google_auth_oauthlib.flow'):
+        for name in ('core.auth_manager', 'core.drive_client', 'application', 'development.launch'):
             self.assertTrue(support.excluded_frozen_module(name), name)
-        self.assertFalse(support.excluded_frozen_module('google.cloudlike'))
+        for name in ('google.cloud', 'google.api_core.client_options', 'googleapiclient.discovery',
+                     'google_auth_httplib2', 'httplib2'):
+            self.assertFalse(support.excluded_frozen_module(name), name)
         self.assertIn('if excluded_frozen_module(name):', recipe)
 
     def test_inno_version_is_pinned_and_not_inferred_from_path(self):
@@ -245,7 +245,7 @@ class WindowsPackagingTests(unittest.TestCase):
         self.assertIn('DefaultDirName={localappdata}', active)
         self.assertIn('CloseApplications=no', active)
         self.assertIn('RestartApplications=no', active)
-        self.assertIn('InfoBeforeFile=OFFLINE-README.txt', active)
+        self.assertIn('InfoBeforeFile=APPLICATION-README.txt', active)
         self.assertNotIn('PrivilegesRequiredOverridesAllowed', active)
         for section in ('[Run]', '[UninstallRun]', '[Registry]', '[Code]'):
             self.assertNotIn(section, active)
@@ -254,7 +254,7 @@ class WindowsPackagingTests(unittest.TestCase):
     def test_spec_keeps_qt_libraries_and_source_separate(self):
         text = (PACKAGING / 'cachecad.spec').read_text()
         ast.parse(text)
-        for required in ('SOURCE_PACKAGES + LIVE_PACKAGES', 'verified_payload(source)',
+        for required in ('SOURCE_PACKAGES', 'verified_payload(source)',
                          'console=True', 'upx=False', "'PySide6.QtNetwork'", 'copy_metadata(package)',
                          "'third-party-notices/Python'", 'COLLECT('):
             self.assertIn(required, text)

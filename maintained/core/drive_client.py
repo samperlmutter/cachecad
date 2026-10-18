@@ -43,8 +43,9 @@ class DriveClient(QObject):
         self.cancelled = False
         self.user_info = None
         self.loop = QEventLoop()
+        # Connect before scheduling; queue completion onto this QObject thread.
+        self.service_built.connect(self._finish, Qt.QueuedConnection)
         thread_pool.start(_FunctionRunnable(self.build_service))
-        self.service_built.connect(self._finish)
         self.loop.exec()
         signal_manager.token_refreshed.connect(self.on_token_refresh)
         signal_manager.sync_execution_finished.connect(self.on_sync_finished)
