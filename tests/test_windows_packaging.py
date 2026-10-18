@@ -111,13 +111,25 @@ class WindowsPackagingTests(unittest.TestCase):
                 with self.subTest(pair=pair), self.assertRaises(ValueError):
                     support.decode_file_version(*pair)
 
-    def test_numeric_inno_pin_requires_exact_release_and_retains_revision(self):
-        self.assertEqual(support.require_inno_file_version((6, 7, 1, 0)), '6.7.1')
-        self.assertEqual(support.require_inno_file_version((6, 7, 1, 12)), '6.7.1')
-        for version in ((6, 7, 0, 0), (6, 7, 2, 0), (6, 8, 1, 0),
-                        (6, 7, 1), (6, 7, 1, -1), (6, 7, 1, True)):
-            with self.subTest(version=version), self.assertRaises(ValueError):
-                support.require_inno_file_version(version)
+    def test_engine_banner_pin_is_exact_and_does_not_use_wrapper_metadata(self):
+        banner = 'Compiler engine version: Inno Setup 6.7.1\r\n'
+        self.assertEqual(support.inno_version(banner), '6.7.1')
+        self.assertEqual(support.decode_file_version(0, 0), (0, 0, 0, 0))
+        for text in (banner * 2, 'Inno Setup 6.7.1', 'FileVersion=6.7.1',
+                     banner.replace('6.7.1', '6.7.0'), banner.replace('6.7.1', '6.7.2'),
+                     banner.replace('6.7.1', '6.7.1.1'), banner.replace('6.7.1', '6.7.1-beta')):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                support.inno_version(text)
+
+    def test_engine_version_probe_has_no_output_or_executable_sections(self):
+        text = (PACKAGING / 'version-probe.iss').read_text()
+        active = '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith(';'))
+        for directive in ('AppName=', 'AppVersion=', 'Output=no', 'CreateAppDir=no', 'Uninstallable=no'):
+            self.assertIn(directive, active)
+        self.assertEqual([line for line in active.splitlines() if line.startswith('[')], ['[Setup]'])
+        build = (PACKAGING / 'build.py').read_text()
+        self.assertIn("run_logged([iscc, ROOT / 'packaging/windows/version-probe.iss']", build)
+        self.assertIn("'iscmplr_sha256': sha256(engine)", build)
 
     def test_pe_reader_uses_static_resource_table_and_closes_file(self):
         executable = MagicMock()

@@ -10,17 +10,17 @@ import shutil
 import subprocess
 import sys
 
-from support import (EXE_NAME, INSTALLER_NAME, pe_file_version, require_inno_file_version,
+from support import (EXE_NAME, INSTALLER_NAME, inno_version, pe_file_version,
                      sha256, verified_payload)
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def run_logged(command, log, *, env=None):
+def run_logged(command, log, *, env=None, timeout=900):
     try:
         with Path(log).open('w', encoding='utf-8') as stream:
             process = subprocess.run([str(arg) for arg in command], cwd=ROOT, env=env,
-                                     stdout=stream, stderr=subprocess.STDOUT, timeout=900)
+                                     stdout=stream, stderr=subprocess.STDOUT, timeout=timeout)
     except subprocess.TimeoutExpired as error:
         print_log_tail(log)
         raise RuntimeError(f'Build step timed out; see {log}') from error
@@ -63,10 +63,24 @@ def main():
                                    encoding='utf-8', errors='replace', timeout=30)
     compiler_output = version_probe.stdout + version_probe.stderr
     (logs / 'inno-version.log').write_text(compiler_output, encoding='utf-8')
-    file_version = pe_file_version(iscc)
-    compiler_output += '\nPE VS_FIXEDFILEINFO.FileVersion=' + '.'.join(map(str, file_version)) + '\n'
+    try:
+        file_version = '.'.join(map(str, pe_file_version(iscc)))
+    except Exception as error:
+        file_version = 'unavailable: ' + str(error)
+    compiler_output += '\nDiagnostic PE VS_FIXEDFILEINFO.FileVersion=' + file_version + '\n'
     (logs / 'inno-version.log').write_text(compiler_output, encoding='utf-8')
-    version = require_inno_file_version(file_version)
+    engine = iscc.with_name('ISCmplr.dll')
+    if not engine.is_file():
+        raise FileNotFoundError('Preinstalled Inno Setup compiler engine ISCmplr.dll is missing')
+    probe_log = logs / 'inno-engine-probe.log'
+    # ISCC's help banner omits the release and its wrapper PE version can be 0.0.0.0.
+    # Normal compilation reports ISDllGetVersion from the actual compiler engine.
+    run_logged([iscc, ROOT / 'packaging/windows/version-probe.iss'], probe_log, timeout=60)
+    try:
+        version = inno_version(probe_log.read_text(encoding='utf-8', errors='replace'))
+    except ValueError:
+        print_log_tail(probe_log)
+        raise
     source = output / 'app-source'
     run_logged([sys.executable, '-B', ROOT / 'tooling/assemble_app.py', source], logs / 'assemble.log')
     verified_payload(source)
@@ -100,15 +114,15 @@ def main():
               'development/manifest.json', 'packaging/windows/cachecad.spec',
               'packaging/windows/cachecad.iss', 'packaging/windows/build.py',
               'packaging/windows/support.py', 'packaging/windows/test_installer.py',
-              'packaging/windows/OFFLINE-README.txt']
+              'packaging/windows/OFFLINE-README.txt', 'packaging/windows/version-probe.iss']
     provenance = {
         'schema_version': 1, 'kind': 'unsigned offline development installer; personal/noncommercial tryout',
         'created_utc': datetime.now(timezone.utc).isoformat(), 'platform': platform.platform(),
         'python': sys.version, 'git_commit': git.stdout.strip(), 'git_worktree_status': status.stdout.splitlines(),
         'runner_image': os.environ.get('ImageVersion'), 'runner_image_os': os.environ.get('ImageOS'),
         'tools': {'inno_setup': version, 'iscc_sha256': sha256(iscc),
-                  'iscc_file_version': '.'.join(map(str, file_version)),
-                  'iscc_version_source': 'PE VS_FIXEDFILEINFO.FileVersionMS/FileVersionLS',
+                  'iscmplr_sha256': sha256(engine), 'iscc_file_version_diagnostic': file_version,
+                  'iscc_version_source': 'ISDllGetVersion compiler engine banner from Output=no compile probe',
                   'pyinstaller': importlib.metadata.version('pyinstaller')},
         'input_sha256': {name: sha256(ROOT / name) for name in inputs},
         'assembly_manifest_sha256': sha256(source / 'assembly-manifest.json'),

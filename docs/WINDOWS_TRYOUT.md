@@ -53,9 +53,12 @@ Use Windows x64, 64-bit CPython 3.12.10, and a clean virtual environment. The pi
 Inno Setup 6.7.1 compiler must already be installed from its official source.
 The build script does not install/download tools or accept a replacement compiler
 silently. In CI the expected compiler is provided by the Windows runner image;
-its numeric PE VERSIONINFO file version and executable SHA-256 are recorded and
-checked. The compiler's `/?` output is retained only as a diagnostic because its
-help banner omits the patch version.
+the actual compiler-engine release is checked by compiling the authored
+`version-probe.iss` with `Output=no`. This produces no installer and executes no
+installer code. The normal compiler banner reports the version returned by
+`ISCmplr.dll`; both that DLL and `ISCC.exe` are hashed. The `/?` output and wrapper
+PE file version are diagnostic only: the help banner omits the patch version and
+the wrapper's numeric version may be `0.0.0.0`.
 
 From the repository root, in PowerShell:
 
