@@ -44,7 +44,9 @@ class Signal:
 class ConsentTests(unittest.TestCase):
     def setUp(self):
         self.enterContext(deny_external_effects())
-        self.folder = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        # Fault hooks compare exact destination paths; use the same canonical
+        # spelling as the journal, including Windows 8.3 temporary roots.
+        self.folder = Path(self.enterContext(tempfile.TemporaryDirectory())).resolve(strict=True)
         self.root = self.folder / 'project'
         self.root.mkdir()
         self.path = self.root / 'part.sldprt'
