@@ -18,8 +18,10 @@ The program installs for the current user and supplies Start Menu shortcuts plus
 an uninstaller. It adds no service, startup task, file association or network rule.
 
 CPython's license notice is under _internal/third-party-notices/Python. Original
-PySide6, Qt, shiboken6, Send2Trash, tzlocal, tzdata and PyInstaller notices are
+PySide6, Qt, shiboken6, Send2Trash, tzlocal, tzdata, google-auth and PyInstaller notices are
 preserved in _internal distribution metadata/license directories. Qt DLLs remain
 separate in the onedir bundle. The app source is under _internal/app-source.
+The real Google Credentials class is included only because Qt signals use its
+type. The launcher creates no credentials and permits no live account operations.
 This notice does not grant rights to upstream recovered code or vendor branding;
 check relevant rights and third-party license obligations before redistribution.

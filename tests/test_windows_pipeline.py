@@ -261,8 +261,9 @@ class WindowsPackagingSafetyTests(unittest.TestCase):
         self.assertIn('upx=False', spec)
         self.assertEqual(set(self.support.SOURCE_PACKAGES),
                          {'app', 'core', 'gui', 'utils', 'resources_rc', 'build_resources'})
-        self.assertTrue({'google', 'googleapiclient', 'google_auth_oauthlib', 'requests'}
+        self.assertTrue({'google.cloud', 'google.api_core', 'googleapiclient', 'google_auth_oauthlib', 'requests'}
                         <= set(self.support.LIVE_PACKAGES))
+        self.assertNotIn('google', self.support.LIVE_PACKAGES)
 
     def smoke_record(self, scenario='success', platform='windows'):
         outcomes = {'success': {'cancelled': [], 'failed': [], 'succeeded': [1]},

@@ -96,6 +96,23 @@ class WindowsPackagingTests(unittest.TestCase):
                             'from . import relative\n')
             self.assertEqual(support.stdlib_hidden_imports([path]), ['csv', 'sqlite3', 'zoneinfo'])
 
+    def test_recovered_signal_type_is_bundled_without_google_cloud_or_account_apps(self):
+        source = ROOT / 'recovered/core/signal_manager.py'
+        tree = ast.parse(source.read_text(encoding='utf-8'))
+        self.assertTrue(any(isinstance(node, ast.ImportFrom) and node.module == 'google.oauth2.credentials'
+                            and any(alias.name == 'Credentials' for alias in node.names) for node in ast.walk(tree)))
+        self.assertIn('google.oauth2.credentials', support.TYPE_IMPORTS)
+        recipe = (PACKAGING / 'cachecad.spec').read_text()
+        self.assertIn('hidden += list(TYPE_IMPORTS)', recipe)
+        self.assertIn("'google-auth'", recipe)
+        for name in ('google', 'google.auth', 'google.oauth2.credentials', 'google.auth.crypt.rsa'):
+            self.assertFalse(support.excluded_frozen_module(name), name)
+        for name in ('core.auth_manager', 'core.drive_client', 'google.cloud', 'google.cloud.logging',
+                     'google.api_core.client_options', 'googleapiclient.discovery', 'google_auth_oauthlib.flow'):
+            self.assertTrue(support.excluded_frozen_module(name), name)
+        self.assertFalse(support.excluded_frozen_module('google.cloudlike'))
+        self.assertIn('if excluded_frozen_module(name):', recipe)
+
     def test_inno_version_is_pinned_and_not_inferred_from_path(self):
         self.assertEqual(support.inno_version('Inno Setup 6 Command-Line Compiler\nCompiler engine version: Inno Setup 6.7.1\n'), '6.7.1')
         for text in ('Inno Setup 6.6.1', 'Inno Setup 6.7.2', 'C:/Inno Setup 6/ISCC.exe'):

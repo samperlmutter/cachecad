@@ -12,8 +12,17 @@ EXE_NAME = 'CacheCAD-Offline.exe'
 INSTALLER_NAME = 'CacheCAD-Offline-Development-Setup.exe'
 INNO_VERSION = '6.7.1'
 SOURCE_PACKAGES = ('app', 'core', 'gui', 'utils', 'resources_rc', 'build_resources')
-LIVE_PACKAGES = ('google', 'googleapiclient', 'google_auth_oauthlib', 'requests',
+# The recovered SignalManager uses the real Credentials class as a Qt signal type.
+# Its class import and normal dependency closure are required even when offline.
+TYPE_IMPORTS = ('google.oauth2.credentials',)
+LIVE_PACKAGES = ('google.cloud', 'google.api_core', 'googleapiclient', 'google_auth_oauthlib', 'requests',
                  'httplib2', 'oauthlib', 'requests_oauthlib')
+
+
+def excluded_frozen_module(name):
+    """Match complete module/package prefixes, including dotted SDK exclusions."""
+    return any(name == prefix or name.startswith(prefix + '.')
+               for prefix in SOURCE_PACKAGES + LIVE_PACKAGES)
 
 
 def sha256(path):

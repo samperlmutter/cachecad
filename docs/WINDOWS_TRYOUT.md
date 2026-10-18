@@ -20,7 +20,12 @@ license are retained in `_internal`. No vendor artwork or credentials are used.
 The source is `_internal/app-source`; an early source-only import mechanism reads
 reviewed source bytes after hash verification. Application packages are excluded
 from PyInstaller's frozen module archive, so archived bytecode cannot substitute
-for the source that was checked. Google/account libraries are excluded as well.
+for the source that was checked. The real `google.oauth2.credentials.Credentials`
+class and its import dependencies are included because the recovered Qt signal
+declarations use that class as a type. Importing the class does not create/load
+credentials or log in. Live application account modules remain blocked by the
+launcher; the Google Cloud and Drive API SDKs and browser OAuth flow package are
+excluded. Network/process tripwires remain active before application imports.
 
 The offline checks are tripwires for audited code, **not an OS security sandbox**.
 Hash validation is not code signing and does not authenticate a maliciously
