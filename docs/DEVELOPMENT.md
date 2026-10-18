@@ -71,18 +71,19 @@ Do not claim offline rebuilds or byte-for-byte reproducibility until independent
 repeated and compared. Add optional UI/cloud dependencies only when implemented
 and tested; do not install the binary's entire import inventory speculatively.
 
-## Deferred packaging and release gates
+## Windows development packaging and production gates
 
-`templates/windows-build.yml` is an inert draft, outside `.github/workflows`.
-It has not run. It packages only the replacement entrypoint; it neither makes an
-installer nor proves Windows or SolidWorks behavior. Action references must be
-reviewed and SHA-pinned and dependencies fully locked before activation.
+The active `windows-installer` job in `.github/workflows/linux-ci.yml` builds the
+actual recovered-plus-maintained app using the Windows runtime/build hash locks.
+It installs the per-user offline-development installer, runs installed-executable
+smoke scenarios, and uninstalls before publishing a private CI artifact. The old
+prototype-only template is superseded. See [Windows tryout](WINDOWS_TRYOUT.md).
 
-Before any release: run the full offline gate, resolve known reconstruction gaps,
-perform isolated Windows smoke tests, test file-operation rollback/conflicts and
-SolidWorks integration with disposable data, review authentication/cloud adapters,
-and obtain authorization for publication/signing/real accounts. No automated
-release, upload, telemetry, or live-account job is configured here.
+This does not certify production sync or SolidWorks behavior. Before production
+use: test rollback/conflicts and CAD integration with disposable data, review
+live authentication/cloud adapters, and obtain authorization for signing or real
+accounts. No telemetry, live credentials or production deployment is configured.
+The installer is unsigned; OS/runner dependencies are not a fully frozen image.
 
 ## Linux package build and clean-install verification
 

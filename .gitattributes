@@ -1,0 +1,6 @@
+# Provenance hashes cover exact UTF-8/LF source bytes on every runner.
+* text=auto eol=lf
+*.png binary
+*.gif binary
+*.zip binary
+*.exe binary

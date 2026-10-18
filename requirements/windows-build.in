@@ -1,0 +1,9 @@
+# Windows x86_64 / CPython 3.12 packaging and maintenance toolchain.
+# Selected maintenance versions, not original-bundle evidence.
+-r dev-pins.txt
+pyinstaller==6.22.3
+# Preserve the already selected shared toolchain transitive versions.
+packaging==26.3
+pyproject_hooks==1.3.3
+# Current stable PyInstaller and matching current hooks, verified 2026-10-18.
+pyinstaller-hooks-contrib==2026.8

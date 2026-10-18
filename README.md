@@ -45,6 +45,15 @@ Linux runtime and generated neutral placeholder assets are included. Authenticat
 live services and transfers are disabled in this development mode. Hosted CI tests
 startup, failure/retry/stale-result isolation and closing a pending scan.
 
+## Windows offline-development installer
+
+The Windows pipeline builds a self-contained per-user installer from the same
+verified application source. It installs and exercises the installed executable
+on a standard Windows 2022 runner before publishing a private CI artifact.
+See [Windows tryout instructions](docs/WINDOWS_TRYOUT.md) for the exact artifact,
+unsigned-installer warning, test scope and build prerequisites. This development
+installer uses placeholder artwork and disables login and real transfers.
+
 ## Maintenance checks
 
 Use Python 3.12 and the hash-locked Linux tools:

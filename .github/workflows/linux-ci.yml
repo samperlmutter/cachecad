@@ -1,4 +1,4 @@
-name: Linux offline reconstruction checks
+name: CacheCAD application pipeline
 "on":
   push:
   pull_request:
@@ -62,3 +62,55 @@ jobs:
         run: |
           export CACHECAD_RUNTIME_PYTHON="$(command -v python)"
           python -m unittest discover -s tests -p test_offline_runtime.py -v
+
+  windows-installer:
+    needs: [offline, offline-qt]
+    runs-on: windows-2022
+    timeout-minutes: 30
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      SOURCE_DATE_EPOCH: '1792324800'
+      PYTHONHASHSEED: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.14'
+          architecture: x64
+      - name: Install hash-locked Windows application and packaging tools
+        run: |
+          python -m pip install --index-url https://pypi.org/simple --only-binary=:all: --require-hashes -r requirements/runtime-windows.lock -r requirements/windows-build.lock
+      - name: Build actual maintained application and per-user installer
+        run: |
+          python packaging/windows/build.py --output dist/windows
+      - name: Install and exercise installed application on Windows
+        run: |
+          python packaging/windows/test_installer.py --installer dist/windows/installer/CacheCAD-Offline-Development-Setup.exe --report-dir dist/windows/test-results
+      - name: Upload tested Windows offline development installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: CacheCAD-Windows-Offline-Development-${{ github.sha }}
+          path: |
+            dist/windows/installer/*.exe
+            dist/windows/installer.sha256
+            dist/windows/build-provenance.json
+            dist/windows/test-results/*.json
+            docs/WINDOWS_TRYOUT.md
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Upload diagnostic logs when Windows validation fails
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: CacheCAD-Windows-Diagnostics-${{ github.sha }}
+          path: |
+            dist/windows/test-results/*.json
+            dist/windows/test-results/*.log
+            dist/windows/build-logs/*.log
+            dist/windows/build-provenance.json
+          if-no-files-found: ignore
+          retention-days: 7

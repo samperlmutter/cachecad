@@ -4,11 +4,15 @@ Audited-code tripwires, not an OS sandbox for hostile native code. No real proje
 path, credential option, or account login is accepted by this launcher.
 """
 import argparse
+from contextlib import contextmanager
 import hashlib
 import importlib.abc
+import importlib.machinery
+import importlib.util
 import json
+import logging
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import socket
 import subprocess
 import sys
@@ -23,21 +27,147 @@ FORBIDDEN_MODULES = ('core.auth_manager', 'core.bug_report', 'core.service_crede
 
 
 def verify_source(root):
-    manifest = json.loads((root / 'assembly-manifest.json').read_text())
-    listed = set()
+    """Return verified Python bytes; never execute or trust adjacent bytecode."""
+    root = root.resolve(strict=True)
+    manifest = json.loads((root / 'assembly-manifest.json').read_text(encoding='utf-8'))
+    listed, seen, sources = set(), set(), {}
     for entry in manifest['files']:
-        relative = Path(entry['path'])
-        if relative.is_absolute() or '..' in relative.parts:
+        name = entry['path']
+        relative = PurePosixPath(name)
+        if (not relative.parts or relative.is_absolute() or '..' in relative.parts
+                or '\\' in name or ':' in name):
             raise ValueError('Unsafe application manifest path')
         path = root / relative
-        if path.is_symlink() or not path.resolve().is_relative_to(root):
+        if path in seen:
+            raise ValueError('Duplicate application manifest path')
+        seen.add(path)
+        for parent in (path, *path.parents):
+            if parent == root:
+                break
+            if parent.is_symlink() or (hasattr(parent, 'is_junction') and parent.is_junction()):
+                raise ValueError('Unsafe application source path')
+        if not path.resolve().is_relative_to(root):
             raise ValueError('Unsafe application source path')
-        if hashlib.sha256(path.read_bytes()).hexdigest() != entry['sha256']:
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != entry['sha256']:
             raise ValueError('Application source differs from reviewed assembly')
         if relative.parts[0] == 'src' and path.suffix == '.py':
             listed.add(path.resolve())
+            sources[relative.as_posix()] = raw
+        elif relative.as_posix() in ('development/resources_rc.py', 'development/build_resources.py'):
+            sources[relative.as_posix()] = raw
     if listed != {p.resolve() for p in (root / 'src').rglob('*.py')}:
         raise ValueError('Unmanifested application module')
+    return sources
+
+
+class VerifiedSourceLoader(importlib.abc.Loader):
+    """Compile only manifest-verified bytes, including in a frozen distribution."""
+
+    def __init__(self, path, source):
+        self.path, self.source = path, source
+
+    def create_module(self, spec):
+        return None
+
+    def exec_module(self, module):
+        exec(compile(self.source, str(self.path), 'exec'), module.__dict__)
+
+
+class VerifiedSourceFinder(importlib.abc.MetaPathFinder):
+    def __init__(self, root, sources):
+        self.modules, self.packages = {}, {}
+        for relative, raw in sources.items():
+            path = PurePosixPath(relative)
+            parts = list(path.with_suffix('').parts[1:])
+            is_package = parts[-1] == '__init__'
+            if is_package:
+                parts.pop()
+            if not parts or not all(part.isidentifier() for part in parts):
+                raise ValueError('Unsafe application module name')
+            name = '.'.join(parts)
+            self.modules[name] = (root / relative, raw, is_package)
+            for index in range(1, len(parts)):
+                self.packages['.'.join(parts[:index])] = root / path.parts[0] / Path(*parts[:index])
+        self.roots = {name.split('.')[0] for name in self.modules} | {'resources_rc', 'build_resources'}
+
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname in self.modules:
+            location, raw, is_package = self.modules[fullname]
+            return importlib.util.spec_from_file_location(
+                fullname, location, loader=VerifiedSourceLoader(location, raw),
+                submodule_search_locations=[str(location.parent)] if is_package else None)
+        if fullname in self.packages:
+            spec = importlib.machinery.ModuleSpec(fullname, loader=None, is_package=True)
+            spec.submodule_search_locations = [str(self.packages[fullname])]
+            return spec
+        if fullname.split('.')[0] in self.roots:
+            raise ModuleNotFoundError('Unmanifested application import: ' + fullname)
+        return None
+
+
+def install_source_importer(root, sources):
+    finder = VerifiedSourceFinder(root, sources)
+    if any(name.split('.')[0] in finder.roots for name in sys.modules):
+        raise RuntimeError('Application modules loaded before source verification')
+    # Precede PyInstaller's archive finder: bundled hidden imports are dependency
+    # discovery inputs, never an alternate authority for first-party code.
+    sys.meta_path.insert(0, finder)
+    return finder
+
+
+def parse_arguments(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--app-source', type=Path,
+                        help='Reviewed assembly; defaults to the bundled source in a frozen build')
+    parser.add_argument('--smoke', action='store_true', help='Exercise startup and a synthetic scan, then exit')
+    parser.add_argument('--scenario', choices=('success', 'lifecycle', 'close-pending'), default='success')
+    parser.add_argument('--platform', choices=('offscreen', 'windows'),
+                        help='Qt backend; smoke tests default to offscreen')
+    args = parser.parse_args(argv)
+    if args.app_source is None:
+        if not getattr(sys, 'frozen', False) or not hasattr(sys, '_MEIPASS'):
+            parser.error('--app-source is required when running from source')
+        args.app_source = Path(sys._MEIPASS) / 'app-source'
+    if args.platform == 'windows' and sys.platform != 'win32':
+        parser.error('--platform windows requires Windows')
+    return args
+
+
+@contextmanager
+def disposable_profile():
+    """Restore cwd before removal, required for Windows directory cleanup."""
+    old_cwd, old_tempdir = Path.cwd(), tempfile.tempdir
+    keys = ('HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'HOMEDRIVE', 'HOMEPATH',
+            'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'XDG_RUNTIME_DIR',
+            'TMPDIR', 'TEMP', 'TMP')
+    previous = {key: os.environ.get(key) for key in keys}
+    with tempfile.TemporaryDirectory(prefix='cachecad-offline-') as directory:
+        profile = Path(directory).resolve()
+        try:
+            os.chdir(profile)
+            for key in keys:
+                os.environ[key] = str(profile)
+            if sys.platform == 'win32':
+                drive, tail = os.path.splitdrive(str(profile))
+                os.environ['HOMEDRIVE'], os.environ['HOMEPATH'] = drive, tail
+            runtime = profile / 'runtime'
+            runtime.mkdir(mode=0o700)
+            os.environ['XDG_RUNTIME_DIR'] = str(runtime)
+            # TemporaryDirectory cached the parent temp directory; updating env
+            # alone would send later Python temporary files outside this profile.
+            tempfile.tempdir = str(profile)
+            yield profile
+        finally:
+            # Windows cannot remove files with live logging handles.
+            logging.shutdown()
+            os.chdir(old_cwd)
+            tempfile.tempdir = old_tempdir
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
 
 
 def install_tripwires(profile):
@@ -58,6 +188,8 @@ def install_tripwires(profile):
         if dir_fd is not None and flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC):
             attempts.append('dir-fd-write')
             raise RuntimeError('Directory-relative writes disabled in offline development')
+        if dir_fd is None:
+            return original_open(path, flags, mode)
         return original_open(path, flags, mode, dir_fd=dir_fd)
     os.open = guarded_open
     subprocess.Popen = deny
@@ -70,7 +202,8 @@ def install_tripwires(profile):
 
     def audit(event, args):
         if event in ('socket.connect', 'socket.bind', 'socket.getaddrinfo', 'socket.gethostbyname',
-                     'socket.sendto', 'subprocess.Popen', 'os.system', 'os.posix_spawn', 'os.exec', 'os.fork'):
+                     'socket.sendto', 'subprocess.Popen', 'os.system', 'os.posix_spawn', 'os.exec', 'os.fork',
+                     'os.spawn', 'os.startfile', 'os.startfile/2'):
             deny()
         if event == 'open':
             path, mode, flags = args
@@ -92,6 +225,9 @@ def install_tripwires(profile):
                 fd_index = index + 2 if event in ('os.rename', 'os.link') else (2 if event == 'os.mkdir' else 1)
                 fd = args[fd_index] if len(args) > fd_index else -1
                 if not target.is_absolute() and isinstance(fd, int) and fd >= 0:
+                    if not Path('/proc/self/fd').is_dir():
+                        attempts.append('unsupported-dir-fd-mutation')
+                        raise RuntimeError('Directory-relative mutation cannot be verified on this platform')
                     target = Path('/proc/self/fd', str(fd)).resolve(strict=True) / target
                 if not target.resolve().is_relative_to(profile):
                     attempts.append('mutation-outside-profile')
@@ -108,26 +244,14 @@ def install_tripwires(profile):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--app-source', required=True, type=Path)
-    parser.add_argument('--smoke', action='store_true', help='Exercise startup and a synthetic scan, then exit')
-    parser.add_argument('--scenario', choices=('success', 'lifecycle', 'close-pending'), default='success')
-    args = parser.parse_args()
+    args = parse_arguments()
     root = args.app_source.resolve(strict=True)
-    verify_source(root)
+    sources = verify_source(root)
     sys.dont_write_bytecode = True
-    sys.path.insert(0, str(root / 'src'))
-    old_cwd = Path.cwd()
-    with tempfile.TemporaryDirectory(prefix='cachecad-offline-') as directory:
-        profile = Path(directory).resolve()
-        os.chdir(profile)
-        for key in ('HOME', 'USERPROFILE', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'TMPDIR', 'TEMP', 'TMP'):
-            os.environ[key] = str(profile)
-        runtime = profile / 'runtime'
-        runtime.mkdir(mode=0o700)
-        os.environ['XDG_RUNTIME_DIR'] = str(runtime)
-        if args.smoke:
-            os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+    install_source_importer(root, sources)
+    with disposable_profile() as profile:
+        if args.platform or args.smoke:
+            os.environ['QT_QPA_PLATFORM'] = args.platform or 'offscreen'
         app_data = profile / 'app_data'
         app_data.mkdir()
         working = profile / 'projects'
@@ -202,7 +326,8 @@ def main():
         restrict_controls()
         window.show()
         result = {'mode': 'offline-development', 'actual_gui': type(window).__module__ + '.' + type(window).__name__,
-                  'qt_platform': application.platformName(), 'synthetic_remote': bool(args.smoke)}
+                  'qt_platform': application.platformName(), 'synthetic_remote': bool(args.smoke),
+                  'frozen': bool(getattr(sys, 'frozen', False)), 'source_loader': 'verified-source'}
         errors = []
         from build_resources import ALIASES
         missing = [name for name in ALIASES if (not QMovie(':/assets/' + name).isValid()
@@ -312,7 +437,6 @@ def main():
             errors.append('Unhandled Qt callback exception')
         result['errors'] = errors
         print('CACHECAD_OFFLINE_RESULT=' + json.dumps(result, sort_keys=True))
-        os.chdir(old_cwd)
         return 1 if errors else exit_code
 
 

@@ -135,7 +135,9 @@ source archive runnable merely because those constants are available.
 6. Only then define and pin a freezer specification and installer recipe.
    Build on the actual target platform with official dependencies, record
    licenses/hashes, and verify installation/uninstallation in an isolated VM.
-   Windows and SolidWorks integration remain deferred as requested.
+   Windows installer/startup validation is now authorized and implemented by the
+   Windows pipeline; see WINDOWS_TRYOUT.md for current evidence. SolidWorks
+   integration remains deferred.
 7. Require separate approval and explicit scope before live Drive/account or
    real-project validation. Source/fixture success alone is not production
    readiness or a guarantee of lossless sync.
