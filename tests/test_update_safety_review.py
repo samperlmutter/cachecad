@@ -180,7 +180,7 @@ class LauncherCommitSafetyTests(unittest.TestCase):
                 with self.subTest(early_module=early_module), deny_external_effects():
                     if early_module == 'core.windows_update_install':
                         result = method(root, root / 'missing-client.json')
-                        self.assertEqual(result.profile_root, root)
+                        self.assertEqual(result.profile_root, root.resolve())
                     else:
                         with self.assertRaises(RuntimeError):
                             method(root, root / 'missing-client.json')
