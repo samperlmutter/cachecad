@@ -409,7 +409,7 @@
     {
       "module": "gui.application_updates",
       "maintained": "maintained/gui/application_updates.py",
-      "maintained_sha256": "d661c58883fc871fb55e8c6f3c3b75bf05990c6df64274357c4b4c1c378f703a",
+      "maintained_sha256": "6c078d383ac17e873e5471e1242881d414dec30aa5ff84ffebbd1fc0bfe5b5c9",
       "origin": "Manual check/download/verify/explicit install UI with cancellable workers",
       "regression_tests": "tests/test_application_updates_ui.py",
       "status": "new_reviewed_helper"

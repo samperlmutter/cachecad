@@ -26,9 +26,10 @@ from __future__ import annotations
 import threading
 import time
 
-from PySide6.QtCore import QObject, Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
-    QDialog, QHBoxLayout, QLabel, QProgressBar, QPushButton, QVBoxLayout,
+    QDialog, QFrame, QGridLayout, QLabel, QProgressBar, QPushButton, QScrollArea,
+    QSizePolicy, QVBoxLayout, QWidget,
 )
 
 
@@ -189,7 +190,13 @@ class ApplicationUpdateDialog(QDialog):
         self._poll = QTimer(self)
         self._poll.setInterval(20)
         self._poll.timeout.connect(self._settle)
+        self._reflowing = False
+        self._label_measurements = {}
+        self._layout_timer = QTimer(self)
+        self._layout_timer.setSingleShot(True)
+        self._layout_timer.timeout.connect(self._reflow)
         self._build_ui()
+        self.resize(600, 300)
         if not self.configured:
             self._set_state('setup_required', _SAFE_ERRORS['not_configured'] +
                             ' No update server will be contacted.')
@@ -198,6 +205,17 @@ class ApplicationUpdateDialog(QDialog):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
+        self.content_scroll = QScrollArea(self)
+        self.content_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.content_scroll.setWidgetResizable(True)
+        self.content_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._content = QWidget()
+        self._content_layout = QVBoxLayout(self._content)
+        self._content_layout.setContentsMargins(0, 0, 0, 0)
+        self._content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.content_scroll.setWidget(self._content)
+        self.content_scroll.viewport().installEventFilter(self)
+        layout.addWidget(self.content_scroll, 1)
         self.description_label = QLabel(
             'Updates are checked only when you choose. Downloading does not install an update. '
             'Install and close closes CacheCAD only after active work has safely stopped. '
@@ -205,24 +223,28 @@ class ApplicationUpdateDialog(QDialog):
             'Reopen CacheCAD normally after installation. A prior sync will not restart automatically.', self)
         self.description_label.setTextFormat(Qt.TextFormat.PlainText)
         self.description_label.setWordWrap(True)
-        layout.addWidget(self.description_label)
+        self._content_layout.addWidget(self.description_label)
         self.details_label = QLabel('Installed version: ' + self._installed_version, self)
         self.details_label.setObjectName('applicationUpdateDetails')
         self.details_label.setTextFormat(Qt.TextFormat.PlainText)
         self.details_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.details_label.setWordWrap(True)
-        layout.addWidget(self.details_label)
+        self._content_layout.addWidget(self.details_label)
         self.status_label = QLabel(self)
         self.status_label.setObjectName('applicationUpdateStatus')
         self.status_label.setTextFormat(Qt.TextFormat.PlainText)
         self.status_label.setWordWrap(True)
-        layout.addWidget(self.status_label)
+        self._content_layout.addWidget(self.status_label)
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
         self.progress_bar.hide()
-        layout.addWidget(self.progress_bar)
-        buttons = QHBoxLayout()
+        self._content_layout.addWidget(self.progress_bar)
+        for label in (self.description_label, self.details_label, self.status_label):
+            label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Minimum)
+        buttons = QGridLayout()
+        self._button_layout = buttons
+        self._button_columns = None
         self.check_button = QPushButton('Check for updates', self)
         self.check_button.clicked.connect(self.check_for_updates)
         self.download_button = QPushButton('Download update', self)
@@ -233,10 +255,11 @@ class ApplicationUpdateDialog(QDialog):
         self.cancel_button.clicked.connect(self.cancel_update)
         self.later_button = QPushButton('Later', self)
         self.later_button.clicked.connect(self.reject)
-        for button in (self.check_button, self.download_button, self.install_button,
-                       self.cancel_button, self.later_button):
+        self._buttons = (self.check_button, self.download_button, self.install_button,
+                         self.cancel_button, self.later_button)
+        for column, button in enumerate(self._buttons):
             button.setAutoDefault(False)
-            buttons.addWidget(button)
+            buttons.addWidget(button, 0, column)
         # Enter must never start a check, download or installation accidentally.
         self.cancel_button.setDefault(True)
         self.cancel_button.setFocus()
@@ -286,11 +309,66 @@ class ApplicationUpdateDialog(QDialog):
         self._state = state
         self.status_label.setText(message)
         self._update_controls()
-        # QLabel's new wrapped height is not always propagated after a dialog
-        # is already visible. Reflow before exposing the new consent state.
+        # Use the actual viewport width, not a wider sizeHint that adjustSize()
+        # may subsequently clamp to the screen. Large fonts/small windows retain
+        # every consent line in a scrollable body, with actions outside it.
+        for _ in range(3):
+            self.layout().activate()
+            self._reflow()
+            margins = self.layout().contentsMargins()
+            chrome = (margins.top() + margins.bottom() + self.layout().spacing()
+                      + self._button_layout.sizeHint().height())
+            available = self.screen().availableGeometry().height() - 80
+            wanted = self._content_layout.minimumSize().height() + chrome
+            self.resize(self.width(), min(wanted, max(200, available)))
         self.layout().activate()
-        self.adjustSize()
+        self._reflow()
         self.state_changed.emit(state)
+
+    def eventFilter(self, watched, event):
+        if (watched is self.content_scroll.viewport()
+                and event.type() in (QEvent.Type.Resize, QEvent.Type.FontChange)):
+            self._layout_timer.start(0)
+        return super().eventFilter(watched, event)
+
+    @Slot()
+    def _reflow(self):
+        if self._reflowing:
+            return
+        self._reflowing = True
+        try:
+            margins = self.layout().contentsMargins()
+            available = self.width() - margins.left() - margins.right()
+            spacing = self._button_layout.horizontalSpacing()
+            widths = [button.sizeHint().width() for button in self._buttons]
+            columns = len(widths)
+            while columns > 1 and max(
+                    sum(widths[start:start + columns]) + spacing * (columns - 1)
+                    for start in range(0, len(widths), columns)) > available:
+                columns -= 1
+            if columns != self._button_columns:
+                self._button_columns = columns
+                for button in self._buttons:
+                    self._button_layout.removeWidget(button)
+                for column in range(len(self._buttons)):
+                    self._button_layout.setColumnStretch(column, int(column < columns))
+                for index, button in enumerate(self._buttons):
+                    self._button_layout.addWidget(button, index // columns, index % columns)
+            width = max(1, self.content_scroll.viewport().width())
+            for label in (self.description_label, self.details_label, self.status_label):
+                metrics = label.fontMetrics()
+                key = (width, label.text(), label.font().toString(),
+                       metrics.height(), metrics.averageCharWidth())
+                if self._label_measurements.get(label) != key:
+                    # heightForWidth includes an explicit minimumHeight; clear
+                    # the old value before measuring at this new width/font.
+                    label.setMinimumHeight(0)
+                    label.setMinimumHeight(max(0, label.heightForWidth(width)))
+                    self._label_measurements[label] = key
+            self._content_layout.invalidate()
+            self._content_layout.activate()
+        finally:
+            self._reflowing = False
 
     def _update_controls(self):
         available = not self._closed and not self.busy and self._state != 'handoff'

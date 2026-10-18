@@ -43,7 +43,12 @@ socket.create_connection = forbidden
 urllib.request.urlopen = forbidden
 http.client.HTTPConnection.request = forbidden
 subprocess.Popen = forbidden
-sys.excepthook = lambda *error: slot_errors.append(error)
+def report_exception(*error):
+    # Qt routes uncaught slot exceptions here, but Python also uses this hook
+    # for a failing main-body assertion. Preserve both the evidence and trace.
+    slot_errors.append(error)
+    sys.__excepthook__(*error)
+sys.excepthook = report_exception
 @dataclass(frozen=True)
 class Offer:
     version: str = '0.2.0'
@@ -149,6 +154,50 @@ print('application-update-ui-pass')
             capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('application-update-ui-pass', result.stdout)
+
+    def test_main_body_failures_retain_their_traceback(self):
+        result = subprocess.run([RUNTIME, '-B', '-c', PRELUDE +
+            "\nraise AssertionError('intentional diagnostic fixture')\n"], cwd=ROOT,
+            env=dict(os.environ, QT_QPA_PLATFORM='offscreen'), text=True,
+            capture_output=True, timeout=20)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Traceback (most recent call last)', result.stderr)
+        self.assertIn('AssertionError: intentional diagnostic fixture', result.stderr)
+
+    def test_wrapped_publisher_details_reflow_at_the_actual_viewport_width(self):
+        self.scenario('''
+            from PySide6.QtGui import QFont
+            from PySide6.QtWidgets import QLabel
+            # DejaVu Sans 9 deterministically reproduced permanent clipping in
+            # adjustSize(): 126 pixels allocated for 154 pixels of wrapped text.
+            app.setFont(QFont('DejaVu Sans', 9))
+            verify, token = verified()
+            dialog = dialog_for(verify=verify, install=lambda value: 'Fixture busy')
+            ready(dialog)
+            def unclipped():
+                for label in (dialog.description_label, dialog.details_label, dialog.status_label):
+                    probe = QLabel(label.text())
+                    probe.setFont(label.font())
+                    probe.setTextFormat(Qt.PlainText)
+                    probe.setWordWrap(True)
+                    required = probe.heightForWidth(label.width())
+                    probe.deleteLater()
+                    assert label.height() >= required, (label.objectName(), label.height(), required)
+                for button in dialog._buttons:
+                    assert button.width() >= button.sizeHint().width(), button.text()
+                    assert dialog.rect().contains(button.geometry()), button.text()
+            pump(); unclipped()
+            dialog.resize(520, 220)
+            pump(); unclipped()
+            bar = dialog.content_scroll.verticalScrollBar()
+            assert bar.maximum() > 0, 'Constrained consent text must remain scrollable'
+            bar.setValue(bar.maximum()); pump()
+            viewport = dialog.content_scroll.viewport()
+            bottom = dialog.status_label.mapTo(viewport, dialog.status_label.rect().bottomLeft())
+            assert bottom.y() < viewport.height(), 'The final consent text must be reachable'
+            assert dialog.cancel_button.isDefault()
+            dialog.close(); assert dialog.shutdown() and token.closed == 1
+        ''')
 
     def test_manual_only_setup_required_and_cancel_is_default(self):
         self.scenario('''
