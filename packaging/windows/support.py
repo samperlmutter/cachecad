@@ -10,9 +10,10 @@ APP_ID = '{D24539B1-3941-4273-9C44-A62A05A91623}'
 APP_NAME = 'CacheCAD'
 EXE_NAME = 'CacheCAD.exe'
 INSTALLER_NAME = 'CacheCAD-Setup.exe'
+HELPER_NAME = 'CacheCADUpdateHelper.exe'
 INNO_VERSION = '6.7.1'
 SOURCE_PACKAGES = ('app', 'core', 'gui', 'utils', 'resources_rc', 'build_resources',
-                   'application', 'development', 'launch', 'signin', 'crash_diagnostics')
+                   'application', 'development', 'launch', 'signin', 'crash_diagnostics', 'build_version')
 # First-party code is loaded from the reviewed source snapshot. Real Google SDKs
 # are deliberately included: a production sign-in must yield usable credentials.
 TYPE_IMPORTS = ('google.oauth2.credentials',)
@@ -26,7 +27,8 @@ API_DISTRIBUTIONS = ('google-api-python-client', 'google-api-core', 'google-auth
                      'charset-normalizer', 'idna', 'cachetools', 'rsa', 'pyasn1',
                      'pyasn1-modules', 'uritemplate', 'pyparsing')
 REQUIRED_SOURCE = ('application/launch.py', 'application/resources_rc.py',
-                   'application/crash_diagnostics.py',
+                   'application/crash_diagnostics.py', 'application/build_version.py',
+                   'src/app/app_version.py',
                    'src/gui/main_window.py', 'src/core/auth_manager.py',
                    'src/core/drive_client.py', 'src/utils/application_mode.py',
                    'src/utils/windows_token_store.py', 'src/utils/profile_lock.py',
@@ -298,3 +300,30 @@ def add_owner_client_config(root, selected_path):
     manifest['owner_desktop_client_configured'] = True
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
     return digest
+
+
+def add_helper_identity(root, helper):
+    """Bind the staged helper's exact final bytes to the verified main payload."""
+    root, helper = Path(root), Path(helper)
+    digest, length = sha256(helper), helper.stat().st_size
+    manifest_path = root / 'assembly-manifest.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    name = 'src/core/update_helper_identity.py'
+    if any(item['path'] == name for item in manifest['files']):
+        raise ValueError('Helper identity already exists in assembly')
+    raw = ('"""Generated after the final helper build; sign before hashing in release builds."""\n'
+           f'UPDATE_HELPER_SHA256 = {digest!r}\n'
+           f'UPDATE_HELPER_LENGTH = {length!r}\n'
+           f'UPDATE_HELPER_FILENAME = {HELPER_NAME!r}\n').encode('utf-8')
+    (root / name).write_bytes(raw)
+    manifest['files'].append({'path': name, 'sha256': hashlib.sha256(raw).hexdigest(),
+                              'origin': 'generated-helper-identity'})
+    manifest['files'].sort(key=lambda item: item['path'])
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+    return {'sha256': digest, 'bytes': length, 'path': HELPER_NAME}
+
+
+def bundle_identity(bundle):
+    records = [{'path': path.relative_to(bundle).as_posix(), 'sha256': sha256(path)}
+               for path in sorted(Path(bundle).rglob('*')) if path.is_file()]
+    return hashlib.sha256(json.dumps(records, sort_keys=True, separators=(',', ':')).encode()).hexdigest()

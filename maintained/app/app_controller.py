@@ -235,6 +235,8 @@ class AppController:
         signal_manager.update_sync_selection_treeview.emit([])
 
     def _begin_sync_analysis(self):
+        if getattr(self, '_update_install_pending', False):
+            return
         if getattr(self, 'development', None) is not None:
             self.development.require_profile_path(Path(self.working_directory) / self.project_name)
         self._clear_sync_plan()
@@ -316,6 +318,8 @@ class AppController:
         return self.working_directory
 
     def on_signin_clicked(self):
+        if getattr(self, '_update_install_pending', False):
+            return
         if getattr(self, 'development', None) is not None:
             return
         if self.auth_manager.state == 'cleanup_required':
@@ -412,6 +416,8 @@ class AppController:
             signal_manager.page_change.emit(Page.PROJECT)
 
     def on_execute_sync(self, action_list):
+        if getattr(self, '_update_install_pending', False):
+            return
         if getattr(self, 'development', None) is not None:
             return
         # A modal dialog runs a nested Qt loop. A second click or queued signal
@@ -572,7 +578,114 @@ class AppController:
     def on_download_app_update(self):
         if getattr(self, 'development', None) is not None:
             return
-        self.main_window.show_status_message('Updates are not configured by this application’s owner.', 10000)
+        if getattr(self, '_update_install_pending', False):
+            return
+        previous = getattr(self, '_update_dialog', None)
+        if previous is not None:
+            from shiboken6 import isValid
+            if isValid(previous) and not getattr(previous, '_closed', False):
+                previous.show()
+                previous.raise_()
+                return
+            if isValid(previous):
+                if not previous.shutdown(0):
+                    self.main_window.show_status_message('The previous update operation is still stopping. Try again shortly.', 10000)
+                    return
+                previous.deleteLater()
+        from core.application_updates import UpdateService, InstalledRelease, load_update_config
+        from core.windows_update_install import SignerPolicy, VerifiedInstaller
+        from gui.application_updates import ApplicationUpdateDialog
+        from app.app_version import APP_PRODUCT_ID, APP_RELEASE_NUMBER, APP_BUILD_DATE
+        source_root = Path(__file__).resolve().parents[2]
+        try:
+            config = load_update_config(source_root / 'application')
+            installed = InstalledRelease(product_id=APP_PRODUCT_ID, version=APP_VERSION,
+                build=APP_RELEASE_NUMBER, build_date=APP_BUILD_DATE, architecture='x86_64', profile_schema=1,
+                updater_version=1, windows_build=sys.getwindowsversion().build if sys.platform == 'win32' else 0)
+            service = UpdateService(config, self.application.profile_root / 'updates', installed)
+        except Exception:
+            self.main_window.show_status_message('The owner update configuration could not be verified. Reinstall from an approved distributor.', 10000)
+            return
+        def verify(download, cancel):
+            if cancel.is_set():
+                raise RuntimeError('cancelled')
+            policy = SignerPolicy(frozenset(config.publisher_certificate_sha256))
+            verified = VerifiedInstaller.open(download.path, expected_sha256=download.offer.sha256,
+                expected_length=download.offer.length, policy=policy)
+            if cancel.is_set():
+                verified.close()
+                raise RuntimeError('cancelled')
+            from types import SimpleNamespace
+            return SimpleNamespace(download=download, close=verified.close,
+                signer_certificate_sha256=verified.signer_certificate_sha256)
+        self._update_configuration = config
+        self._update_installed_release = installed
+        dialog = ApplicationUpdateDialog(service, verify_download=verify,
+            request_install=self._request_update_install, installed_version=APP_VERSION,
+            parent=self.main_window)
+        self._update_dialog = dialog
+        dialog.show()
+
+    def _update_busy_reason(self):
+        if getattr(self, '_shutting_down', False):
+            return 'The application is already closing. Reopen it before updating.'
+        if self.sync_executing or getattr(self, '_executor_unsettled', False):
+            return 'Wait for the current transfer to finish before installing an update.'
+        analyzer = getattr(self, 'sync_analyzer', None)
+        if analyzer is not None and (not getattr(analyzer, '_settled', True) or analyzer.is_background_running()):
+            return 'Wait for the project scan to finish before installing an update.'
+        from core.thread_manager import thread_pool, network_pool
+        if thread_pool.activeThreadCount() or network_pool.activeThreadCount():
+            return 'Background work is still settling. Try installing again when it finishes.'
+        manager = getattr(self, 'auth_manager', None)
+        thread = getattr(manager, '_thread', None)
+        if (getattr(manager, '_auth_in_progress', False) or
+                thread is not None and thread.is_alive()):
+            return 'Wait for the account operation to finish before installing an update.'
+        return None
+
+    def _request_update_install(self, verified):
+        reason = self._update_busy_reason()
+        if reason:
+            return reason
+        if getattr(self, '_update_install_pending', False):
+            return 'An update handoff is already in progress.'
+        if not getattr(sys, 'frozen', False) or sys.platform != 'win32':
+            return 'Install updates from the packaged Windows application.'
+        from core.windows_update_install import start_update_handoff
+        from gui.update_install_coordinator import UpdateInstallCoordinator
+        from PySide6.QtWidgets import QApplication
+        self._update_install_pending = True
+        self._clear_sync_plan()
+        self.disable_buttons()
+        self.main_window.setEnabled(False)
+        def prepare(cancel):
+            try:
+                return start_update_handoff(verified.download, self._update_configuration,
+                    Path(sys.executable).parent, self.application.profile_root,
+                    cache_dir=self.application.profile_root / 'updates', old_pid=os.getpid(), cancel=cancel)
+            finally:
+                verified.close()
+        coordinator = UpdateInstallCoordinator(prepare, self._update_busy_reason, self.main_window)
+        self._update_coordinator = coordinator
+        def failed(message):
+            self._update_install_pending = False
+            self.main_window.setEnabled(True)
+            self.main_window.show_status_message(message, 15000)
+            dialog = getattr(self, '_update_dialog', None)
+            if dialog is not None:
+                from shiboken6 import isValid
+                if isValid(dialog):
+                    dialog.handoff_failed(message)
+            if self.signed_in:
+                self.enable_buttons()
+        coordinator.failed.connect(failed)
+        coordinator.ready_to_exit.connect(QApplication.instance().quit)
+        if not coordinator.start():
+            self._update_install_pending = False
+            self.main_window.setEnabled(True)
+            return 'The application could not prepare this update. Try again later.'
+        return None
 
     def on_error_occurred(self, error_str):
         pass
@@ -604,12 +717,12 @@ class AppController:
                 'Sign in with Google to select a Drive folder, compare files and choose transfers. '
                 'Google permission is requested only when you click Sign in. '
                 'Saved sessions are encrypted for your Windows account. '
-                'This build has no remote usage reporting, diagnostics or automatic updater. '
+                'Updates require your confirmation; crash reports stay on this computer. '
                 'Review each sync plan before changing your files.')
         page = window.pages[Page.SETTINGS]
-        page.latest_version_label.setText('Automatic updates are not configured.')
-        page.update_button.setText('Updates unavailable')
-        page.update_button.setEnabled(False)
+        page.latest_version_label.setText('Updates are checked only when you ask.')
+        page.update_button.setText('Check for Updates')
+        page.update_button.setEnabled(True)
         for label in page.findChildren(QLabel):
             if label.text().startswith(('Update user data:', 'This is the only info collected')):
                 label.hide()
@@ -669,6 +782,8 @@ class AppController:
         signal_manager.page_change.emit(Page.HOME)
 
     def on_local_signout(self):
+        if getattr(self, '_update_install_pending', False):
+            return
         if self.sync_executing or getattr(self, '_executor_unsettled', False):
             self.main_window.show_status_message('Wait for the current transfer to finish before signing out.', 10000)
             return
@@ -677,6 +792,8 @@ class AppController:
         self.auth_manager.sign_out()
 
     def on_disconnect_clicked(self):
+        if getattr(self, '_update_install_pending', False):
+            return
         if self.sync_executing or getattr(self, '_executor_unsettled', False):
             self.main_window.show_status_message('Wait for the current transfer to finish before disconnecting.', 10000)
             return
@@ -687,6 +804,15 @@ class AppController:
             self.auth_manager.disconnect()
 
     def shutdown(self):
+        update_stopped = True
+        coordinator = getattr(self, '_update_coordinator', None)
+        if coordinator is not None:
+            update_stopped = coordinator.shutdown()
+        dialog = getattr(self, '_update_dialog', None)
+        if dialog is not None:
+            from shiboken6 import isValid
+            if isValid(dialog):
+                update_stopped = dialog.shutdown() and update_stopped
         self._shutting_down = True
         if self.sync_executing:
             signal_manager.sync_cancelled.emit()
@@ -696,4 +822,4 @@ class AppController:
             self.drive_client.close()
         self.signed_in = False
         self.creds = self.user = None
-        return self.auth_manager.shutdown() if self.auth_manager is not None else True
+        return (self.auth_manager.shutdown() if self.auth_manager is not None else True) and update_stopped

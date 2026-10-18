@@ -238,7 +238,7 @@ class WindowsPackagingTests(unittest.TestCase):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 support.validate_smoke(text, 'success', 'offscreen')
 
-    def test_recipe_is_per_user_without_run_or_registry_side_effects(self):
+    def test_recipe_is_per_user_without_automatic_run_or_unrelated_registry_writes(self):
         text = (PACKAGING / 'cachecad.iss').read_text()
         active = '\n'.join(line for line in text.splitlines() if not line.lstrip().startswith(';'))
         self.assertIn('PrivilegesRequired=lowest', active)
@@ -247,9 +247,15 @@ class WindowsPackagingTests(unittest.TestCase):
         self.assertIn('RestartApplications=no', active)
         self.assertIn('InfoBeforeFile=APPLICATION-README.txt', active)
         self.assertNotIn('PrivilegesRequiredOverridesAllowed', active)
-        for section in ('[Run]', '[UninstallRun]', '[Registry]', '[Code]'):
+        for section in ('[Run]', '[UninstallRun]', '[UninstallDelete]'):
             self.assertNotIn(section, active)
         self.assertIn('AppId={' + support.APP_ID, active)
+        deletion = active.split('[InstallDelete]', 1)[1].split('[Files]', 1)[0]
+        self.assertEqual([line for line in deletion.splitlines() if line.strip()],
+                         [r'Type: filesandordirs; Name: "{app}\_internal\app-source"'])
+        registry = active.split('[Registry]', 1)[1].split('[Code]', 1)[0]
+        self.assertTrue(all(line.startswith('Root: HKCU64; Subkey: "{#IdentityKey}";')
+                            for line in registry.splitlines() if line.strip()))
 
     def test_spec_keeps_qt_libraries_and_source_separate(self):
         text = (PACKAGING / 'cachecad.spec').read_text()

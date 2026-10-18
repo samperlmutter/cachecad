@@ -198,12 +198,45 @@ class CrashDiagnosticsTests(unittest.TestCase):
         process.wait.side_effect = [subprocess.TimeoutExpired('helper', 2),
                                     subprocess.TimeoutExpired('helper', 2), 0]
         process.poll.return_value = -9
-        diag._stop_helper(process, timeout=2)
+        self.assertTrue(diag._stop_helper(process, timeout=2))
         process.stdin.close.assert_called_once()
         process.terminate.assert_called_once()
         process.kill.assert_called_once()
         self.assertEqual(process.wait.call_count, 3)
         process.stdout.close.assert_called_once()
+
+    def test_native_stop_requires_observed_exit_not_termination_request(self):
+        process = Mock()
+        process.wait.side_effect = subprocess.TimeoutExpired('helper', 1)
+        process.poll.return_value = None
+        self.assertFalse(diag._stop_helper(process, timeout=0))
+        process.terminate.assert_called_once()
+        process.kill.assert_called_once()
+        process.stdout.close.assert_not_called()
+
+    def test_close_reports_confirmed_exit_and_preserves_failed_result(self):
+        process = Mock()
+        self.owner._native = process
+        with patch.object(diag, '_stop_helper', side_effect=[False, True]) as stop:
+            self.assertFalse(self.owner.close())
+            self.assertIs(self.owner._native, process)
+            self.assertFalse(self.owner.close())
+            self.assertIsNone(self.owner._native)
+            self.assertEqual(stop.call_count, 2)
+        self.assertFalse(self.owner.close())
+        self.assertTrue(diag.CrashDiagnostics().close())
+
+    def test_failed_native_enable_retains_unsettled_child_and_blocks_update_close(self):
+        process = Mock()
+        process.stdout.readline.return_value = b'NOT_READY\n'
+        with patch.object(diag.subprocess, 'Popen', return_value=process), \
+                patch.object(diag, '_stop_helper', return_value=False):
+            self.assertFalse(self.owner.enable_native(['synthetic-helper']))
+            self.assertIs(self.owner._native, process)
+            self.assertFalse(self.owner.close())
+        # Finish the test's synthetic child; the failure remains sticky.
+        with patch.object(diag, '_stop_helper', return_value=True):
+            self.assertFalse(self.owner.close())
 
     def test_native_parser_discards_raw_paths_exception_text_and_arbitrary_lines(self):
         stream = io.BytesIO(b'CACHECAD_EVENT window_shown\nFatal Python error: SYNTHETIC_TOKEN\n'

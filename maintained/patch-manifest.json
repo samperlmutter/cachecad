@@ -10,7 +10,7 @@
       "baseline": "recovered/app/app_controller.py",
       "maintained": "maintained/app/app_controller.py",
       "baseline_sha256": "d0d2a638b189933a9c294b903c12aa3e84143eb96edba3893c66087f750f2f11",
-      "maintained_sha256": "75ce5701a26b57ce64de4c58cecca0eb7845cb107b2d57389f52b37a1ca428ab",
+      "maintained_sha256": "23a99a454a0660bb17a7c8cdb044836ff3243d41ddf8d18b435750fabf0069a9",
       "changed_functions": [
         "AppController.__init__",
         "AppController.create_project_from_link",
@@ -47,11 +47,13 @@
         "AppController._clear_sync_plan",
         "AppController._configure_offline_drive",
         "AppController._configure_owned_ui",
+        "AppController._request_update_install",
         "AppController._reset_sync_selection",
         "AppController._retire_sync_clients",
         "AppController._scan_is_current",
         "AppController._settle_scan",
         "AppController._sync_confirmation_context",
+        "AppController._update_busy_reason",
         "AppController.on_account_status",
         "AppController.on_disconnect_clicked",
         "AppController.on_local_signout",
@@ -333,6 +335,14 @@
   ],
   "new_helpers": [
     {
+      "module": "core.application_updates",
+      "maintained": "maintained/core/application_updates.py",
+      "maintained_sha256": "c614865aa84a2f793bb82a305e2a4c62ff1f3520ae529b840a0a39c4d850f846",
+      "origin": "TUF-authenticated owner-configured update discovery and bounded verified downloads",
+      "regression_tests": "tests/test_application_updates.py",
+      "status": "new_reviewed_helper"
+    },
+    {
       "module": "core.desktop_signin",
       "maintained": "maintained/core/desktop_signin.py",
       "maintained_sha256": "913bf6601bca2b765ebece85a5c0db4bf9dc241593fdcb21bb8e3be567a31752",
@@ -381,11 +391,27 @@
       "status": "new_reviewed_helper"
     },
     {
+      "module": "core.windows_update_install",
+      "maintained": "maintained/core/windows_update_install.py",
+      "maintained_sha256": "66b303b2ab8bdce0d3ef7e7f12e12d354a1e0cdb66e73d88222399065b8ee479",
+      "origin": "Pinned Windows publisher verification and consented installer handoff",
+      "regression_tests": "tests/test_windows_update_install.py",
+      "status": "new_reviewed_helper"
+    },
+    {
       "module": "gui.application_account",
       "maintained": "maintained/gui/application_account.py",
       "maintained_sha256": "5ad9d3991e9d0dc03a58653e34c8d47fbcda44b415a086463c5cdca7a4aec5bb",
       "origin": "Real account status/sign-in/cancel/local-signout/disconnect widget",
       "regression_tests": "tests/test_application_auth_runtime.py",
+      "status": "new_reviewed_helper"
+    },
+    {
+      "module": "gui.application_updates",
+      "maintained": "maintained/gui/application_updates.py",
+      "maintained_sha256": "d661c58883fc871fb55e8c6f3c3b75bf05990c6df64274357c4b4c1c378f703a",
+      "origin": "Manual check/download/verify/explicit install UI with cancellable workers",
+      "regression_tests": "tests/test_application_updates_ui.py",
       "status": "new_reviewed_helper"
     },
     {
@@ -413,9 +439,17 @@
       "status": "new_reviewed_helper"
     },
     {
+      "module": "gui.update_install_coordinator",
+      "maintained": "maintained/gui/update_install_coordinator.py",
+      "maintained_sha256": "0d5bcbb1599e530dc1abda69de1386def14c50dd21f91ba8a3edfa8b7f514156",
+      "origin": "Async unarmed helper preparation and idle recheck before consented process exit",
+      "regression_tests": "tests/test_update_lifecycle.py",
+      "status": "new_reviewed_helper"
+    },
+    {
       "module": "utils.application_mode",
       "maintained": "maintained/utils/application_mode.py",
-      "maintained_sha256": "e7e603a223df290a1d0ea940852123d9f03a92c95051033abb3b49fa0a6961d6",
+      "maintained_sha256": "92fcb5c50608159e277a1d07049de58866f76fc5de0b7d071f522777d9a57ee8",
       "origin": "Explicit real application profile/client configuration; no synthetic backend",
       "regression_tests": "tests/test_application_auth_runtime.py",
       "status": "new_reviewed_helper"

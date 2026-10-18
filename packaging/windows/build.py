@@ -11,10 +11,13 @@ import subprocess
 import sys
 
 from support import (API_DISTRIBUTIONS, API_IMPORTS, EXE_NAME, INSTALLER_NAME,
-                     add_owner_client_config, inno_version, pe_file_version,
+                     HELPER_NAME, add_helper_identity, add_owner_client_config, bundle_identity,
+                     inno_version, pe_file_version,
                      sha256, verified_payload)
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+from tooling.version import load_identity, pe_resource  # noqa: E402
 
 
 def run_logged(command, log, *, env=None, timeout=900):
@@ -57,6 +60,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--iscc', type=Path)
+    parser.add_argument('--version-file', type=Path, default=ROOT / 'version.json')
     parser.add_argument('--client-config', type=Path,
                         help='Explicit owner-supplied Google Desktop client metadata to bundle; never tokens')
     args = parser.parse_args()
@@ -64,6 +68,7 @@ def main():
         parser.error('Build on native x64 Windows with 64-bit CPython 3.12')
     if sys.version_info[:2] != (3, 12):
         parser.error('CPython 3.12 is required by the reviewed runtime lock')
+    identity = load_identity(args.version_file)
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     logs = output / 'build-logs'
@@ -92,20 +97,38 @@ def main():
         print_log_tail(probe_log)
         raise
     source = output / 'app-source'
-    run_logged([sys.executable, '-B', ROOT / 'tooling/assemble_app.py', source, '--production'], logs / 'assemble.log')
+    run_logged([sys.executable, '-B', ROOT / 'tooling/assemble_app.py', source, '--production',
+                '--version-file', args.version_file.resolve()], logs / 'assemble.log')
     owner_client_sha256 = None
     if args.client_config is not None:
         owner_client_sha256 = add_owner_client_config(source, args.client_config)
     verified_payload(source)
-    environment = dict(os.environ, CACHECAD_APP_SOURCE=str(source), PYTHONDONTWRITEBYTECODE='1')
+    version_resource = output / 'application-version.txt'
+    helper_resource = output / 'helper-version.txt'
+    version_resource.write_text(pe_resource(identity), encoding='utf-8')
+    helper_resource.write_text(pe_resource(identity, filename=HELPER_NAME,
+                                           description='CacheCAD update handoff helper'), encoding='utf-8')
+    environment = dict(os.environ, CACHECAD_APP_SOURCE=str(source), PYTHONDONTWRITEBYTECODE='1',
+                       CACHECAD_VERSION_RESOURCE=str(version_resource),
+                       CACHECAD_HELPER_VERSION_RESOURCE=str(helper_resource))
     environment.pop('PYTHONPATH', None)
     environment.pop('PYTHONHOME', None)
+    run_logged([sys.executable, '-m', 'PyInstaller', '--clean', '--noconfirm',
+                '--distpath', output / 'helper', '--workpath', output / 'helper-work',
+                ROOT / 'packaging/windows/update-helper.spec'], logs / 'helper-build.log', env=environment)
+    helper = output / 'helper' / HELPER_NAME
+    helper_identity = add_helper_identity(source, helper)
     run_logged([sys.executable, '-m', 'PyInstaller', '--clean', '--noconfirm',
                 '--distpath', output / 'bundle', '--workpath', output / 'pyinstaller-work',
                 ROOT / 'packaging/windows/cachecad.spec'], logs / 'pyinstaller.log', env=environment)
     bundle = output / 'bundle/CacheCAD'
     if not (bundle / EXE_NAME).is_file():
         raise RuntimeError('Frozen executable is missing')
+    shutil.copy2(helper, bundle / HELPER_NAME)
+    expected_pe = tuple(map(int, identity['windows_version'].split('.')))
+    for executable in (bundle / EXE_NAME, bundle / HELPER_NAME):
+        if pe_file_version(executable) != expected_pe:
+            raise RuntimeError('Frozen PE identity differs from version source')
     original = verified_payload(source)
     bundled = verified_payload(bundle / '_internal/app-source')
     if {key: sha256(value) for key, value in original.items()} != {key: sha256(value) for key, value in bundled.items()}:
@@ -118,21 +141,29 @@ def main():
             raise RuntimeError('Required Qt platform plugin is missing: ' + plugin)
     installer_dir = output / 'installer'
     installer_dir.mkdir()
+    payload_identity = bundle_identity(bundle)
     run_logged([iscc, '/Qp', f'/DBundleDir={bundle}', f'/DOutputDir={installer_dir}',
+                '/DProductVersion=' + identity['version'], '/DWindowsVersion=' + identity['windows_version'],
+                '/DReleaseNumber=' + str(identity['release_number']), '/DPayloadIdentity=' + payload_identity,
                 ROOT / 'packaging/windows/cachecad.iss'], logs / 'inno-build.log')
     installer = installer_dir / INSTALLER_NAME
     if not installer.is_file():
         raise RuntimeError('Inno Setup did not produce the expected installer')
+    if pe_file_version(installer) != expected_pe:
+        raise RuntimeError('Installer PE identity differs from version source')
     git = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True, capture_output=True, check=True)
     status = subprocess.run(['git', 'status', '--porcelain'], cwd=ROOT, text=True, capture_output=True, check=True)
-    inputs = ['requirements/runtime-windows.lock', 'requirements/windows-build.lock',
+    inputs = ['version.json', 'tooling/version.py', 'tooling/assemble_app.py',
+              'application/update_helper.py', 'packaging/windows/update-helper.spec', 'requirements/runtime-windows.lock', 'requirements/windows-build.lock',
               'application/manifest.json', 'application/launch.py',
               'application/resources_rc.py', 'application/crash_diagnostics.py', 'packaging/windows/cachecad.spec',
               'packaging/windows/cachecad.iss', 'packaging/windows/build.py',
               'packaging/windows/support.py', 'packaging/windows/test_installer.py',
               'packaging/windows/APPLICATION-README.txt', 'packaging/windows/version-probe.iss']
     provenance = {
-        'schema_version': 3,
+        'schema_version': 4,
+        'release_identity': identity, 'version_input_sha256': sha256(args.version_file),
+        'payload_identity': payload_identity, 'helper': dict(helper_identity, code_signed=False),
         'kind': 'unsigned maintained application installer; real Google auth and Drive SDK',
         'launch_modes': {'default': 'application', 'startup_check_argument': '--startup-check',
                          'authentication': 'real OAuth credentials, Windows DPAPI persistence',

@@ -36,7 +36,8 @@ def configure_application(profile_root, client_config_path, *, startup_check=Fal
     global _configuration
     if _configuration is not None:
         raise RuntimeError('The application is already configured')
-    if any(name.startswith(('app.', 'core.', 'gui.')) or
+    # This reviewed, stdlib-only exclusion module must run before profile work.
+    if any((name.startswith(('app.', 'core.', 'gui.')) and name != 'core.windows_update_install') or
            name in ('utils.paths', 'utils.app_settings') for name in sys.modules):
         raise RuntimeError('Configure application paths before importing the application')
     from utils.development_mode import current as development

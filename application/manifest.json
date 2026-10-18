@@ -5,7 +5,7 @@
     {
       "source": "application/launch.py",
       "destination": "application/launch.py",
-      "sha256": "e64b4666baf5db5ce04631749fb6542940a5334c05ee2d53b6718055a71b1bc9"
+      "sha256": "c66d9086836c61aaa4b390b003568f0528c3c3c268ac3151db1a4f0fe600772c"
     },
     {
       "source": "application/resources_rc.py",
@@ -15,7 +15,17 @@
     {
       "source": "application/crash_diagnostics.py",
       "destination": "application/crash_diagnostics.py",
-      "sha256": "c5f6eef57e6d31a8f2e15b47dfa56247482453bf5fcd0cf846cf85438f3ba44e"
+      "sha256": "45e92fa4933364d064c93f28678c1ba5b2b36111c48293643ddf9c1f05628f62"
+    },
+    {
+      "source": "application/update-policy.json",
+      "destination": "application/update-policy.json",
+      "sha256": "5ef38a7c58b1715bfcb0126f0fd0fac6d75da2f4dc709d6e138711b0600d0224"
+    },
+    {
+      "source": "application/update_helper.py",
+      "destination": "application/update_helper.py",
+      "sha256": "94a6c1229067bed9a4118bdf7e2226ca21578c770ee0116e0ef47ea4597aab5f"
     }
   ]
 }

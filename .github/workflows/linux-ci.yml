@@ -78,11 +78,15 @@ jobs:
           python -m unittest discover -s tests -p test_sync_history_recovery.py -v
           python -m unittest discover -s tests -p test_remote_refresh_audit.py -v
           python -m unittest discover -s tests -p test_crash_diagnostics.py -v
+          python -m unittest discover -s tests -p "test_application_updates*.py" -v
+          python -m unittest discover -s tests -p test_windows_update_install.py -v
+          python -m unittest discover -s tests -p test_update_safety_review.py -v
+          python -m unittest discover -s tests -p test_update_lifecycle.py -v
 
   windows-installer:
     needs: [offline, offline-qt]
     runs-on: windows-2022
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       PYTHONDONTWRITEBYTECODE: '1'
       PIP_DISABLE_PIP_VERSION_CHECK: '1'
@@ -134,12 +138,28 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s tests -p test_crash_diagnostics.py -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p "test_application_updates*.py" -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_windows_update_install.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_update_safety_review.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_update_lifecycle.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build actual maintained application and per-user installer
         run: |
           python packaging/windows/build.py --output dist/windows
+      - name: Build isolated prior-version upgrade fixture
+        run: |
+          python tooling/version.py --previous-fixture dist/upgrade-version.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python packaging/windows/build.py --output dist/windows-previous --version-file dist/upgrade-version.json
       - name: Install and exercise installed application on Windows
         run: |
           python packaging/windows/test_installer.py --installer dist/windows/installer/CacheCAD-Setup.exe --report-dir dist/windows/test-results
+      - name: Prove native N-to-N-plus-1 upgrade and preserved user data
+        run: |
+          python packaging/windows/test_upgrade.py --older-installer dist/windows-previous/installer/CacheCAD-Setup.exe --newer-installer dist/windows/installer/CacheCAD-Setup.exe --report-dir dist/windows/upgrade-results
       - name: Upload tested Windows application installer
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -149,6 +169,7 @@ jobs:
             dist/windows/installer.sha256
             dist/windows/build-provenance.json
             dist/windows/test-results/*.json
+            dist/windows/upgrade-results/*.json
             docs/WINDOWS_TRYOUT.md
           if-no-files-found: error
           retention-days: 30
@@ -160,7 +181,11 @@ jobs:
           name: CacheCAD-Windows-Diagnostics-${{ github.sha }}
           path: |
             dist/windows/test-results/*.json
+            dist/windows/upgrade-results/*.json
             dist/windows/test-results/*.log
+            dist/windows/upgrade-results/*.log
+            dist/windows-previous/build-logs/*.log
+            dist/windows-previous/build-provenance.json
             dist/windows/build-logs/*.log
             dist/windows/build-provenance.json
           if-no-files-found: ignore

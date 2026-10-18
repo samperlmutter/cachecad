@@ -84,3 +84,15 @@ uritemplate==4.2.0 --hash=sha256:962201ba1c4edcab02e60f9a0d3821e82dfc5d2d6662a21
 urllib3==2.5.0 --hash=sha256:e6b01673c0fa6a13e374b50871808eb3bf7046c4b125b216f6bf1cc604cff0dc
 # zipp-4.1.1-py3-none-any.whl (10582 bytes)
 zipp==4.1.1 --hash=sha256:8979f52d874162f485ff2981e3891f3a3317b7a3dd43ff1e1775b9304f307a9c
+
+# Owner-controlled update verification, official PyPI wheels (2026-10-18).
+# cffi-2.1.1-cp312-cp312-win_amd64.whl (185919 bytes)
+cffi==2.1.1 --hash=sha256:f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a
+# cryptography-50.0.2-cp311-abi3-win_amd64.whl (3824692 bytes)
+cryptography==50.0.2 --hash=sha256:7afa5a6602a9f29af1f3a2965f831bae7c9d5d597b7cbb716d41ab3b7d89879c
+# pycparser-3.11-py3-none-any.whl (51178 bytes)
+pycparser==3.11 --hash=sha256:51d5a8ba2be0bbe440b99d2112604c95bbbc3c2748a64260186c541e1729cd80
+# securesystemslib-1.5.1-py3-none-any.whl (876390 bytes)
+securesystemslib==1.5.1 --hash=sha256:ada8bdf817da29ece4ba91654f6a162ce7cfbadbc3ae3f840f7313f9d22675de
+# tuf-7.0.1-py3-none-any.whl (56253 bytes)
+tuf==7.0.1 --hash=sha256:d30434bda6e079ab303fb30d1b3006d939a10ca34783b1573d61cd9b802fa45c

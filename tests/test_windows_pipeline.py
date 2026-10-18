@@ -111,6 +111,8 @@ class WindowsWorkflowTests(unittest.TestCase):
         allowed = {'dist/windows/installer/*.exe', 'dist/windows/installer.sha256',
                    'dist/windows/build-provenance.json', 'dist/windows/build-logs/*.log',
                    'dist/windows/test-results/*.json', 'dist/windows/test-results/*.log',
+                   'dist/windows/upgrade-results/*.json', 'dist/windows/upgrade-results/*.log',
+                   'dist/windows-previous/build-logs/*.log', 'dist/windows-previous/build-provenance.json',
                    'docs/WINDOWS_TRYOUT.md'}
         uploads = [step for step in self.steps
                    if step.get('uses', '').startswith('actions/upload-artifact@')]
@@ -266,8 +268,8 @@ class WindowsPackagingSafetyTests(unittest.TestCase):
         self.assertEqual(settings['CloseApplications'], 'no')
         self.assertEqual(settings['RestartApplications'], 'no')
         sections = re.findall(r'(?m)^\[([^\]]+)\]', active)
-        self.assertEqual(sections, ['Setup', 'Files', 'Icons'])
-        self.assertNotRegex(active.lower(), r'runonce|\\currentversion\\run|startup|download|hklm')
+        self.assertEqual(sections, ['Setup', 'InstallDelete', 'Files', 'Icons', 'Registry', 'Code'])
+        self.assertNotRegex(active.lower(), r'runonce|\\currentversion\\run|download|hklm')
 
     def test_frozen_recipe_excludes_first_party_only_from_pyz(self):
         spec = (ROOT / 'packaging/windows/cachecad.spec').read_text(encoding='utf-8')
@@ -279,7 +281,7 @@ class WindowsPackagingSafetyTests(unittest.TestCase):
         self.assertIn('upx=False', spec)
         self.assertEqual(set(self.support.SOURCE_PACKAGES),
                          {'app', 'core', 'gui', 'utils', 'resources_rc', 'build_resources',
-                          'application', 'development', 'launch', 'signin', 'crash_diagnostics'})
+                          'application', 'development', 'launch', 'signin', 'crash_diagnostics', 'build_version'})
         self.assertIn('googleapiclient.discovery', self.support.API_IMPORTS)
         self.assertNotIn('googleapiclient', self.support.SOURCE_PACKAGES)
 

@@ -65,6 +65,16 @@ installer startup test does not validate a live Google grant, real sync, or CAD
 compatibility. The separate identity-only development launcher is retained for
 tests; it is not the production authentication architecture.
 
+## Application updates
+
+A real, manual **Check → Download → Verify → Install and close** flow is now
+implemented with TUF metadata, Windows publisher verification and coordinated
+installer handoff. Default update trust remains unconfigured; no production keys,
+signing service, hosting or release publication has been set up. The helper does
+not automatically relaunch the app or provide rollback. See [update setup, current
+behavior and release gates](docs/APPLICATION_UPDATES.md). Local fixture tests and
+the new Windows upgrade harness do not certify a signed end-to-end release.
+
 ## Maintenance checks
 
 Use Python 3.12 and the hash-locked Linux tools:

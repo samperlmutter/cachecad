@@ -8,6 +8,11 @@ import subprocess
 import sys
 import zipfile
 
+if __package__:
+    from .version import generated_source, load_identity
+else:
+    from version import generated_source, load_identity
+
 ROOT = Path(__file__).resolve().parents[1]
 STAMP = (2026, 1, 1, 0, 0, 0)
 # Reviewed retired entrypoints/vendor integrations have no place in a user payload.
@@ -37,7 +42,7 @@ def safe_source(root, relative):
     return path
 
 
-def assemble(root, output, *, production=False):
+def assemble(root, output, *, production=False, version_file=None):
     root, output = Path(root).absolute(), Path(output).absolute()
     if output.exists() or output.is_symlink():
         raise ValueError('Output must be a new directory')
@@ -167,7 +172,19 @@ def assemble(root, output, *, production=False):
                                 source=source, baseline_commit=baseline))
     if production and not {'application/launch.py', 'application/resources_rc.py'}.issubset(files):
         raise ValueError('Production assembly requires reviewed application launcher and resources')
-    manifest = dict(schema_version=1, artifact_kind='application source with optional offline development launcher; not an installer',
+    version_input = Path(version_file) if version_file is not None else root / 'version.json'
+    identity = load_identity(version_input)
+    generated = generated_source(identity)
+    # Replace the historical recovered release label only after its immutable
+    # baseline was verified. Both bootstrap and UI receive identical bytes.
+    destinations = ('src/app/app_version.py', 'application/build_version.py')
+    records = [record for record in records if record['path'] not in destinations]
+    for destination in destinations:
+        files[destination] = generated
+        records.append(dict(path=destination, sha256=sha(generated), origin='generated-version',
+                            source='version.json', version_input_sha256=sha(version_input.read_bytes()),
+                            generator='tooling/version.py', baseline_commit=baseline))
+    manifest = dict(schema_version=1, release_identity=identity, artifact_kind='application source with optional offline development launcher; not an installer',
                     runtime_verified=False, baseline_commit=baseline,
                     missing_runtime_inputs=['production resources and branding', 'authorized account configuration', 'installed target runtime'],
                     offline_development=bool(development_files),
@@ -196,8 +213,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
     parser.add_argument('--production', action='store_true', help='Exclude development fixtures; require reviewed application bootstrap')
+    parser.add_argument('--version-file', type=Path)
     args = parser.parse_args()
-    manifest = assemble(ROOT, args.output, production=args.production)
+    manifest = assemble(ROOT, args.output, production=args.production, version_file=args.version_file)
     print(f"Assembled {len(manifest['files'])} source files; runtime unverified: {args.output}")
 
 

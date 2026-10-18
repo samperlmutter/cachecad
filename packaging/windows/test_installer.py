@@ -89,6 +89,7 @@ def verify_shortcut(path, executable, arguments, report_dir, name, environment, 
 
 def test_installed_crash_reports(executable, profiles, environment, root, report_dir):
     """Inject faults only into explicitly enabled disposable installed-app runs."""
+    identity = json.loads((executable.parent / '_internal/app-source/assembly-manifest.json').read_text(encoding='utf-8'))['release_identity']
     records = []
     expected = {'main': 'startup-failure', 'thread': 'unhandled-thread',
                 'qt': 'qt-callback', 'native': 'native-fatal'}
@@ -120,7 +121,7 @@ def test_installed_crash_reports(executable, profiles, environment, root, report
             if str(profile) in raw or 'Synthetic diagnostic failure' in raw:
                 raise RuntimeError('Installed crash report exposed raw path or exception text')
             report = json.loads(raw)
-            if (report.get('schema') != 1 or report.get('application') != 'CacheCAD'
+            if (report.get('schema') != 1 or report.get('application') != 'CacheCAD' or report.get('version') != identity['version']
                     or len(report.get('build_sha256', '')) != 64
                     or not isinstance(report.get('frames'), list)):
                 raise RuntimeError('Installed crash report metadata was incomplete')

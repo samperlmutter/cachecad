@@ -42,3 +42,18 @@ App and launcher source are under _internal/app-source. Requests' CA bundle and
 the official Drive v3 discovery document are included.
 This notice grants no rights to upstream recovered code or vendor branding;
 check relevant rights and third-party license obligations before redistribution.
+
+APPLICATION UPDATE STATUS
+The maintained release identity is generated from version.json. This private CI
+installer and its helper remain unsigned. The in-app updater is disabled until
+the owner supplies approved signed metadata, publisher trust and distribution.
+The private CI workflow tests an explicitly synthetic prior-version installer
+upgrading to these exact installer bytes, same-payload repair, downgrade refusal,
+exclusion, and preserved synthetic profile/session/project data. It does not prove
+compatibility with every historical binary, real Google account, or live CAD app.
+
+Installation replaces the installer-owned app-source snapshot only after path
+and process-exclusion checks. Existing profile and project roots are not deleted.
+This in-place copy is not a transactional or power-loss-safe rollback. If setup
+is interrupted, keep the current profile and retry the same approved installer.
+Downgrades and same-release repairs using different payloads are refused.

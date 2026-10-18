@@ -32,7 +32,8 @@ hidden += collect_submodules('send2trash') + collect_submodules('tzlocal') + ['t
 hidden += list(TYPE_IMPORTS) + list(API_IMPORTS)
 # SDK auth backends and discovery cache imports can be selected dynamically.
 for package in ('google.auth', 'google.oauth2', 'google_auth_oauthlib',
-                'googleapiclient', 'requests_oauthlib', 'oauthlib.oauth2'):
+                'googleapiclient', 'requests_oauthlib', 'oauthlib.oauth2',
+                'tuf', 'securesystemslib', 'cryptography'):
     hidden += collect_submodules(package)
 a = Analysis(
     [str(source / 'application' / 'launch.py')],
@@ -50,5 +51,6 @@ exe = EXE(
     exclude_binaries=True, name='CacheCAD', debug=False,
     bootloader_ignore_signals=False, strip=False, upx=False, console=True,
     disable_windowed_traceback=False, contents_directory='_internal',
+    version=os.environ['CACHECAD_VERSION_RESOURCE'],
 )
 coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='CacheCAD')

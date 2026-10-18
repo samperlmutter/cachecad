@@ -1,16 +1,48 @@
-# Application updates after installation
+# Application updates: implementation status and design rationale
 
-Design proposal, 2026-10-18. Inspected checkout: `c6c78a8478da234e08c54e8918d46753138b0fd0` plus current working files. This document changes no executable code, release, repository visibility, hosting, credentials, or signing keys. Live Google authorization and CAD/project tests remain parked.
+Updated 2026-10-18 after implementing the maintained update flow. The original
+proposal inspected `c6c78a8478da234e08c54e8918d46753138b0fd0` plus then-current
+working files; its inventory below is retained as historical evidence, not a
+statement about today's implementation. See [current setup and operating
+instructions](APPLICATION_UPDATES.md) for the implemented contract.
+
+## Current implementation status
+
+- Added real TUF discovery/download (`maintained/core/application_updates.py`),
+  manual Qt consent (`maintained/gui/application_updates.py`), Windows held-file
+  publisher verification and staged helper handoff. The retired vendor updater
+  remains excluded.
+- Added a generated maintained-product identity from `version.json`, coordinated
+  install/run exclusion, installer downgrade/exact-payload repair checks and a
+  native Windows upgrade/preservation harness wired into CI.
+- The flow is **Check → Download → Verify → Install and close**. There is no
+  automatic relaunch. Helper READY is not install authorization: the launcher
+  sends COMMIT only after clean shutdown, and the helper waits for process exit.
+- Default trust is unconfigured. No production TUF root, publisher pins, signing
+  keys, hosting or publication has been set up. Unsigned CI fixtures cannot pass
+  the production publisher gate.
+- Local fixture/Qt tests provide implementation evidence. A signed end-to-end
+  update, final-artifact Windows release validation, healthy-first-launch
+  protocol and transactional rollback are not established by this work. Live
+  Google authorization and CAD/project validation remain separate open gates.
+
+Sections below retain the architecture rationale and outstanding release gates.
+A requirement or proposed future behavior is not evidence that it is implemented
+or has passed on a production-signed Windows artifact.
 
 ## Recommendation
 
-Keep the source repository private. Ship owner-approved, signed **full Inno Setup installers** through a separately approved distribution channel. Start with manual installation and tested upgrades; add a new, explicit **Check → Download → Install and restart** flow only after its trust and recovery gates pass. Keep the retired vendor updater excluded. Do not promise silent updates or automatic rollback from the current installer.
+Keep the source repository private. Ship owner-approved, signed **full Inno Setup installers** through a separately approved distribution channel. The explicit **Check → Download → Verify → Install and close** flow is implemented but must remain unconfigured until its distribution, signing and final-artifact validation gates pass. Keep the retired vendor updater excluded. Do not promise silent updates, automatic relaunch or automatic rollback from the current installer.
 
 An application update replaces application files. It must preserve the user's settings, project list, project folders, and Windows-protected Google session. It must never start a sync, grant Google access, change Drive files, or force-close CAD software.
 
-## 1. What exists now, and what does not
+## 1. Historical pre-implementation inventory
 
-| Evidence | Consequence |
+The following table records the original proposal baseline. Its disabled update
+button, missing mutex/version identity and missing upgrade tests have since been
+addressed as described above; distribution/signing readiness has not.
+
+| Historical evidence | Consequence |
 | --- | --- |
 | `tooling/assemble_app.py:PRODUCTION_EXCLUDED_MODULES` omits `core.github_updater`; `application/launch.py:BLOCKED_MODULES` also rejects it. `maintained/app/app_controller.py:_configure_owned_ui` disables the update button, and `on_download_app_update` reports no owner configuration. | Installed builds do not currently contact the original update service. Implement a new owner-controlled component; do not reconnect the recovered one. |
 | `.github/workflows/linux-ci.yml` uploads `CacheCAD-Windows-Application-<commit>` with `retention-days: 30`, from a read-only-permission build workflow. `docs/WINDOWS_TRYOUT.md` describes private-repository downloads. | These are test artifacts, not a durable user update service. GitHub requires sign-in and repository read access to download workflow artifacts. [GitHub artifact access](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts) |
@@ -49,7 +81,7 @@ Initially the owner can publish manually. A later automated publisher should use
 
 ## 3. Trust contract for the new updater
 
-Use an established update-metadata implementation, preferably the Python implementation of **The Update Framework (TUF)**, rather than designing a signature/rotation protocol around an unsigned JSON file. Bundle the initial owner root trust metadata, pin and review the dependency, and use its authenticated target length/SHA-256 plus versioned, expiring metadata. TUF addresses update discovery/download trust; CacheCAD still owns installer execution and data safety. [TUF design](https://theupdateframework.io/docs/overview/), [Python implementation](https://theupdateframework.readthedocs.io/en/stable/)
+The implemented client uses the Python implementation of **The Update Framework (TUF)** rather than a custom signature/rotation protocol around an unsigned JSON file. Bundle the initial owner root trust metadata, pin and review the dependency, and use its authenticated target length/SHA-256 plus versioned, expiring metadata. TUF addresses update discovery/download trust; CacheCAD still owns installer execution and data safety. [TUF design](https://theupdateframework.io/docs/overview/), [Python implementation](https://theupdateframework.readthedocs.io/en/stable/)
 
 The authenticated release description must bind product ID, channel, semantic version, monotonic release/build number, architecture, supported Windows range, minimum updater version, profile read/write schema range, exact immutable installer URL, byte length, SHA-256, and release-note reference. The approved channel endpoint and allowed HTTPS redirect hosts must be explicit; never accept arbitrary feed URLs, executable names/arguments, shell commands, or certificate identities from unsigned network data.
 
@@ -59,12 +91,15 @@ Root/release keys need approved custody, backup, rotation, recovery, and expiry-
 
 ## 4. User flow and failure behavior
 
-1. **Check:** manual by default. Show installed/proposed versions, channel, publisher, download size, release notes, and migration/restart implications. Background checks require a clear user setting. Never install silently or change stable/beta channels implicitly.
-2. **Download:** only after the user's choice. Use a worker, bounded connect/read timeouts and total duration, limited retries/backoff, response/redirect/size limits, and a unique `.part` file in an app-owned user-local update cache outside the executable directory. Handle offline/404/rate limits/proxy failures/disk full without touching the installed version. Cancel stops promptly and removes incomplete bytes. Initially restart interrupted downloads; add resumable downloads only with validator/range tests and final full-file verification.
-3. **Verify:** authenticate metadata, length, hash, and Windows publisher trust. Fail closed and remove/quarantine invalid bytes. Atomically promote only fully verified files. Reverify immediately before execution, reject symlinks/reparse paths, and prevent replacement between verification and launch using a reviewed Windows file-handle/access protocol. No shell interpolation. These defenses do not claim protection from arbitrary malware already running as the same user.
-4. **Install and restart:** separate explicit confirmation; “Later” remains available. Disable new transfers/scans/account changes, invalidate pending sync plans, and wait for existing transfers, analysis, token writes, and worker/helper processes to settle. A cancellation signal is not evidence of completion. If work will not stop safely, leave installation deferred; never kill a transfer, CAD process, or the app to force progress.
-5. **Handoff:** preserve an exclusive install/run gate across app exit and installer start, and wait for the old process to exit. Add the matching application mutex and Inno `AppMutex`, plus a coordinated launch/install exclusion check for the handoff race. Existing per-profile locks alone do not cover multiple custom profiles using the same install. Keep automatic application closing/restarting disabled. Inno's AppMutex checks running apps; `CloseApplications=force` can lose unsaved work. [AppMutex](https://jrsoftware.org/ishelp/topic_setup_appmutex.htm), [CloseApplications](https://jrsoftware.org/ishelp/topic_setup_closeapplications.htm)
-6. **Finish:** installer cancellation/failure must be distinguishable from success. Relaunch only the verified installed version after successful completion and only as the same non-elevated Windows user. Restore the UI/session, but do not resume a prior sync plan automatically. Update success is recorded only after a healthy first launch; retain a local, sanitized failure report.
+The current flow is described below; final production-signed Windows validation
+remains a release gate. Stronger recovery/health behavior is explicitly future work.
+
+1. **Check:** manual by default. Show installed/proposed versions, channel, publisher, download size, release notes, and profile compatibility and close/reopen implications. No background-check setting is implemented; any future background checks require a clear user choice. Never install silently or change stable/beta channels implicitly.
+2. **Download:** only after the user's choice. Use a worker, bounded connect/read timeouts and total duration, response/redirect/size limits, no implicit retries, and a unique `.part` file in an app-owned user-local update cache outside the executable directory. Handle offline/404/rate limits/proxy failures/disk full without touching the installed version. Cancel is cooperative and removes incomplete download bytes when the worker settles. Native trust checks and OS DNS may not stop immediately. Initially restart interrupted downloads; add resumable downloads only with validator/range tests and final full-file verification.
+3. **Verify:** authenticate metadata, length, hash, and Windows publisher trust. Fail closed; incomplete or integrity-invalid downloads are removed. Cached TUF-verified bytes are never execution authorization after a publisher-check failure. Atomically cache only TUF/hash-verified complete bytes; keep Windows publisher authorization as an additional required gate before execution. Reverify immediately before execution, reject symlinks/reparse paths, and retain file/directory handles to reduce replacement races between verification and launch. This is not atomic handle-based execution. No shell interpolation. These defenses do not claim protection from arbitrary malware already running as the same user.
+4. **Install and close:** separate explicit confirmation; “Later” remains available. Disable new transfers/scans/account changes, invalidate pending sync plans, and wait for existing transfers, analysis, token writes, and worker/helper processes to settle. A cancellation signal is not evidence of completion. If work will not stop safely, leave installation deferred; never kill a transfer, CAD process, or the app to force progress.
+5. **Handoff:** preserve an exclusive install/run gate across app exit and installer start, and wait for the old process to exit. The implementation uses matching application mutexes and Inno `AppMutex`, plus coordinated launch/install exclusion for the handoff race. Existing per-profile locks alone do not cover multiple custom profiles using the same install. Keep automatic application closing/restarting disabled. Inno's AppMutex checks running apps; `CloseApplications=force` can lose unsaved work. [AppMutex](https://jrsoftware.org/ishelp/topic_setup_appmutex.htm), [CloseApplications](https://jrsoftware.org/ishelp/topic_setup_closeapplications.htm)
+6. **Finish:** the helper records installer completion, cancellation, failure or deferral locally. Reopen CacheCAD normally; the current helper does not relaunch it or claim healthy application activation. A future automatic relaunch must bind the verified installed payload and same non-elevated user. A future healthy-first-launch protocol must distinguish installer completion from successful activation. Never resume a prior sync plan automatically.
 
 ## 5. Preserve data and make recovery honest
 
@@ -77,13 +112,17 @@ The current separation is a useful baseline:
 
 DPAPI data normally decrypts for the same Windows user on the same computer, and decryption requires matching optional entropy. It is not a portable login backup. Never decrypt tokens in the installer, change to machine-wide protection, or copy plaintext credentials. A changed client ID/scope/schema may require sign-in again; disclose that rather than silently discarding the old cache. [Microsoft DPAPI](https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata)
 
-**First update releases:** preserve schema 1 and keep a tested prior signed installer. Support manual repair/reinstall and compatible rollback. Do not describe the existing in-place file copy as a transactional, power-loss-safe rollback mechanism. Block unsupported downgrades in both the app and standalone installer; allow same-version repair only for the exact approved build. One version/build identifies one installer digest. Use one generated version source for UI, package, installer/PE metadata, diagnostics, provenance, and update comparisons; compare parsed versions, never strings or equality alone. Inno PE version metadata accepts up to four numeric components. [VersionInfoVersion](https://jrsoftware.org/ishelp/topic_setup_versioninfoversion.htm)
+**First update releases:** preserve schema 1 and keep a tested prior signed installer. The installer supports exact-payload same-version repair and refuses older releases. A controlled compatible rollback path remains future work; retaining an older installer does not make a downgrade supported. Do not describe the existing in-place file copy as a transactional, power-loss-safe rollback mechanism. Block unsupported downgrades in both the app and standalone installer; allow same-version repair only for the exact approved build. One version/build identifies one installer digest. Use one generated version source for UI, package, installer/PE metadata, diagnostics, provenance, and update comparisons; compare parsed versions, never strings or equality alone. Inno PE version metadata accepts up to four numeric components. [VersionInfoVersion](https://jrsoftware.org/ishelp/topic_setup_versioninfoversion.htm)
 
 **Before automatic rollback or schema migrations:** implement and test a recovery transaction. Prefer versioned payload directories behind a small signed launcher, with the previous payload retained and a journaled/atomic active-version switch; Inno remains the full installer. Keep bootstrap replacement and its recovery path explicitly tested. Under exclusive profile access, snapshot only mutable app metadata (DPAPI bytes stay encrypted), validate a migration on a copy, then commit with a recoverable journal. Do not snapshot or restore user CAD files as part of an app upgrade.
 
 Require supported read/write schema ranges. First launch must validate profile loading/migrations before enabling authentication refresh or sync. Failed activation may revert the payload and metadata only before post-update writes begin and only when the old reader supports the restored schema. After user activity or token rotation, blindly restoring an old profile can lose work or resurrect a stale refresh token: preserve the current profile and use an explicit supported recovery/forward-fix path instead. Never run older code against an unsupported new schema, restore an old cloud state, or downgrade below a known security floor without a specifically reviewed recovery decision. A controlled code rollback is distinct from accepting replayed update metadata; metadata anti-rollback state must stay monotonic.
 
-## 6. Delivery phases and acceptance gates
+## 6. Delivery phases and remaining acceptance gates
+
+P0/P2 implementation and fixture tests now exist. The table retains the original
+acceptance criteria; native final-artifact and signed end-to-end evidence must be
+checked for each release rather than inferred from code or synthetic CI fixtures.
 
 | Priority | Work | Exit evidence |
 | --- | --- | --- |
@@ -92,7 +131,7 @@ Require supported read/write schema ranges. First launch must validate profile l
 | P2: user-approved in-app flow | Add new TUF-backed discovery/download service, Windows trust verifier, cancellation UI, and install handoff. Keep old updater excluded. | Tests reject tampering, wrong signer/product/channel/architecture, stale/expired metadata, replay, downgrade, untrusted redirects, truncated/oversize files, signature revocation failures, and file substitution. Test offline, timeout, disk full, Cancel at every phase, repeat clicks, active/unsettled sync, tray-open app, competing profiles/installers, and relaunch failures. |
 | P3: migration/recovery hardening | Add versioned payload activation, health gate, metadata snapshots/journal, tested schema migrations, and root/publisher key rotation/recovery. | Crash/power-loss injection at every boundary, migration rollback before writes, safe refusal after writes, cleanup limits, and restoration drills. Do not advertise unattended recovery before these pass. |
 
-For P0/P2, use synthetic Google sessions protected by real Windows DPAPI in disposable profiles, mock update servers, and test-only signing fixtures isolated from production trust. No real account or CAD project is needed. Current CI startup tests are useful regressions but insufficient evidence for any new gate above.
+For P0/P2, use synthetic Google sessions protected by real Windows DPAPI in disposable profiles, mock update servers, and test-only signing fixtures isolated from production trust. No real account or CAD project is needed. The Windows workflow now includes an unsigned synthetic-prior-version upgrade harness. Its results, when run successfully, establish only the covered mechanics and preservation checks. They do not validate production signing, all historical versions, public distribution or automatic recovery.
 
 ## 7. Approval questions for the owner, when those phases begin
 

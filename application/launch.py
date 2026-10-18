@@ -5,7 +5,7 @@ Normal launch uses persistent isolated state and actual Google/Drive services.
 restoration disabled. It never fabricates a user, credential or successful scan.
 """
 import argparse
-from contextlib import contextmanager, redirect_stdout, redirect_stderr
+from contextlib import ExitStack, contextmanager, redirect_stdout, redirect_stderr
 import hashlib
 import importlib.abc
 import importlib.machinery
@@ -56,7 +56,7 @@ def verify_source(root):
             sources[relative.as_posix()] = raw
             listed.add(path.resolve())
         elif relative.as_posix() in ('application/resources_rc.py', 'application/launch.py',
-                                       'application/crash_diagnostics.py'):
+                                       'application/crash_diagnostics.py', 'application/build_version.py'):
             sources[relative.as_posix()] = raw
     if listed != {path.resolve() for path in (root / 'src').rglob('*.py')}:
         raise ValueError('Unmanifested application module')
@@ -133,6 +133,7 @@ def parse_arguments(argv=None):
     parser.add_argument('--startup-check', action='store_true',
         help='Render the actual signed-out UI with no network, then exit')
     parser.add_argument('--platform', choices=('offscreen', 'windows'))
+    parser.add_argument('--preserved-profile-check', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--diagnostic-test', choices=('main', 'thread', 'qt', 'native'),
         help=argparse.SUPPRESS)
     parser.add_argument('--diagnostic-native-helper', action='store_true', help=argparse.SUPPRESS)
@@ -155,10 +156,26 @@ def parse_arguments(argv=None):
     args.client_config = args.client_config.absolute()
     if args.profile_dir is not None:
         args.profile_dir = args.profile_dir.absolute()
+    if args.preserved_profile_check:
+        if (not args.startup_check or args.profile_dir is None or args.diagnostic_test
+                or args.diagnostic_native_helper or os.environ.get('CACHECAD_ENABLE_UPGRADE_TESTS') != '1'
+                or args.client_config.exists() or args.client_config.is_symlink()):
+            parser.error('Preserved-profile checks require an explicit disposable upgrade fixture and missing client configuration')
+        temporary = Path(tempfile.gettempdir()).resolve()
+        profile = args.profile_dir.resolve()
+        if profile == temporary or not profile.is_relative_to(temporary):
+            parser.error('Preserved-profile checks require a profile inside the disposable temporary directory')
+        marker = profile / '.cachecad-upgrade-fixture.json'
+        try:
+            if marker.is_symlink() or marker.stat().st_size > 1024 or json.loads(marker.read_text()) != {
+                    'fixture': 'cachecad-upgrade-ci', 'schema': 1}:
+                raise ValueError
+        except (OSError, ValueError):
+            parser.error('The disposable upgrade fixture marker is missing or invalid')
     return args
 
 
-def prepare_profile(profile, *, startup_check=False):
+def prepare_profile(profile, *, startup_check=False, preserved_profile_check=False):
     """Never import the legacy plaintext token cache, settings or project list."""
     profile = Path(profile).absolute()
     for part in (profile, *profile.parents):
@@ -167,7 +184,7 @@ def prepare_profile(profile, *, startup_check=False):
     if profile.exists() and not profile.is_dir():
         raise ValueError('The application profile is not a directory')
     contents = [path for path in profile.iterdir() if path.name != '.cachecad-profile.lock'] if profile.exists() else []
-    if startup_check and contents:
+    if startup_check and contents and not preserved_profile_check:
         raise ValueError('Startup checks require a new empty disposable profile')
     marker = profile / 'application-profile.json'
     if contents:
@@ -234,7 +251,8 @@ def application_profile(args, default):
             if part.is_symlink() or (hasattr(part, 'is_junction') and part.is_junction()):
                 raise ValueError('Linked application profile is not accepted')
         with ProfileLock(path):
-            profile = prepare_profile(path, startup_check=args.startup_check)
+            profile = prepare_profile(path, startup_check=args.startup_check,
+                                      preserved_profile_check=getattr(args, 'preserved_profile_check', False))
             try:
                 os.chdir(profile)
                 yield profile
@@ -311,12 +329,22 @@ def diagnostic_fault(mode):
         os.abort()
 
 
-def run_application(args, root, diagnostics):
+def run_application(args, root, diagnostics, lifetime=None, pending_updates=None):
     from utils.application_mode import configure_application, default_profile_root
     if args.platform or args.startup_check:
         os.environ['QT_QPA_PLATFORM'] = args.platform or 'offscreen'
     result = None
+    if sys.platform == 'win32' and lifetime is not None:
+        from core.windows_update_install import ApplicationRunLease
+        lifetime.enter_context(ApplicationRunLease())
     with application_profile(args, default_profile_root()) as profile:
+        preserved = {}
+        if getattr(args, 'preserved_profile_check', False):
+            for path in profile.rglob('*'):
+                if path.is_symlink() or (hasattr(path, 'is_junction') and path.is_junction()):
+                    raise ValueError('Linked upgrade fixture content is not accepted')
+                if path.is_file():
+                    preserved[path.relative_to(profile).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
         diagnostics.activate(profile / 'diagnostics')
         diagnostics.mark('profile_ready')
         native_capture = diagnostics.enable_native(native_helper_command(args, root, profile))
@@ -370,6 +398,10 @@ def run_application(args, root, diagnostics):
                 from httplib2 import Http
                 import certifi
                 result = {
+                    'version': __import__('build_version').APP_VERSION,
+                    'release_number': __import__('build_version').APP_RELEASE_NUMBER,
+                    'windows_version': __import__('build_version').APP_WINDOWS_VERSION,
+                    'product_id': __import__('build_version').APP_PRODUCT_ID,
                     'mode': 'application', 'actual_gui': type(window).__module__ + '.' + type(window).__name__,
                     'qt_platform': app.platformName(), 'frozen': bool(getattr(sys, 'frozen', False)),
                     'source_loader': 'verified-source', 'network_disabled': True,
@@ -422,13 +454,24 @@ def run_application(args, root, diagnostics):
                     development_modules_loaded=[name for name in sys.modules if name == 'development' or name.startswith('development.')],
                     forbidden_modules_loaded=sorted(BLOCKED_MODULES.intersection(sys.modules)),
                     credential_files=[p.name for p in profile.rglob('*') if p.name in
-                                      ('token.json', 'creds.json', 'temp.json', 'google-session.dpapi')],
+                                      ('token.json', 'creds.json', 'temp.json', 'google-session.dpapi')
+                                      and p.relative_to(profile).as_posix() not in preserved],
                     errors=list(slot_errors))
+                if getattr(args, 'preserved_profile_check', False):
+                    after = {path.relative_to(profile).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+                             for path in profile.rglob('*') if path.is_file()}
+                    result['preserved_profile_unchanged'] = after == preserved
+                    if after != preserved:
+                        result['errors'].append('Preserved upgrade fixture bytes changed during startup')
                 if (result['signed_in'] or result['has_credentials'] or result['drive_client_created']
                         or attempts or result['active_threads'] or result['credential_files']
                         or result['development_modules_loaded'] or result['forbidden_modules_loaded']):
                     result['errors'].append('Signed-out startup safety invariant failed')
                 exit_code = 1 if result['errors'] else exit_code
+            coordinator = getattr(controller, '_update_coordinator', None)
+            if (coordinator is not None and pending_updates is not None
+                    and coordinator.install_pending):
+                pending_updates.append(coordinator)
             diagnostics.mark('shutdown_finished')
             diagnostics.set_qt_callback(None)
     if result is not None:
@@ -439,18 +482,30 @@ def run_application(args, root, diagnostics):
 def main(argv=None):
     args = parse_arguments(argv)
     diagnostics = None
+    lifetime = ExitStack()
+    pending_updates = []
     try:
         root = args.app_source.resolve(strict=True)
         sources = verify_source(root)
         sys.dont_write_bytecode = True
         install_source_importer(root, sources)
         import crash_diagnostics
+        import build_version
+        crash_diagnostics.APP_VERSION = build_version.APP_VERSION
         catalog = crash_diagnostics.source_catalog(root, sources)
         build = hashlib.sha256((root / 'assembly-manifest.json').read_bytes()).hexdigest()
         if args.diagnostic_native_helper:
             return run_native_helper(args, crash_diagnostics, catalog, build)
         diagnostics = crash_diagnostics.CrashDiagnostics(catalog, build).install()
-        return run_application(args, root, diagnostics)
+        exit_code = run_application(args, root, diagnostics, lifetime, pending_updates)
+        diagnostics_stopped = diagnostics.close()
+        for coordinator in pending_updates:
+            if exit_code == 0 and diagnostics_stopped:
+                if not coordinator.commit_after_clean_shutdown():
+                    exit_code = 1
+            else:
+                coordinator.abort_pending_install()
+        return exit_code
     except Exception:
         if diagnostics is not None:
             diagnostics.record_exception('startup-failure', *sys.exc_info())
@@ -458,8 +513,11 @@ def main(argv=None):
         print('CacheCAD could not start. Check the reviewed installation and isolated application profile.', file=sys.stderr)
         return 1
     finally:
+        for coordinator in pending_updates:
+            coordinator.abort_pending_install()
         if diagnostics is not None:
             diagnostics.close()
+        lifetime.close()
 
 
 if __name__ == '__main__':

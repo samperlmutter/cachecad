@@ -20,7 +20,8 @@ import threading
 import time
 import uuid
 
-APP_VERSION = '0.1.0'
+# Set from the verified generated build module before diagnostics installation.
+APP_VERSION = 'unversioned'
 MAX_REPORTS = 8
 MAX_REPORT_BYTES = 32768
 MAX_FRAMES = 64
@@ -194,7 +195,12 @@ def _record(metadata, kind, frames, breadcrumbs, exception_type=None):
 
 
 def _stop_helper(process, timeout=5):
-    """Close the private pipe, then reap even a stuck child within a bound."""
+    """Close the pipe and attempt bounded cleanup; return confirmed process exit.
+
+    A cancellation/termination request is not proof of completion. Callers that
+    replace installed files must treat an unknown or still-running child as a
+    blocker, even though diagnostic reporting itself remains best effort.
+    """
     try:
         process.stdin.close()
     except Exception:
@@ -211,12 +217,17 @@ def _stop_helper(process, timeout=5):
                 process.wait(timeout=2)
             except Exception:
                 pass
-    finally:
+    try:
+        stopped = process.poll() is not None
+    except Exception:
+        stopped = False
+    if stopped:
         try:
-            if process.poll() is not None and process.stdout is not None:
+            if process.stdout is not None:
                 process.stdout.close()
         except Exception:
             pass
+    return stopped
 
 
 class CrashDiagnostics:
@@ -231,6 +242,7 @@ class CrashDiagnostics:
         self._previous = None
         self._native = None
         self._native_enabled = False
+        self._native_shutdown_failed = False
         self._callback = None
         self.previous_reports = False
         self.available = False
@@ -362,20 +374,34 @@ class CrashDiagnostics:
             return True
         except Exception:
             if process is not None:
-                _stop_helper(process, timeout=2)
+                if not _stop_helper(process, timeout=2):
+                    self._native_shutdown_failed = True
+                    self._native = process
+                    return False
             self._native = None
             return False
 
     def close(self):
+        """Return true only when native capture is conclusively stopped.
+
+        An inconclusive close poisons update handoff for this process lifetime;
+        a later call cannot turn a lost/failed child observation into approval.
+        Repeated calls still retry safe diagnostic-only child cleanup.
+        """
         try:
             if self._native_enabled:
-                faulthandler.disable()
-                self._native_enabled = False
+                try:
+                    faulthandler.disable()
+                    self._native_enabled = False
+                except Exception:
+                    self._native_shutdown_failed = True
             if self._native is not None:
-                process, self._native = self._native, None
-                _stop_helper(process)
+                if _stop_helper(self._native):
+                    self._native = None
+                else:
+                    self._native_shutdown_failed = True
         except Exception:
-            pass
+            self._native_shutdown_failed = True
         finally:
             if self._previous is not None:
                 if sys.excepthook is self._sys_hook:
@@ -383,6 +409,7 @@ class CrashDiagnostics:
                 if threading.excepthook is self._thread_hook:
                     threading.excepthook = self._previous[1]
                 self._previous = None
+        return not self._native_shutdown_failed and self._native is None and not self._native_enabled
 
 
 def capture_native(directory, catalog, build, stream=None, *, announce=False):
