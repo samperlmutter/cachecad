@@ -87,6 +87,75 @@ def verify_shortcut(path, executable, arguments, report_dir, name, environment, 
     return result
 
 
+def test_installed_crash_reports(executable, profiles, environment, root, report_dir):
+    """Inject faults only into explicitly enabled disposable installed-app runs."""
+    records = []
+    expected = {'main': 'startup-failure', 'thread': 'unhandled-thread',
+                'qt': 'qt-callback', 'native': 'native-fatal'}
+    for mode, kind in expected.items():
+        profile = profiles / ('diagnostic-' + mode)
+        command = [str(executable), '--startup-check', '--profile-dir', str(profile),
+                   '--platform', 'windows', '--diagnostic-test', mode]
+        process = subprocess.run(command, cwd=root,
+            env=dict(environment, CACHECAD_ENABLE_DIAGNOSTIC_TESTS='1'),
+            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=90)
+        (report_dir / f'diagnostic-{mode}.stdout.log').write_text(process.stdout, encoding='utf-8')
+        (report_dir / f'diagnostic-{mode}.stderr.log').write_text(process.stderr, encoding='utf-8')
+        if process.returncode == 0:
+            raise RuntimeError(f'Installed diagnostic {mode} did not report failure')
+        deadline = time.monotonic() + 15
+        reports = []
+        while time.monotonic() < deadline:
+            reports = list((profile / 'diagnostics').glob('crash-*.json'))
+            if reports:
+                break
+            time.sleep(0.1)
+        if not reports or len(reports) > 8:
+            raise RuntimeError(f'Installed diagnostic {mode} did not produce bounded durable reports')
+        parsed = []
+        for path in reports:
+            if path.stat().st_size > 32768:
+                raise RuntimeError('Installed crash report exceeded size limit')
+            raw = path.read_text(encoding='utf-8')
+            if str(profile) in raw or 'Synthetic diagnostic failure' in raw:
+                raise RuntimeError('Installed crash report exposed raw path or exception text')
+            report = json.loads(raw)
+            if (report.get('schema') != 1 or report.get('application') != 'CacheCAD'
+                    or len(report.get('build_sha256', '')) != 64
+                    or not isinstance(report.get('frames'), list)):
+                raise RuntimeError('Installed crash report metadata was incomplete')
+            parsed.append(report)
+        if kind not in [item['kind'] for item in parsed]:
+            raise RuntimeError(f'Installed diagnostic {mode} omitted its expected report kind')
+        # A fatal parent cannot reap its native report helper. Wait for every
+        # process at this unique disposable installed path before uninstalling.
+        powershell = Path(environment['SYSTEMROOT']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+        script = ("$ErrorActionPreference='Stop'; "
+                  "$p=@(Get-CimInstance Win32_Process | Where-Object { "
+                  "$_.ExecutablePath -eq $env:CACHECAD_TEST_EXE }); "
+                  "[Console]::Write($p.Count)")
+        deadline = time.monotonic() + 15
+        while True:
+            probe = subprocess.run([str(powershell), '-NoLogo', '-NoProfile', '-NonInteractive',
+                                    '-Command', script], cwd=root, timeout=10,
+                env=dict(environment, CACHECAD_TEST_EXE=str(executable)), capture_output=True,
+                text=True, encoding='utf-8', errors='replace')
+            if probe.returncode != 0:
+                raise RuntimeError('Could not verify installed diagnostic helper exit')
+            if probe.stdout.strip() == '0':
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError('Installed diagnostic helper did not exit')
+            time.sleep(0.1)
+        record = {'scenario': mode, 'exit_code': process.returncode,
+                  'durable_report_verified': True, 'local_only': True,
+                  'all_installed_processes_exited': True, 'reports': parsed}
+        (report_dir / f'diagnostic-{mode}.json').write_text(
+            json.dumps(record, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+        records.append(record)
+    return records
+
+
 def test_installation(installer, report_dir):
     if uninstall_key_exists():
         raise RuntimeError('Existing CacheCAD Reconstructed installation detected; refusing to replace it')
@@ -155,6 +224,11 @@ def test_installation(installer, report_dir):
                 (report_dir / f'{name}.json').write_text(json.dumps(record, indent=2, sort_keys=True) + '\n', encoding='utf-8')
                 summary['scenarios'].append(record)
                 save()
+            summary['crash_diagnostics'] = test_installed_crash_reports(
+                executable, profiles, environment, root, report_dir)
+            if snapshot(install_dir) != initial:
+                raise RuntimeError('Installed files changed during diagnostic fault tests')
+            summary['installed_crash_diagnostics_verified'] = True
             summary['signed_out_startup_verified'] = True
             summary['installed_runtime_verified'] = True
         except Exception as failure:

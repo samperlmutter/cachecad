@@ -127,7 +127,7 @@ def main():
     status = subprocess.run(['git', 'status', '--porcelain'], cwd=ROOT, text=True, capture_output=True, check=True)
     inputs = ['requirements/runtime-windows.lock', 'requirements/windows-build.lock',
               'application/manifest.json', 'application/launch.py',
-              'application/resources_rc.py', 'packaging/windows/cachecad.spec',
+              'application/resources_rc.py', 'application/crash_diagnostics.py', 'packaging/windows/cachecad.spec',
               'packaging/windows/cachecad.iss', 'packaging/windows/build.py',
               'packaging/windows/support.py', 'packaging/windows/test_installer.py',
               'packaging/windows/APPLICATION-README.txt', 'packaging/windows/version-probe.iss']

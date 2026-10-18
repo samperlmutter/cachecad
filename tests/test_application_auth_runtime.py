@@ -200,7 +200,8 @@ def run_lifecycle(source):
             assert type(controller.db_manager).__name__ == 'DBManager'
             assert controller.user == {'email': 'synthetic@example.invalid', 'sub': 'synthetic-subject'}
             profile_fetch.assert_not_called()
-            assert build.call_args.kwargs['credentials'] is manager.creds
+            assert build.call_args.kwargs['http'].credentials is manager.creds
+            assert build.call_args.kwargs['http'].http.timeout == 10
             current_credentials = manager.creds
             manager._receive(manager._generation, 'authorize', None, 'failed')
             assert manager.creds is current_credentials and manager.state == 'signed_in'

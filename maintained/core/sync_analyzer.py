@@ -3,6 +3,7 @@ from PySide6.QtCore import Qt
 from core.thread_manager import thread_pool
 from core.signal_manager import signal_manager
 from core.models import SyncAction, SyncActionType
+from core.sync_consent import capture_scan_snapshot
 from utils.timer import tic, toc
 from collections import Counter
 from utils.paths import get_project_app_folder
@@ -34,6 +35,7 @@ class SyncAnalyzer(QObject):
         self._generation = 0
         self._settled = True
         self._comparing = False
+        self.observed_snapshot = None
         self._drive_files = None
         self._local_files = None
         self.scan_outcome.connect(self._on_scan_outcome, Qt.QueuedConnection)
@@ -50,6 +52,7 @@ class SyncAnalyzer(QObject):
         self.project_id = project_id
         self.working_dir = working_dir
         self.project_name = project_name
+        self.observed_snapshot = None
         self._drive_files = None
         self._local_files = None
         self._drive_files_ready = False
@@ -110,6 +113,7 @@ class SyncAnalyzer(QObject):
         if not self._settled:
             self._settled = True
             self.actions = []
+            self.observed_snapshot = None
             self._drive_files = None
             self._local_files = None
             self.analysis_cancelled.emit(self._generation)
@@ -145,6 +149,9 @@ class SyncAnalyzer(QObject):
             self.read_sync_log()
             self.local_not_drive, self.drive_not_local, self.md5_mismatch, self.folder_dict = self.db_manager.compare_local_and_drive()
             self.actions = self.compute_sync_actions()
+            self.observed_snapshot = capture_scan_snapshot(
+                self.actions, self._local_files, self._drive_files,
+                self.working_dir, self.project_name, self.project_id, self.folder_dict)
             self.write_folder_dict_csv()
             download_actions, upload_actions = self.sort_actions()
             if generation != self._generation or self._settled:
@@ -186,6 +193,7 @@ class SyncAnalyzer(QObject):
         self._settled = True
         self._cancelled = True
         self.actions = []
+        self.observed_snapshot = None
         self._drive_files = None
         self._local_files = None
         self._drive_files_ready = False

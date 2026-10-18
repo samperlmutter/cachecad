@@ -12,7 +12,7 @@ EXE_NAME = 'CacheCAD.exe'
 INSTALLER_NAME = 'CacheCAD-Setup.exe'
 INNO_VERSION = '6.7.1'
 SOURCE_PACKAGES = ('app', 'core', 'gui', 'utils', 'resources_rc', 'build_resources',
-                   'application', 'development', 'launch', 'signin')
+                   'application', 'development', 'launch', 'signin', 'crash_diagnostics')
 # First-party code is loaded from the reviewed source snapshot. Real Google SDKs
 # are deliberately included: a production sign-in must yield usable credentials.
 TYPE_IMPORTS = ('google.oauth2.credentials',)
@@ -26,6 +26,7 @@ API_DISTRIBUTIONS = ('google-api-python-client', 'google-api-core', 'google-auth
                      'charset-normalizer', 'idna', 'cachetools', 'rsa', 'pyasn1',
                      'pyasn1-modules', 'uritemplate', 'pyparsing')
 REQUIRED_SOURCE = ('application/launch.py', 'application/resources_rc.py',
+                   'application/crash_diagnostics.py',
                    'src/gui/main_window.py', 'src/core/auth_manager.py',
                    'src/core/drive_client.py', 'src/utils/application_mode.py',
                    'src/utils/windows_token_store.py', 'src/utils/profile_lock.py',

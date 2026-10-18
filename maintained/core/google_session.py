@@ -235,7 +235,9 @@ class ManagedCredentials(_Credentials if _Credentials is not None else object):
             'scope': ' '.join(owner._scopes),
         }, owner._lifecycle_event)
         self._require_active()
-        if payload.get('error') == 'invalid_grant':
+        # Only a definitive OAuth rejection discards a remembered login. Rate
+        # limits/server failures remain transient even with an error-shaped body.
+        if status == 400 and payload.get('error') == 'invalid_grant':
             self._invalidate()
             owner._credentials = None
             owner._identity = None

@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 from utils.path_advisory import confirm_project_location
 from utils.development_mode import current as current_development_mode
+from gui.destructive_confirmation import confirm_destructive_actions, selection_identity
+from core.sync_consent import StaleSyncPlan, approve_sync_actions
 
 class AppController:
     def __init__(self):
@@ -341,7 +343,7 @@ class AppController:
             return
         # DriveClient may process Qt events while its service is constructed.
         if self._shutting_down or creds is not self.auth_manager.get_creds():
-            client.cancelled = True
+            client.close()
             return
         self.drive_client = client
         self.local_client = LocalClient()
@@ -403,13 +405,111 @@ class AppController:
     def on_execute_sync(self, action_list):
         if getattr(self, 'development', None) is not None:
             return
-        if not self.signed_in or not self.analysis_ready or self.sync_executing or self.buttons_disabled:
+        # A modal dialog runs a nested Qt loop. A second click or queued signal
+        # must not open another dialog or submit the same selection twice.
+        if getattr(self, '_sync_confirmation_pending', False):
             return
-        self.disable_buttons()
-        self.sync_executing = True
-        self._executor_unsettled = True
-        self.analysis_ready = False
-        self.sync_executor = SyncExecutor(self.drive_client, self.local_client, self.project_name, self.project_id, self.working_directory, action_list, self.path_dict)
+        if not self.signed_in or not self.analysis_ready or self.sync_executing or self.buttons_disabled:
+            if not self.sync_executing:
+                self._reset_sync_selection()
+            return
+        self._sync_confirmation_pending = True
+        try:
+            selection = tuple(action_list)
+            if not selection:
+                return
+            page = self.main_window.pages[Page.SELECTION]
+            if self.main_window.main_stack.currentWidget() is not page:
+                return
+            identity = selection_identity(selection)
+            if selection_identity(page.selection_tree.get_selected_actions()) != identity:
+                raise StaleSyncPlan('the selected files changed')
+            planned = {id(action) for action in self.upload_actions + self.download_actions}
+            if any(id(action) not in planned for _, action in selection):
+                raise StaleSyncPlan('the selected files no longer belong to the current scan')
+            if self.project_read_only in (True, 'True') and any(
+                    action.action.value in ('upload_new', 'upload_revision', 'upload_unknown', 'delete_cloud')
+                    for _, action in selection):
+                raise StaleSyncPlan('this project is read-only; remote files cannot be changed')
+            analyzer = self.sync_analyzer
+            snapshot = getattr(analyzer, 'observed_snapshot', None)
+            if snapshot is None or analyzer._cancelled or not analyzer._settled:
+                raise StaleSyncPlan('the scan has no verified file snapshot; use Refresh to retry')
+            context = self._sync_confirmation_context()
+            if not confirm_destructive_actions(self.main_window, selection, self.project_name,
+                                               self.project_id, self.working_directory):
+                return
+            # Never bind approval to a replacement selection, project, session,
+            # analyzer or generation that arrived while the dialog was open.
+            if (not self.signed_in or not self.analysis_ready or self.sync_executing
+                    or self.buttons_disabled or getattr(self, '_shutting_down', False)
+                    or self._sync_confirmation_context() != context
+                    or self.main_window.main_stack.currentWidget() is not page
+                    or selection_identity(action_list) != identity
+                    or selection_identity(page.selection_tree.get_selected_actions()) != identity):
+                raise StaleSyncPlan('the project, scan or selection changed while the warning was open')
+            consent = approve_sync_actions(selection, snapshot)
+            self.disable_buttons()
+            self.sync_executing = True
+            self._executor_unsettled = True
+            self.analysis_ready = False
+            try:
+                self.sync_executor = SyncExecutor(self.drive_client, self.local_client,
+                    self.project_name, self.project_id, self.working_directory,
+                    selection, self.path_dict, consent=consent)
+                # Executor startup is deferred until the next Qt turn, so this
+                # reviewed code-only error channel is connected before any work.
+                self.sync_executor.guard_failed.connect(self.on_sync_guard_failed, Qt.QueuedConnection)
+            except Exception:
+                self.sync_executing = False
+                self._executor_unsettled = False
+                self._clear_sync_plan()
+                self.enable_buttons()
+                raise
+        except Exception as error:
+            message = (str(error) if isinstance(error, StaleSyncPlan) else
+                       'The scan or selection could not be verified. Refresh, review the files and try again.')
+            self.main_window.show_status_message('Sync did not start. ' + message, 15000)
+        finally:
+            self._sync_confirmation_pending = False
+            if not self.sync_executing:
+                self._reset_sync_selection()
+
+    def _sync_confirmation_context(self):
+        analyzer = self.sync_analyzer
+        return (id(analyzer), getattr(analyzer, '_generation', None),
+                id(getattr(analyzer, 'observed_snapshot', None)),
+                getattr(analyzer, '_cancelled', True), getattr(analyzer, '_settled', False),
+                self.project_name, self.project_id, str(self.working_directory),
+                self.project_read_only, id(self.drive_client), id(self.local_client),
+                id(self.path_dict), tuple(sorted(self.path_dict.items())),
+                tuple(id(action) for action in self.upload_actions),
+                tuple(id(action) for action in self.download_actions))
+
+    def _reset_sync_selection(self):
+        # The recovered selection page shows progress before emitting execute.
+        # Cancelling consent is not a finished transfer and must not trigger a scan.
+        window = self.main_window
+        if window is None or not hasattr(window, 'pages'):
+            return
+        page = window.pages.get(Page.SELECTION)
+        if page is not None:
+            page.sync_started = False
+            page.hide_progress_bar()
+            page.set_back_button_to_back()
+
+    def on_sync_guard_failed(self, code):
+        if getattr(self, '_shutting_down', False) or self.main_window is None:
+            return
+        messages = {
+            'stale': 'Sync stopped because a file or folder changed after the scan. '
+                     'Refresh, review the new versions and confirm again. Some earlier files may already have changed.',
+            'download_failed': 'A local replacement could not finish. Check system Trash/Recycle Bin for the '
+                               'original file; recovery is not guaranteed. Refresh and review before retrying.',
+        }
+        message = messages.get(code, 'A sync operation could not finish. Refresh and review the project '
+                                     'before retrying; some files may already have changed.')
+        self.main_window.show_status_message(message, 20000)
 
     def on_dropped_actions(self, dropped_actions):
         logging.info(f'{str(len(dropped_actions))} dropped actions received at app controller')
@@ -506,7 +606,7 @@ class AppController:
             self.sync_analyzer.cancel_sync_analysis()
             self.sync_analyzer = None
         if hasattr(self, 'drive_client'):
-            self.drive_client.cancelled = True
+            self.drive_client.close()
             for signal, slot in ((signal_manager.token_refreshed, self.drive_client.on_token_refresh),
                                  (signal_manager.sync_execution_finished, self.drive_client.on_sync_finished),
                                  (signal_manager.sync_cancelled, self.drive_client.on_sync_cancelled)):
@@ -558,6 +658,8 @@ class AppController:
             signal_manager.sync_cancelled.emit()
         if getattr(self, 'sync_analyzer', None) is not None:
             self.sync_analyzer.cancel_sync_analysis()
+        if getattr(self, 'development', None) is None and hasattr(self, 'drive_client'):
+            self.drive_client.close()
         self.signed_in = False
         self.creds = self.user = None
         return self.auth_manager.shutdown() if self.auth_manager is not None else True

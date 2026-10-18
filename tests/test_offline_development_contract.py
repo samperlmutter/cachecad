@@ -147,9 +147,12 @@ class OfflineDevelopmentContractTests(unittest.TestCase):
 
     def test_offline_executor_completion_skips_identity_and_cloud_imports(self):
         signal = Mock()
+        signals = SimpleNamespace(sync_execution_finished=signal,
+            dropped_actions_acknowledged=Mock(), action_complete=Mock(),
+            action_failed=Mock(), sync_cancelled=Mock())
         method = load_function('maintained/core/sync_executor.py',
                                'SyncExecutor.check_if_all_actions_finished',
-                               {'logging': Mock(), 'signal_manager': SimpleNamespace(sync_execution_finished=signal)})
+                               {'logging': Mock(), 'signal_manager': signals})
         imports = []
         def import_only_offline_switch(name, *args, **kwargs):
             imports.append(name)
@@ -161,7 +164,12 @@ class OfflineDevelopmentContractTests(unittest.TestCase):
         executor = SimpleNamespace(failed_action_count=0, complete_action_count=1,
                                    cancelled_action_count=0, action_tuple=[object()],
                                    drive_client=SimpleNamespace(get_user_info_for_cloud_logging=identity),
-                                   deleteLater=Mock())
+                                   deleteLater=Mock(), _finished=False, start_sync=Mock(),
+                                   on_action_complete=Mock(), on_action_failed=Mock(), on_sync_cancelled=Mock())
+        finish = load_function('maintained/core/sync_executor.py', 'SyncExecutor._finish_execution',
+                               {'logging': Mock(), 'signal_manager': signals})
+        finish.__globals__['__builtins__']['__import__'] = import_only_offline_switch
+        executor._finish_execution = lambda: finish(executor)
         method(executor)
         identity.assert_not_called()
         self.assertEqual(imports, [])

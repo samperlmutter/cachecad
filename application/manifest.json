@@ -5,12 +5,17 @@
     {
       "source": "application/launch.py",
       "destination": "application/launch.py",
-      "sha256": "ff5c897808ea98c8bccf3ce586ae2ae3804dd8f0e0426a19a22dbcb2ffcafc4d"
+      "sha256": "e64b4666baf5db5ce04631749fb6542940a5334c05ee2d53b6718055a71b1bc9"
     },
     {
       "source": "application/resources_rc.py",
       "destination": "application/resources_rc.py",
       "sha256": "214591910072339b87fa244fbe38756cbc6c443c1b2e76da2049daf76646afbb"
+    },
+    {
+      "source": "application/crash_diagnostics.py",
+      "destination": "application/crash_diagnostics.py",
+      "sha256": "a6f9aece3d44ceffc3553c2af1f83c7a703899210823d863241aaf6832e70149"
     }
   ]
 }

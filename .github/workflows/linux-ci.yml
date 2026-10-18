@@ -70,6 +70,9 @@ jobs:
           python -m unittest discover -s tests -p test_profile_lock.py -v
           python -m unittest discover -s tests -p test_production_auth_review.py -v
           python -m unittest discover -s tests -p test_application_auth_runtime.py -v
+          python -m unittest discover -s tests -p test_destructive_confirmation.py -v
+          python -m unittest discover -s tests -p test_remote_refresh_audit.py -v
+          python -m unittest discover -s tests -p test_crash_diagnostics.py -v
 
   windows-installer:
     needs: [offline, offline-qt]
@@ -109,6 +112,12 @@ jobs:
           python -m unittest discover -s tests -p test_production_auth_review.py -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s tests -p test_application_auth_runtime.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_destructive_confirmation.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_remote_refresh_audit.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -p test_crash_diagnostics.py -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build actual maintained application and per-user installer
         run: |

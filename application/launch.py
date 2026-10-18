@@ -55,13 +55,14 @@ def verify_source(root):
         if relative.parts[0] == 'src' and path.suffix == '.py':
             sources[relative.as_posix()] = raw
             listed.add(path.resolve())
-        elif relative.as_posix() == 'application/resources_rc.py':
+        elif relative.as_posix() in ('application/resources_rc.py', 'application/launch.py',
+                                       'application/crash_diagnostics.py'):
             sources[relative.as_posix()] = raw
     if listed != {path.resolve() for path in (root / 'src').rglob('*.py')}:
         raise ValueError('Unmanifested application module')
     required = ('src/core/auth_manager.py', 'src/core/google_session.py',
                 'src/utils/application_mode.py', 'src/gui/application_account.py',
-                'application/resources_rc.py')
+                'application/resources_rc.py', 'application/crash_diagnostics.py')
     if any(name not in sources for name in required):
         raise ValueError('The real application source or resources are incomplete')
     return sources
@@ -132,7 +133,16 @@ def parse_arguments(argv=None):
     parser.add_argument('--startup-check', action='store_true',
         help='Render the actual signed-out UI with no network, then exit')
     parser.add_argument('--platform', choices=('offscreen', 'windows'))
+    parser.add_argument('--diagnostic-test', choices=('main', 'thread', 'qt', 'native'),
+        help=argparse.SUPPRESS)
+    parser.add_argument('--diagnostic-native-helper', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    if args.diagnostic_test and (not args.startup_check or args.profile_dir is None
+            or os.environ.get('CACHECAD_ENABLE_DIAGNOSTIC_TESTS') != '1'
+            or args.diagnostic_native_helper):
+        parser.error('Diagnostic fault tests require explicit test mode and a new disposable profile')
+    if args.diagnostic_native_helper and (args.profile_dir is None or args.startup_check):
+        parser.error('The private diagnostics helper requires an application profile')
     if args.app_source is None:
         if not getattr(sys, 'frozen', False) or not hasattr(sys, '_MEIPASS'):
             parser.error('--app-source is required for a source launch')
@@ -239,34 +249,118 @@ def application_profile(args, default):
             yield profile
 
 
-def run_application(args, root):
+def native_helper_command(args, root, profile):
+    command = [sys.executable]
+    if not getattr(sys, 'frozen', False):
+        command += ['-I', '-S', '-B', str(root / 'application' / 'launch.py')]
+    return command + ['--app-source', str(root), '--profile-dir', str(profile),
+                      '--diagnostic-native-helper']
+
+
+def run_native_helper(args, diagnostics_module, catalog, build):
+    # Parent owns the application profile lock. Only a marked, currently locked
+    # profile is eligible; no arbitrary output path is accepted by this mode.
+    from utils.profile_lock import ProfileLock, ProfileLockError
+    profile = args.profile_dir
+    for part in (profile, *profile.parents):
+        if part.is_symlink() or (hasattr(part, 'is_junction') and part.is_junction()):
+            return 1
+    marker = profile / 'application-profile.json'
+    lock_path = profile / '.cachecad-profile.lock'
+    if (not lock_path.is_file() or marker.is_symlink() or not marker.is_file()
+            or marker.stat().st_size > 1024 or json.loads(marker.read_text()) !=
+            {'application': 'cachecad-reconstructed', 'schema': 1}):
+        return 1
+    lock = ProfileLock(profile)
+    try:
+        lock.acquire()
+    except ProfileLockError as error:
+        if error.code != 'busy':
+            return 1
+    else:
+        lock.close()
+        return 1
+    return diagnostics_module.capture_native(profile / 'diagnostics', catalog, build, announce=True)
+
+
+def diagnostic_fault(mode):
+    # This function is reachable only after explicit CLI/environment gating and
+    # prepare_profile's new-empty-profile check. Never use a real user profile.
+    if mode == 'main':
+        raise RuntimeError('Synthetic diagnostic failure')
+    if mode == 'thread':
+        import threading
+        def fail_thread():
+            raise RuntimeError('Synthetic diagnostic failure')
+        worker = threading.Thread(target=fail_thread)
+        worker.start()
+        worker.join(5)
+    elif mode == 'native':
+        if sys.platform == 'win32':
+            import ctypes
+            # Suppress Windows Error Reporting dialogs only in this disposable
+            # fault-test process. Normal app system settings are untouched.
+            ctypes.windll.kernel32.SetErrorMode(0x0001 | 0x0002)
+            try:
+                ctypes.CDLL('ucrtbase')._set_abort_behavior(0, 3)
+            except (AttributeError, OSError):
+                pass
+        else:
+            import resource
+            resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+        os.abort()
+
+
+def run_application(args, root, diagnostics):
     from utils.application_mode import configure_application, default_profile_root
     if args.platform or args.startup_check:
         os.environ['QT_QPA_PLATFORM'] = args.platform or 'offscreen'
     result = None
     with application_profile(args, default_profile_root()) as profile:
+        diagnostics.activate(profile / 'diagnostics')
+        diagnostics.mark('profile_ready')
+        native_capture = diagnostics.enable_native(native_helper_command(args, root, profile))
+        if args.diagnostic_test:
+            diagnostics.mark('diagnostic_test')
+            if args.diagnostic_test == 'native' and not native_capture:
+                return 1
+            if args.diagnostic_test != 'qt':
+                diagnostic_fault(args.diagnostic_test)
+                return 1
         configure_application(profile, args.client_config, startup_check=args.startup_check)
+        diagnostics.mark('application_configured')
         attempts = install_startup_check_guards() if args.startup_check else []
         # Recovered modules print file paths and provider details. The real entrypoint
         # deliberately enables no file/cloud logger and suppresses those raw streams.
         logging.disable(logging.CRITICAL)
         with open(os.devnull, 'w') as sink, redirect_stdout(sink), redirect_stderr(sink):
-            from PySide6.QtWidgets import QApplication, QSystemTrayIcon
+            from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMessageBox
             from PySide6.QtCore import QTimer, qInstallMessageHandler
             import resources_rc
             from app.app_controller import AppController
             from gui.main_window import MainWindow
             from core.thread_manager import thread_pool, network_pool
             slot_errors = []
-            sys.excepthook = lambda *args: slot_errors.append('Unhandled application callback')
+            diagnostics.set_qt_callback(lambda: slot_errors.append('Unhandled application callback'))
             qInstallMessageHandler(lambda *args: None)
             app = QApplication(['cachecad'])
+            diagnostics.mark('qt_started')
             controller = AppController()
             window = MainWindow(controller)
             controller.set_main_window(window)
             if not QSystemTrayIcon.isSystemTrayAvailable():
                 window.tray_icon.hide()
             window.show()
+            diagnostics.mark('window_shown')
+            if diagnostics.previous_reports and not args.startup_check:
+                notice = QMessageBox(window)
+                notice.setWindowTitle('Local crash diagnostics')
+                notice.setText('A previous CacheCAD error report is saved in the diagnostics folder '
+                               'inside your application profile. Reports stay on this computer; '
+                               'nothing is uploaded automatically.')
+                notice.setInformativeText(str(profile / 'diagnostics'))
+                notice.setStandardButtons(QMessageBox.Ok)
+                notice.show()
             if args.startup_check:
                 from googleapiclient.discovery import build
                 from googleapiclient.discovery_cache import get_static_doc
@@ -282,6 +376,9 @@ def run_application(args, root):
                     'sdk_imports_verified': all(callable(value) for value in (build, Credentials, Request, AuthorizedSession, InstalledAppFlow, Http)),
                     'certificate_bundle_present': Path(certifi.where()).is_file(),
                     'drive_discovery_present': bool(get_static_doc('drive', 'v3')),
+                    'diagnostics': {'enabled': diagnostics.available, 'local_only': True,
+                                    'native_capture': native_capture,
+                                    'helper_processes': int(native_capture)},
                 }
                 def finish_check():
                     pixmap = window.grab()
@@ -293,13 +390,21 @@ def run_application(args, root):
                     if pixmap.isNull():
                         slot_errors.append('Window render failed')
                     app.quit()
+                if args.diagnostic_test == 'qt':
+                    def fail_qt_callback():
+                        raise RuntimeError('Synthetic diagnostic callback failure')
+                    QTimer.singleShot(0, fail_qt_callback)
                 QTimer.singleShot(80, finish_check)
             exit_code = app.exec()
+            diagnostics.mark('shutdown_started')
             account_stopped = controller.shutdown()
             pools_stopped = thread_pool.waitForDone(5000) and network_pool.waitForDone(5000)
             if not account_stopped or not pools_stopped:
                 # Do not remove a temporary profile or tear down QObject workers
                 # underneath unfinished work. The process owns final termination.
+                diagnostics.mark('shutdown_timeout')
+                diagnostics.record_event('shutdown-timeout')
+                diagnostics.close()
                 os._exit(2)
             app.processEvents()
             for database in controller._retired_databases + ([controller.db_manager] if hasattr(controller, 'db_manager') else []):
@@ -324,6 +429,8 @@ def run_application(args, root):
                         or result['development_modules_loaded'] or result['forbidden_modules_loaded']):
                     result['errors'].append('Signed-out startup safety invariant failed')
                 exit_code = 1 if result['errors'] else exit_code
+            diagnostics.mark('shutdown_finished')
+            diagnostics.set_qt_callback(None)
     if result is not None:
         print('CACHECAD_APPLICATION_RESULT=' + json.dumps(result, sort_keys=True))
     return exit_code
@@ -331,16 +438,28 @@ def run_application(args, root):
 
 def main(argv=None):
     args = parse_arguments(argv)
+    diagnostics = None
     try:
         root = args.app_source.resolve(strict=True)
         sources = verify_source(root)
         sys.dont_write_bytecode = True
         install_source_importer(root, sources)
-        return run_application(args, root)
+        import crash_diagnostics
+        catalog = crash_diagnostics.source_catalog(root, sources)
+        build = hashlib.sha256((root / 'assembly-manifest.json').read_bytes()).hexdigest()
+        if args.diagnostic_native_helper:
+            return run_native_helper(args, crash_diagnostics, catalog, build)
+        diagnostics = crash_diagnostics.CrashDiagnostics(catalog, build).install()
+        return run_application(args, root, diagnostics)
     except Exception:
+        if diagnostics is not None:
+            diagnostics.record_exception('startup-failure', *sys.exc_info())
         # No exception traceback may expose OAuth material or local file metadata.
         print('CacheCAD could not start. Check the reviewed installation and isolated application profile.', file=sys.stderr)
         return 1
+    finally:
+        if diagnostics is not None:
+            diagnostics.close()
 
 
 if __name__ == '__main__':

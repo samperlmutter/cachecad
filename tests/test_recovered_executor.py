@@ -4,6 +4,7 @@ No application module is imported. Maintained new uploads use disposable fixture
 These tests establish bounded terminal-event behavior, not Qt/thread integration.
 """
 import hashlib
+from contextlib import nullcontext
 import logging
 import os
 import tempfile
@@ -59,6 +60,17 @@ class ExecutorTests(unittest.TestCase):
         namespace = {'signal_manager': signals, 'logging': Mock(spec=logging),
                      'traceback': traceback, 'os': os,
                      'Path': Path if tree == 'maintained' else PurePosixPath}
+        if tree == 'maintained':
+            # This legacy suite isolates terminal-event plumbing. Actual
+            # immutable consent, staging and stale-version checks are exercised
+            # without guard mocks in test_maintained_sync_consent.
+            staged_path = folder / 'snapshot' / 'part.sldprt'
+            staged_path.parent.mkdir()
+            staged_path.write_bytes(b'fixture')
+            namespace.update(StaleSyncPlan=RuntimeError,
+                approved_action=lambda *args: SimpleNamespace(local=SimpleNamespace(md5=checksum)),
+                revalidate_action=lambda *args: None,
+                staged_revision_upload=lambda *args: nullcontext(staged_path))
         source = ROOT / tree / 'core/sync_executor.py'
         upload = (load_staging_function('SyncExecutor._upload', namespace, folder)
                   if tree == 'maintained' else load_function(source, 'SyncExecutor._upload', namespace))
@@ -121,7 +133,7 @@ class ExecutorTests(unittest.TestCase):
                 self.assert_terminal(signals, True)
                 if revision:
                     obj.drive_client.upload_file.assert_called_once_with(
-                        str(Path(obj.working_directory) / 'project' / 'part.sldprt'), 'parent', 7, 'old')
+                        str(Path(obj.working_directory) / 'snapshot' / 'part.sldprt'), 'parent', 7, 'old')
                 else:
                     uploaded, parent, idx, existing_id = obj.drive_client.upload_file.call_args.args
                     self.assertEqual(Path(uploaded).name, 'part.sldprt')

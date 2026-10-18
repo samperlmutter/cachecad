@@ -34,8 +34,12 @@ This combines the immutable recovery with reviewed maintenance overlays and
 new helpers, producing a hash-manifested application source tree and byte-reproducible
 ZIP. See [assembly instructions](docs/ASSEMBLY.md) and [maintained changes and limits](maintained/README.md).
 It includes scan failure/retry isolation, OneDrive path warnings and bounded
-new-file transfer protection. Normal revision sync still has unresolved overwrite
-races; this source artifact is not an executable installer.
+new-file transfer protection. Existing overwrite/delete selections now require
+[explicit destructive consent and observed-version checks](docs/DESTRUCTIVE_SYNC_SAFETY.md).
+Revision sync remains available, with a documented residual check/write race.
+[Local crash reports](docs/CRASH_DIAGNOSTICS.md) record sanitized diagnostics without uploads.
+[Crash hardening evidence](docs/CRASH_HARDENING_AUDIT.md) separates reproduced defects
+from unconfirmed causes of reported crashes. This source artifact is not an installer.
 
 ## Run the actual application offline
 

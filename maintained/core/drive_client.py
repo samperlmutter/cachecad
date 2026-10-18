@@ -4,6 +4,7 @@
 from PySide6.QtCore import QObject, Signal, QRunnable, QThreadPool, Qt, QEventLoop, QTimer, QMetaObject, Slot
 from PySide6.QtGui import QPixmap, QImage, QPainter, QBrush, QBitmap, QPen
 from googleapiclient.discovery import build
+from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.errors import HttpError
 from requests.exceptions import RequestException
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -41,6 +42,7 @@ class DriveClient(QObject):
         self.creds = creds
         self.service = None
         self.cancelled = False
+        self._closed = False
         self.user_info = None
         self.loop = QEventLoop()
         # Connect before scheduling; queue completion onto this QObject thread.
@@ -69,16 +71,56 @@ class DriveClient(QObject):
 
     def build_service(self):
         try:
-            service = build('drive', 'v3', credentials=self.creds, cache_discovery=False, num_retries=3)
+            service = self._new_service()
         except Exception as e:
             tb = traceback.format_exc()
             service = None
             logging.error('service not built {e} \n {tb}')
         self.service_built.emit(service)
 
+    def _new_service(self):
+        """Each operation owns a bounded transport; httplib2 is not thread-safe.
+
+        Static discovery performs no metadata download. The SDK may refresh and
+        retry once after HTTP 401, but application-level mutation retries are off.
+        Socket timeout is per I/O operation, not a total scan deadline.
+        """
+        if getattr(self, '_closed', False):
+            raise RuntimeError('Drive client has been closed')
+        http = httplib2.Http(timeout=10)
+        try:
+            authorized = AuthorizedHttp(self.creds, http=http, max_refresh_attempts=1)
+            return build('drive', 'v3', http=authorized, cache_discovery=False,
+                         static_discovery=True, num_retries=0)
+        except Exception:
+            try:
+                http.close()
+            except Exception:
+                logging.exception('Drive transport cleanup failed after service initialization error.')
+            raise
+
+    def _close_service(self, service):
+        if service is not None:
+            try:
+                service.close()
+            except Exception:
+                # Cleanup must not turn a completed mutation into a retryable error.
+                logging.exception('Drive transport cleanup failed; preserving the operation outcome.')
+
     def _finish(self, service):
-        if service is not None: self.service = service
+        if self._closed:
+            self._close_service(service)
+        else:
+            self._close_service(self.service)
+            self.service = service
         self.loop.quit()
+
+    def close(self):
+        """Retire discovery state; active workers close their own transports."""
+        self._closed = True
+        self.cancelled = True
+        service, self.service = self.service, None
+        self._close_service(service)
 
     def on_token_refresh(self, success, creds):
         if success:
@@ -173,8 +215,10 @@ class DriveClient(QObject):
 
     def get_drive_id_from_item_id(self, project_id):
         logging.info('requesting drive id for drive item ' + project_id)
+        service = None
         try:
-            results = self.service.files().get(fileId=project_id, fields='driveId', supportsAllDrives=True).execute()
+            service = self._new_service()
+            results = service.files().get(fileId=project_id, fields='driveId', supportsAllDrives=True).execute()
             return results.get('driveId', '')
         except HttpError as e:
             tb = traceback.format_exc()
@@ -193,16 +237,20 @@ class DriveClient(QObject):
             tb = traceback.format_exc()
             logging.error(f'[get_drive_id_from_item_id] Unexpected error: {e} (project_id: {project_id}) \n {tb}')
             signal_manager.error_occurred.emit('')
+        finally:
+            self._close_service(service)
         return ''
 
     def get_folder_name_from_id(self, project_id):
+        service = None
         try:
-            results = self.service.files().get(fileId=project_id, fields='id, name, driveId', supportsAllDrives=True).execute()
+            service = self._new_service()
+            results = service.files().get(fileId=project_id, fields='id, name, driveId', supportsAllDrives=True).execute()
             name = results.get('name')
             id = results.get('driveId')
             if name == 'Drive' and id is not None:
                 if len(id) <= 19:
-                    drive = self.service.drives().get(driveId=results['driveId'], fields='id, name').execute()
+                    drive = service.drives().get(driveId=results['driveId'], fields='id, name').execute()
                     return drive['name']
             if name:
                 return name
@@ -220,6 +268,8 @@ class DriveClient(QObject):
             print(f"[get_folder_name_from_id] Key 'name' not found in API response (project_id: {project_id})")
         except Exception as e:
             print(f'[get_folder_name_from_id] Unexpected error: {e} (project_id: {project_id})')
+        finally:
+            self._close_service(service)
         return ''
 
     def get_drive_items_from_project_id(self, project_id, cached_folders=None, *,
@@ -250,7 +300,9 @@ class DriveClient(QObject):
             else:
                 signal_manager.drive_file_list_acquired.emit(items)
 
+        service = None
         try:
+            service = self._new_service()
             if cached_folders is None:
                 cached_folders = []
             request_queue = deque()
@@ -258,7 +310,7 @@ class DriveClient(QObject):
             all_folders = []
             already_requested_folders = set(cached_folders)
             scan_failed = False
-            def build_list_request(folder_id, page_token=None, service=self.service):
+            def build_list_request(folder_id, page_token=None):
                 query = f"'{folder_id}' in parents and trashed = false"
                 return service.files().list(q=query, pageToken=page_token or None, supportsAllDrives=True,
                     includeItemsFromAllDrives=True, corpora='allDrives', pageSize=1000,
@@ -272,11 +324,12 @@ class DriveClient(QObject):
                 request_queue.append((request, query))
             total_batches = 0
             while request_queue:
-                batch = self.service.new_batch_http_request()
+                if getattr(self, '_closed', False):
+                    raise RuntimeError('Drive client has been closed')
+                batch = service.new_batch_http_request()
                 batch_size = min(len(request_queue), 100)
                 logging.debug(f'\nExecuting batch #{total_batches + 1} with {batch_size} requests...')
                 total_batches += 1
-                event_loop = QEventLoop()
                 pending = batch_size
                 for _ in range(batch_size):
                     req, q = request_queue.popleft()
@@ -320,8 +373,6 @@ class DriveClient(QObject):
                                 next_req, _ = build_list_request(folder_id, page_token=next_token)
                                 request_queue.append((next_req, query))
                             pending -= 1
-                            if pending == 0:
-                                QTimer.singleShot(0, event_loop.quit)
                         return callback
                     batch.add(req, callback=make_callback())
                 try:
@@ -351,6 +402,8 @@ class DriveClient(QObject):
         except Exception as error:
             logging.exception('Drive scan failed before a complete snapshot was available.')
             fail('Drive scan incomplete: ' + str(error))
+        finally:
+            self._close_service(service)
 
     def build_drive_files(self, folders: list, files: list, root_id: str, *, report_error=None) -> dict[str, DriveItemInfo]:
         folder_by_id = {folder['id']: folder for folder in folders}
@@ -445,9 +498,15 @@ class DriveClient(QObject):
         return unique_drive_items
 
     def create_folder(self, name, parent_id):
+        if self.cancelled:
+            return None
+        service = None
         try:
+            service = self._new_service()
+            if self.cancelled:
+                return None
             file_metadata = {'name': name, 'mimeType': 'application/vnd.google-apps.folder', 'parents': [parent_id]}
-            folder = self.service.files().create(body=file_metadata, supportsAllDrives=True, fields='id').execute()
+            folder = service.files().create(body=file_metadata, supportsAllDrives=True, fields='id').execute()
             return folder.get('id')
         except HttpError as e:
             tb = traceback.format_exc()
@@ -462,6 +521,8 @@ class DriveClient(QObject):
             tb = traceback.format_exc()
             logging.error(f'[create_folder] Unexpected error: {e} (name: {name}, parent_id: {parent_id}) \n {tb}')
             signal_manager.error_occurred.emit('')
+        finally:
+            self._close_service(service)
         return None
 
     def upload_file(self, local_path: str, parent_id: str, idx: int = None, existing_drive_id: str = None):
@@ -477,13 +538,14 @@ class DriveClient(QObject):
         if self.cancelled:
             return None, None
         media = None
+        service = None
         try:
             local_path = Path(local_path)
             if not local_path.is_file():
                 logging.error(f'File not found in local path: {local_path}')
                 return None, None
             media = MediaFileUpload(str(local_path), resumable=True)
-            service = build('drive', 'v3', credentials=self.creds)
+            service = self._new_service()
             if existing_drive_id:
                 request = service.files().update(fileId=existing_drive_id, media_body=media, fields='id, md5Checksum', supportsAllDrives=True)
             else:
@@ -529,6 +591,7 @@ class DriveClient(QObject):
                     # The remote operation may already have committed. Cleanup
                     # must not replace its result with a retryable transfer error.
                     logging.exception('Upload stream cleanup failed; preserving the remote upload outcome.')
+            self._close_service(service)
         return None
 
     def download_file(self, file_id: str, local_path: str, idx, use_temp: bool = True) -> Path:
@@ -542,9 +605,10 @@ class DriveClient(QObject):
         if self.cancelled:
             return None
         fh = None
+        service = None
         try:
             temp_path = Path(local_path).parent / f'~$downloading{str(idx)}.temp'
-            service = build('drive', 'v3', credentials=self.creds)
+            service = self._new_service()
             request = service.files().get_media(fileId=file_id)
             fh = io.FileIO(temp_path, 'wb')
             downloader = MediaIoBaseDownload(fh, request)
@@ -582,37 +646,30 @@ class DriveClient(QObject):
                     fh.close()
                 except Exception:
                     logging.exception('Download stream cleanup failed; preserving the transfer outcome for caller verification.')
+            self._close_service(service)
         return None
 
     def delete_file(self, file_id: str):
         if self.cancelled:
             return False
-        is_trashed = False
-        attempts = 0
-        max_attempts = 3
-        service = build('drive', 'v3', credentials=self.creds)
-        while not is_trashed and attempts < max_attempts:
-            attempts += 1
+        service = None
+        try:
+            service = self._new_service()
+            if self.cancelled:
+                return False
             file_metadata = {'trashed': True}
             service.files().update(fileId=file_id, body=file_metadata, supportsAllDrives=True, fields='id').execute()
-            try:
-                result = service.files().get(fileId=file_id, fields='trashed', supportsAllDrives=True).execute()
-                is_trashed = result.get('trashed', False)
-                logging.info(f'File {file_id} trashed status: {is_trashed}')
-                return is_trashed
-            except HttpError as e:
-                status = e.resp.status
-                tb = traceback.format_exc()
-                try:
-                    error_details = json.loads(e.content.decode())
-                    message = error_details.get('error', {}).get('message', 'No error message provided.')
-                except Exception:
-                    message = str(e)
-                logging.error(f'[delete_file] HttpError {status}: {message} (file_id: {file_id}) \n {tb}')
-            except Exception as e:
-                tb = traceback.format_exc()
-                logging.error(f'[delete_file] Unexpected error: {e} (file_id: {file_id}) \n {tb}')
-                signal_manager.error_occurred.emit('')
+            result = service.files().get(fileId=file_id, fields='trashed', supportsAllDrives=True).execute()
+            is_trashed = result.get('trashed', False)
+            logging.info(f'File {file_id} trashed status: {is_trashed}')
+            return is_trashed
+        except Exception:
+            # A failed readback may follow a committed trash operation. Never
+            # repeat the mutation: caller must reconcile with a fresh scan.
+            logging.exception('Drive trash outcome could not be confirmed; rescan before retrying.')
+            signal_manager.error_occurred.emit('Drive trash outcome could not be confirmed. Refresh before retrying.')
+        finally:
+            self._close_service(service)
         return False
 
 

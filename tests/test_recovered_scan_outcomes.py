@@ -103,6 +103,8 @@ class DriveFixture:
         self.globals = SimpleNamespace(drive_file_list_acquired=Signal(), error_occurred=Signal())
         self.service = FakeDriveService(responses)
         self.client = SimpleNamespace(service=self.service, build_drive_files=self.build_items)
+        self.client._new_service = lambda: self.client.service
+        self.client._close_service = lambda service: service.close() if service is not None else None
         self.namespace = dict(
             deque=deque, logging=Mock(), traceback=SimpleNamespace(format_exc=lambda: 'fixture'),
             tic=lambda: None, toc=lambda *args: None, print=lambda *args: None,

@@ -10,7 +10,7 @@
       "baseline": "recovered/app/app_controller.py",
       "maintained": "maintained/app/app_controller.py",
       "baseline_sha256": "d0d2a638b189933a9c294b903c12aa3e84143eb96edba3893c66087f750f2f11",
-      "maintained_sha256": "f5c8dac3d13a9a5436e40d7625bed568a1e4f552561dcfce3f38848c48e5cbd8",
+      "maintained_sha256": "fa1ef42ae5fe8aab89f6e0f8dfa409034ed654d04ec72025bf10c5b47ad78b4a",
       "changed_functions": [
         "AppController.__init__",
         "AppController.create_project_from_link",
@@ -46,9 +46,11 @@
         "AppController._clear_sync_plan",
         "AppController._configure_offline_drive",
         "AppController._configure_owned_ui",
+        "AppController._reset_sync_selection",
         "AppController._retire_sync_clients",
         "AppController._scan_is_current",
         "AppController._settle_scan",
+        "AppController._sync_confirmation_context",
         "AppController.on_account_status",
         "AppController.on_disconnect_clicked",
         "AppController.on_local_signout",
@@ -57,12 +59,15 @@
         "AppController.on_scan_started",
         "AppController.on_scan_succeeded",
         "AppController.on_session_signed_out",
+        "AppController.on_sync_guard_failed",
         "AppController.shutdown"
       ],
       "added_imports": [
         "from PySide6.QtWidgets import QMessageBox",
+        "from utils.path_advisory import confirm_project_location",
         "from utils.development_mode import current as current_development_mode",
-        "from utils.path_advisory import confirm_project_location"
+        "from gui.destructive_confirmation import confirm_destructive_actions, selection_identity",
+        "from core.sync_consent import StaleSyncPlan, approve_sync_actions"
       ],
       "removed_imports": [
         "from core.auth_manager import AuthManager",
@@ -137,12 +142,18 @@
       "baseline": "recovered/core/drive_client.py",
       "maintained": "maintained/core/drive_client.py",
       "baseline_sha256": "2665419d983e07bc5c3b71a6c012ac863ebf23c03d98dd0a2efc79f23b8e5fb4",
-      "maintained_sha256": "4eac766576fef39a4d9f570cb77d062c281a9a6f0fec49adfc9c6ebfd58b3bf3",
+      "maintained_sha256": "3661e9f1e9f794929b292e70c58bb03b18394bb4fab255578b5c6633a5f90bd9",
       "changed_functions": [
         "DriveClient.__init__",
+        "DriveClient._finish",
         "DriveClient.build_drive_files",
+        "DriveClient.build_service",
+        "DriveClient.create_folder",
+        "DriveClient.delete_file",
         "DriveClient.download_file",
+        "DriveClient.get_drive_id_from_item_id",
         "DriveClient.get_drive_items_from_project_id",
+        "DriveClient.get_folder_name_from_id",
         "DriveClient.upload_file"
       ],
       "regression_tests": "tests/test_recovered_scan.py; tests/test_recovered_scan_outcomes.py; tests/test_recovered_transfer_cleanup.py; tests/test_application_provider_lifecycle.py",
@@ -150,6 +161,14 @@
       "changed_signatures": [
         "DriveClient.get_drive_items_from_project_id",
         "DriveClient.build_drive_files"
+      ],
+      "added_imports": [
+        "from google_auth_httplib2 import AuthorizedHttp"
+      ],
+      "added_nodes": [
+        "DriveClient._close_service",
+        "DriveClient._new_service",
+        "DriveClient.close"
       ]
     },
     {
@@ -189,7 +208,7 @@
       "baseline": "recovered/core/sync_analyzer.py",
       "maintained": "maintained/core/sync_analyzer.py",
       "baseline_sha256": "625e5604cbe7510e9741c24faf675a3177f1d584e31b1fe7e12e188f8ed6430b",
-      "maintained_sha256": "d631eed8dfa77f85d2c07661072d9d1ef685af7cd8e2ef614ae2037859933d13",
+      "maintained_sha256": "9dce301934682164688ac8ad976d28f4caccf446485c4688ec0431415198c3d9",
       "changed_functions": [
         "SyncAnalyzer.__init__",
         "SyncAnalyzer.start_sync_analysis",
@@ -224,7 +243,8 @@
         "SyncAnalyzer.analysis_cancelled"
       ],
       "added_imports": [
-        "from PySide6.QtCore import Qt"
+        "from PySide6.QtCore import Qt",
+        "from core.sync_consent import capture_scan_snapshot"
       ]
     },
     {
@@ -232,17 +252,35 @@
       "baseline": "recovered/core/sync_executor.py",
       "maintained": "maintained/core/sync_executor.py",
       "baseline_sha256": "f56c886c5d950511163412d30c660efe17a2d0710b8fc7600bc942b5267f0d83",
-      "maintained_sha256": "8a25610a84a7ba13b13ca15d36bebd1cf2ea514fbb9a4792326918a502e323f3",
+      "maintained_sha256": "aab00d17a2d2815aada6e6ca201d6727644749518cf49edbd9b3e557e3d4cec1",
       "changed_functions": [
+        "SyncExecutor.__init__",
         "SyncExecutor._delete_cloud",
+        "SyncExecutor._delete_local",
         "SyncExecutor._download",
         "SyncExecutor._upload",
-        "SyncExecutor.check_if_all_actions_finished"
+        "SyncExecutor.check_if_all_actions_finished",
+        "SyncExecutor.get_folders_to_create_on_drive",
+        "SyncExecutor.on_action_complete",
+        "SyncExecutor.on_action_failed",
+        "SyncExecutor.start_sync",
+        "SyncExecutor.sync_worker"
       ],
       "regression_tests": "tests/test_recovered_executor.py; tests/test_recovered_overwrite.py; tests/test_application_provider_lifecycle.py",
       "status": "intentional_behavior_change_not_original_bytecode_equivalent",
       "removed_imports": [
         "from utils.cloud_logging import cloud_logging"
+      ],
+      "added_imports": [
+        "from PySide6.QtCore import QTimer",
+        "from core.sync_consent import StaleSyncPlan, approved_action, revalidate_action, staged_revision_upload, validate_selection, project_path, verify_downloaded_revision, verify_folder_creation"
+      ],
+      "changed_signatures": [
+        "SyncExecutor.__init__"
+      ],
+      "added_nodes": [
+        "SyncExecutor._finish_execution",
+        "SyncExecutor.guard_failed"
       ]
     },
     {
@@ -288,10 +326,18 @@
     {
       "module": "core.google_session",
       "maintained": "maintained/core/google_session.py",
-      "maintained_sha256": "b8535b68a9a0fa5f135b4412878305f7fea0a3c34d0078ea11912c8025624ad6",
+      "maintained_sha256": "4d5458b2f634d7b6cd7c5dfec6f9adc7396b1b882d1d1c50718ba722c0948264",
       "origin": "Real Google SDK credentials, protected persistence and refresh/revocation lifecycle",
       "regression_tests": "tests/test_google_session.py; tests/test_production_auth_review.py",
       "status": "new_reviewed_helper"
+    },
+    {
+      "module": "core.sync_consent",
+      "maintained": "maintained/core/sync_consent.py",
+      "origin": "Immutable observed-version consent and fresh pre-write validation; residual check/write race",
+      "regression_tests": "tests/test_maintained_sync_consent.py; tests/test_destructive_review.py",
+      "status": "new_reviewed_helper",
+      "maintained_sha256": "d51e61e244f49931f522e7155cf1fdebcbea6ff07697553e5adaa088dc11c40b"
     },
     {
       "module": "gui.application_account",
@@ -308,6 +354,14 @@
       "origin": "Actual application identity-only Qt dialog; isolated worker lifecycle and no Drive/global authentication signals",
       "regression_tests": "tests/test_signin_gui_runtime.py",
       "status": "new_reviewed_helper"
+    },
+    {
+      "module": "gui.destructive_confirmation",
+      "maintained": "maintained/gui/destructive_confirmation.py",
+      "origin": "Explicit Cancel-default destructive warning in existing selection workflow",
+      "regression_tests": "tests/test_destructive_confirmation.py",
+      "status": "new_reviewed_helper",
+      "maintained_sha256": "103d16490e1ee441284688884de43817c6c0e6cb0dc379edc54187813ce2329a"
     },
     {
       "module": "utils.application_mode",

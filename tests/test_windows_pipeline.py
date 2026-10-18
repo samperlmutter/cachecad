@@ -279,7 +279,7 @@ class WindowsPackagingSafetyTests(unittest.TestCase):
         self.assertIn('upx=False', spec)
         self.assertEqual(set(self.support.SOURCE_PACKAGES),
                          {'app', 'core', 'gui', 'utils', 'resources_rc', 'build_resources',
-                          'application', 'development', 'launch', 'signin'})
+                          'application', 'development', 'launch', 'signin', 'crash_diagnostics'})
         self.assertIn('googleapiclient.discovery', self.support.API_IMPORTS)
         self.assertNotIn('googleapiclient', self.support.SOURCE_PACKAGES)
 

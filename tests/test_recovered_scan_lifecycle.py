@@ -51,7 +51,7 @@ class LifecycleTests(unittest.TestCase):
             'update_sync_selection_treeview', 'enable_buttons', 'disable_buttons',
             'page_change', 'project_read_only')})
         self.pool = Pool()
-        self.namespace = {'Qt': SimpleNamespace(QueuedConnection='queued'), 'signal_manager': self.signals, 'logging': Mock(spec=logging),
+        self.namespace = {'capture_scan_snapshot': Mock(return_value='immutable observed snapshot'), 'Qt': SimpleNamespace(QueuedConnection='queued'), 'signal_manager': self.signals, 'logging': Mock(spec=logging),
             'QMessageBox': SimpleNamespace(warning=Mock()), 'traceback': traceback, 'Path': PurePosixPath, 'thread_pool': self.pool,
             '_FunctionRunnable': lambda func: SimpleNamespace(func=func),
             'get_project_app_folder': lambda working, project: PurePosixPath('/fake/cache'),
@@ -96,7 +96,7 @@ class LifecycleTests(unittest.TestCase):
             confirm_project_location=lambda path, parent: True,
             Page=SimpleNamespace(PROJECT='project', SELECTION='selection'),
             Qt=SimpleNamespace(UserRole=1), SyncExecutor=Mock())
-        for name in ('_clear_sync_plan', '_begin_sync_analysis', '_scan_is_current', '_settle_scan',
+        for name in ('_reset_sync_selection', '_sync_confirmation_context', '_clear_sync_plan', '_begin_sync_analysis', '_scan_is_current', '_settle_scan',
             'on_scan_started', 'on_scan_succeeded', 'on_scan_failed', 'on_scan_cancelled',
             'on_sync_analysis_finished', 'on_refresh_clicked', 'enable_buttons', 'disable_buttons',
             'on_sync_execution_finished', 'on_upload_card_clicked', 'on_download_card_clicked',
@@ -152,6 +152,26 @@ class LifecycleTests(unittest.TestCase):
         controller.on_scan_succeeded(analyzer, current, ['duplicate'], [], {})
         self.assertEqual(len(self.signals.enable_buttons.calls), 2)
         self.assertEqual(controller.download_actions, ['download'])
+
+    def test_snapshot_capture_failure_blocks_plan_and_clears_previous_snapshot(self):
+        obj = self.analyzer(); generation = self.start(obj)
+        self.namespace['capture_scan_snapshot'].side_effect = RuntimeError('File changed during scan; refresh')
+        obj.scan_outcome.emit(generation, 'local', [], '')
+        obj.scan_outcome.emit(generation, 'drive', [], '')
+        self.assertIsNone(obj.observed_snapshot)
+        self.assertEqual(obj.analysis_succeeded.calls, [])
+        self.assertEqual(len(obj.analysis_failed.calls), 1)
+        self.assertEqual(obj.actions, [])
+
+    def test_snapshot_published_with_success_and_invalidated_on_new_scan(self):
+        obj = self.analyzer(); generation = self.start(obj)
+        obj.scan_outcome.emit(generation, 'local', [], '')
+        obj.scan_outcome.emit(generation, 'drive', [], '')
+        self.assertEqual(obj.observed_snapshot, 'immutable observed snapshot')
+        self.namespace['capture_scan_snapshot'].assert_called_once_with(
+            ['fresh action'], [], [], '/fake/work', 'project', 'project-id', {'folder': 'id'})
+        self.start(obj)
+        self.assertIsNone(obj.observed_snapshot)
 
     def test_duplicate_side_error_after_success_is_ignored(self):
         obj = self.analyzer(); generation = self.start(obj)

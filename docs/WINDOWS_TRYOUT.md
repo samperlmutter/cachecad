@@ -13,6 +13,10 @@ upstream assets.
 - Windows CurrentUser DPAPI session storage, refresh, local sign-out and separate
   explicit Google disconnect/revocation.
 - The actual maintained Drive client, local scanner, analyzer and executor.
+- Cancel-default overwrite/delete confirmation, fresh observed-version checks and
+  immutable revision upload staging. A residual check/write race remains.
+- Bounded local-only sanitized crash diagnostics, with a next-launch notice.
+  See [report contents and limits](CRASH_DIAGNOSTICS.md). Nothing is uploaded.
 - Bundled Python, Qt, official Google API/auth SDKs, discovery data, CA certificates
   and dependency license notices. No installed Python is required.
 - Hash-verified maintained source under `_internal/app-source`. Development
@@ -105,3 +109,13 @@ reproducibility is not claimed. Source assembly is separately deterministic.
 - [Inno Setup least-privilege installs](https://jrsoftware.org/ishelp/topic_setup_privilegesrequired.htm)
 - [Inno Setup installer options](https://jrsoftware.org/ishelp/topic_setupcmdline.htm)
 - [Windows 2022 runner inventory](https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md)
+
+## Crash-diagnostics CI proof
+
+The installed-app test also injects isolated main-thread, worker-thread, Qt callback
+and native-abort failures into new disposable profiles. It requires nonzero exits,
+correct durable sanitized reports, bounded report sizes, unchanged installed files,
+and exit of the installed helper processes before uninstall. Check the matching
+run's `diagnostic-*.json` and `installed_crash_diagnostics_verified` result. These
+checks are synthetic fault tests, not evidence that every real-world failure can
+be captured. Forced termination, power loss and an unwritable disk can prevent logs.

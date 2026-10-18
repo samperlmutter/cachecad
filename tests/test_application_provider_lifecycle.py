@@ -34,17 +34,25 @@ class ProviderLifecycleTests(unittest.TestCase):
         signal = Mock()
         instance = SimpleNamespace(failed_action_count=1, complete_action_count=2,
                                    cancelled_action_count=0, action_tuple=(1, 2, 3),
-                                   cancelled=True, deleteLater=Mock(), drive_client=Mock())
+                                   cancelled=True, deleteLater=Mock(), drive_client=Mock(), _finished=False,
+                                   start_sync=Mock(), on_action_complete=Mock(),
+                                   on_action_failed=Mock(), on_sync_cancelled=Mock())
         function = load_function('maintained/core/sync_executor.py', 'SyncExecutor.check_if_all_actions_finished', {
             'logging': Mock(), 'signal_manager': SimpleNamespace(sync_execution_finished=signal),
         })
+        finish = load_function('maintained/core/sync_executor.py', 'SyncExecutor._finish_execution', {
+            'signal_manager': SimpleNamespace(sync_execution_finished=signal,
+                dropped_actions_acknowledged=Mock(), action_complete=Mock(),
+                action_failed=Mock(), sync_cancelled=Mock()), 'logging': Mock()})
+        instance._finish_execution = lambda: finish(instance)
         with deny_external_effects():
             function(instance)
         signal.emit.assert_called_once_with()
         instance.deleteLater.assert_called_once_with()
         instance.drive_client.get_user_info_for_cloud_logging.assert_not_called()
-        self.assertFalse(instance.cancelled)
-        self.assertEqual(instance.failed_action_count + instance.complete_action_count + instance.cancelled_action_count, 0)
+        self.assertTrue(instance._finished)
+        self.assertTrue(instance.cancelled)
+        self.assertEqual(instance.failed_action_count + instance.complete_action_count + instance.cancelled_action_count, 3)
 
     def test_pending_actions_do_not_finish(self):
         signal = Mock()

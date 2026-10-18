@@ -49,12 +49,14 @@ class TransferFixture:
         self.files = SimpleNamespace(create=Mock(return_value=self.request),
                                      update=Mock(return_value=self.request),
                                      get_media=Mock(return_value=object()))
-        self.service = SimpleNamespace(files=lambda: self.files)
+        self.service = SimpleNamespace(files=lambda: self.files, close=Mock())
         self.media_factory = Mock(return_value=self.media)
         self.file_factory = Mock(return_value=self.stream)
         self.downloader = SimpleNamespace(next_chunk=Mock(return_value=(None, True)))
         self.download_factory = Mock(return_value=self.downloader)
         self.build = Mock(return_value=self.service)
+        self.client._new_service = self.build
+        self.client._close_service = lambda service: service.close() if service is not None else None
         self.logger = Mock()
         namespace = dict(Path=Path, logging=self.logger, json=json,
                          traceback=SimpleNamespace(format_exc=lambda: 'fixture traceback'),

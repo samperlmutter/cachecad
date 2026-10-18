@@ -1,8 +1,12 @@
 from PySide6.QtCore import QObject, Signal, QRunnable, QEventLoop
+from PySide6.QtCore import QTimer
 from core.signal_manager import signal_manager
 import logging
 from pathlib import Path
 from core.models import SyncActionType
+from core.sync_consent import (StaleSyncPlan, approved_action, revalidate_action,
+                               staged_revision_upload, validate_selection,
+                               project_path, verify_downloaded_revision, verify_folder_creation)
 from utils.paths import CaseInsensitivePathDict, get_project_app_folder
 import threading
 from core.thread_manager import thread_pool, network_pool
@@ -15,26 +19,40 @@ from utils.app_settings import settings
 
 class SyncExecutor(QObject):
     thread_finished = Signal()
+    guard_failed = Signal(str)
 
-    def __init__(self, drive_client, local_client, project_name, project_id, working_directory, action_tuple, path_dict: CaseInsensitivePathDict):
+    def __init__(self, drive_client, local_client, project_name, project_id, working_directory, action_tuple, path_dict: CaseInsensitivePathDict, *, consent=None):
         super().__init__()
         self.drive_client = drive_client
         self.local_client = local_client
         self.project_name = project_name
         self.project_id = project_id
         self.working_directory = working_directory
-        self.action_tuple = action_tuple
+        self.action_tuple = tuple(action_tuple)
+        self.consent = consent
+        self._approved_selection = self.action_tuple
+        self._started = False
+        self._finished = False
+        self._created_folders = {}
+        self.cancelled = False
+        if consent is not None or any(item.action in (
+                SyncActionType.UPLOAD_REVISION, SyncActionType.DOWNLOAD_REVISION,
+                SyncActionType.UPLOAD_UNKNOWN, SyncActionType.DOWNLOAD_UNKNOWN,
+                SyncActionType.DELETE_LOCAL, SyncActionType.DELETE_CLOUD)
+                for _, item in self.action_tuple):
+            validate_selection(consent, self.action_tuple, working_directory, project_name, project_id)
         self.path_dict = path_dict
         self.path_dict_lock = threading.Lock()
         self.sync_log_lock = threading.Lock()
         self.sync_log_path = get_project_app_folder(working_directory, project_name) / 'sync_log.csv'
         self.dropped_actions = []
         self.folders_to_create = []
+        self.pre_sync_checks()
         signal_manager.dropped_actions_acknowledged.connect(self.start_sync)
         signal_manager.action_complete.connect(self.on_action_complete)
         signal_manager.action_failed.connect(self.on_action_failed)
-        self.pre_sync_checks()
-        signal_manager.dropped_actions.emit(self.dropped_actions)
+        signal_manager.sync_cancelled.connect(self.on_sync_cancelled)
+        QTimer.singleShot(0, lambda: signal_manager.dropped_actions.emit(self.dropped_actions))
 
     def pre_sync_checks(self):
         action_types = {action[1].action for action in self.action_tuple}
@@ -50,14 +68,29 @@ class SyncExecutor(QObject):
             self.action_tuple = [action for action in self.action_tuple if action[1] not in self.dropped_actions]
 
     def start_sync(self):
+        if self._started:
+            return
+        self._started = True
+        if self.consent is not None:
+            try:
+                validate_selection(self.consent, self._approved_selection,
+                                   self.working_directory, self.project_name, self.project_id)
+            except Exception:
+                # A disappeared/unreadable root is stale too; never let a Qt
+                # start callback escape without settling the pending executor.
+                self.guard_failed.emit('stale')
+                self._finish_execution()
+                return
         logging.info('Starting sync execution')
         action_count = len(self.action_tuple)
+        if self.cancelled or action_count == 0:
+            self._finish_execution()
+            return
         if action_count > 0:
             self.complete_action_count = 0
             self.cancelled_action_count = 0
             self.failed_action_count = 0
             self.completed_actions = []
-            self.cancelled = False
             sync_task = _FunctionRunnable(self.sync_worker)
             network_pool.start(sync_task)
 
@@ -77,22 +110,36 @@ class SyncExecutor(QObject):
         logging.debug('Sync worker started')
         loop = QEventLoop()
         self.thread_finished.connect(loop.quit)
+        folder_errors = []
         def create_folders_worker():
-            for folder in self.folders_to_create:
-                logging.info(f'Creating folder: {folder}')
-                parent_id = self.get_parent_id(folder)
-                folder_name = folder.name
-                folder_id = self.drive_client.create_folder(folder_name, parent_id)
-                if folder_id is not None:
+            try:
+                for folder in self.folders_to_create:
+                    if self.cancelled:
+                        raise StaleSyncPlan('sync was cancelled before creating folders')
+                    parent_id = (verify_folder_creation(self.consent, folder, self.drive_client,
+                                 self._created_folders) if self.consent is not None else self.get_parent_id(folder))
+                    if self.cancelled:
+                        raise StaleSyncPlan('sync was cancelled before creating folders')
+                    folder_id = self.drive_client.create_folder(folder.name, parent_id)
+                    if folder_id is None:
+                        raise StaleSyncPlan(f'the Drive folder {folder} could not be created')
+                    self._created_folders[str(folder)] = folder_id
                     self.update_path_dict(str(folder), folder_id)
-                    logging.info(f'Folder created: {folder} (ID: {folder_id})')
-                else:
-                    logging.error(f'Failed to create folder: {folder}')
-            self.thread_finished.emit()
+            except Exception as error:
+                folder_errors.append(error)
+                logging.error(f'Folder creation stopped: {error}')
+            finally:
+                self.thread_finished.emit()
         if len(self.folders_to_create) > 0:
             create_folders_task = _FunctionRunnable(create_folders_worker)
             thread_pool.start(create_folders_task)
             loop.exec_()
+        if folder_errors or self.cancelled:
+            if folder_errors and not self.cancelled:
+                self.guard_failed.emit('failed')
+            for _ in self.action_tuple:
+                signal_manager.action_failed.emit()
+            return
         def action_worker(action_tuple):
             action = action_tuple
             if action[1].action == SyncActionType.UPLOAD_NEW:
@@ -117,11 +164,15 @@ class SyncExecutor(QObject):
                 network_pool.start(action_task)
 
     def on_action_complete(self, action):
+        if self._finished:
+            return
         self.completed_actions.append(action)
         self.complete_action_count += 1
         self.check_if_all_actions_finished()
 
     def on_action_failed(self):
+        if self._finished:
+            return
         if self.cancelled:
             self.cancelled_action_count += 1
         else:
@@ -130,14 +181,25 @@ class SyncExecutor(QObject):
 
     def check_if_all_actions_finished(self):
         if self.failed_action_count + self.complete_action_count + self.cancelled_action_count == len(self.action_tuple):
-            # Maintained application has no vendor telemetry/account-validation dependency.
-            logging.info('All actions completed')
-            signal_manager.sync_execution_finished.emit()
-            self.cancelled = False
-            self.complete_action_count = 0
-            self.cancelled_action_count = 0
-            self.failed_action_count = 0
-            self.deleteLater()
+            self._finish_execution()
+
+    def _finish_execution(self):
+        if self._finished:
+            return
+        self._finished = True
+        # Global signals must not retain a finished executor into another run.
+        for signal, slot in (
+                (signal_manager.dropped_actions_acknowledged, self.start_sync),
+                (signal_manager.action_complete, self.on_action_complete),
+                (signal_manager.action_failed, self.on_action_failed),
+                (signal_manager.sync_cancelled, self.on_sync_cancelled)):
+            try:
+                signal.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass
+        logging.info('All sync actions settled')
+        signal_manager.sync_execution_finished.emit()
+        self.deleteLater()
 
     def on_sync_cancelled(self):
         logging.info('Sync cancelled by user')
@@ -160,7 +222,7 @@ class SyncExecutor(QObject):
         folders = {
             Path(file.folder)
             for _, file in self.action_tuple
-            if file.folder is not None
+            if file.action == SyncActionType.UPLOAD_NEW and file.folder is not None
         }
         required_folders = set(folders)
         logging.debug('Required Folders based on actions:')
@@ -191,7 +253,7 @@ class SyncExecutor(QObject):
 
     def _download(self, action, revision=False):
         # New files use a verified private staging directory and atomic no-clobber
-        # publication. Revision replacement below remains the original behavior.
+        # publication. Revisions additionally require approved observed versions.
         if not revision:
             try:
                 import hashlib
@@ -200,6 +262,11 @@ class SyncExecutor(QObject):
                 if self.cancelled:
                     raise RuntimeError('Download cancelled before staging')
                 selected = action[1]
+                consent = getattr(self, 'consent', None)
+                if consent is not None:
+                    revalidate_action(consent, action, self.drive_client)
+                    if self.cancelled:
+                        raise StaleSyncPlan('the download was cancelled before transfer')
                 relative = Path(selected.path)
                 if relative.is_absolute() or not relative.parts or '..' in relative.parts:
                     raise ValueError('Download path must remain inside the project')
@@ -245,66 +312,57 @@ class SyncExecutor(QObject):
                         raise ValueError('Downloaded bytes do not match the selected action')
                     if self.cancelled:
                         raise RuntimeError('Download cancelled before publication')
+                    if consent is not None:
+                        revalidate_action(consent, action, self.drive_client)
+                        if self.cancelled:
+                            raise StaleSyncPlan('the download was cancelled before publication')
                     # os.link creates the destination only if it is absent. No
                     # rename/replace fallback is allowed on unsupported filesystems.
                     os.link(str(temp_path), str(local_path), follow_symlinks=False)
                 self.log_sync_action(action)
             except Exception as e:
                 logging.error(f'New download failed without replacing an existing file: {e}\n{traceback.format_exc()}')
+                failure_signal = getattr(self, 'guard_failed', None)
+                if not self.cancelled and failure_signal is not None:
+                    failure_signal.emit('stale' if isinstance(e, StaleSyncPlan) else 'failed')
                 signal_manager.action_failed.emit()
-                if not self.cancelled:
-                    signal_manager.error_occurred.emit('')
                 return
             signal_manager.action_complete.emit(action[1])
             return
         if self.cancelled:
             signal_manager.action_failed.emit()
             return
-        local_path = Path(self.working_directory) / self.project_name / action[1].path
-        self._make_local_folders(local_path.parent)
-        drive_id = action[1].drive_id
-        idx = action[0]
-        logging.info(f'Action {str(idx)} Downloading file: {local_path} from {drive_id}')
         try:
-            local_path.parent.mkdir(parents=True, exist_ok=True)
-            if local_path.exists() and not revision:
-                logging.warning(f"Attempting to download {local_path}, but it already already exists and this isn't a revision.")
-                logging.error(f'This is action {str(idx)} in the action list and drive id {drive_id}.')
-                return
-            temp_path = self.drive_client.download_file(drive_id, str(local_path), idx)
-            if temp_path is None:
-                signal_manager.action_failed.emit()
-                return
-            if temp_path == local_path:
-                logging.error("download_file didn't give a temp name")
-            if local_path.exists():
-                logging.error('local path somehow exists now')
-            md5 = self.local_client.calculate_md5(temp_path)
-            logging.info(f'MD5 checksum of downloaded file: {md5}')
-            if md5 == action[1].md5_checksum:
-                logging.info(f'MD5 checksum matches for downloaded file: {local_path}')
-                if revision:
-                    send2trash(local_path)
-                if local_path.exists() and not revision:
-                    logging.error(f'File already exists locally and action is not a revision. This should have been caught already {local_path.name}')
-                os.rename(str(temp_path), str(local_path))
-                self.log_sync_action(action)
-                signal_manager.action_complete.emit(action[1])
-            else:
-                logging.error(f'MD5 checksum mismatch for downloaded file: {local_path}. Expected: {action[1].md5_checksum}, Got: {md5}')
-                try:
-                    if temp_path:
-                        if Path(temp_path).exists():
-                            os.remove(temp_path)
-                except Exception:
-                    pass
-                signal_manager.action_failed.emit()
-        except Exception as e:
-            tb = traceback.format_exc()
-            logging.error(f'Failed to download new file {action[1].path}: {e}\n{tb}')
+            import tempfile
+            observed = revalidate_action(getattr(self, 'consent', None), action, self.drive_client)
+            if self.cancelled:
+                raise StaleSyncPlan('the download was cancelled before transfer')
+            local_path = project_path(self.consent.snapshot.project_root, action[1].path)
+            with tempfile.TemporaryDirectory(prefix='.cachecad-revision-download-', dir=str(local_path.parent)) as folder:
+                returned = self.drive_client.download_file(
+                    action[1].drive_id, str(Path(folder) / local_path.name), action[0])
+                temp_path = verify_downloaded_revision(returned, folder, observed.remote)
+                if self.cancelled:
+                    raise StaleSyncPlan('the download was cancelled before replacing a file')
+                # Recheck both sides after transfer, immediately before trashing.
+                # This is an observed-version guard, not a conditional filesystem
+                # operation; a residual check/trash race remains.
+                revalidate_action(self.consent, action, self.drive_client)
+                if self.cancelled:
+                    raise StaleSyncPlan('the download was cancelled before replacing a file')
+                send2trash(local_path)
+                # Never clobber a new object that appears after the approved one
+                # was trashed. No replacing rename fallback is permitted.
+                os.link(str(temp_path), str(local_path), follow_symlinks=False)
+            self.log_sync_action(action)
+        except Exception as error:
+            logging.error(f'Revision download stopped: {error}\n{traceback.format_exc()}')
+            failure_signal = getattr(self, 'guard_failed', None)
+            if not self.cancelled and failure_signal is not None:
+                failure_signal.emit('stale' if isinstance(error, StaleSyncPlan) else 'download_failed')
             signal_manager.action_failed.emit()
-            if not self.cancelled:
-                signal_manager.error_occurred.emit('')
+            return
+        signal_manager.action_complete.emit(action[1])
 
     def _upload(self, action, revision=False):
         if self.cancelled:
@@ -318,9 +376,19 @@ class SyncExecutor(QObject):
             idx = action[0]
             logging.info(f'Uploading new file: {path} in parent ID: {parent_id}, existing_drive_id: {str(existing_drive_id)}')
             if revision:
-                # The legacy revision path has no validated remote conditional
-                # commit. Preserve its API contract; do not claim race protection.
-                new_id, drive_md5 = self.drive_client.upload_file(str(local_path), parent_id, idx, existing_drive_id)
+                consent = getattr(self, 'consent', None)
+                observed = approved_action(consent, action)
+                expected_md5 = observed.local.md5
+                # Upload only the immutable bytes the user approved. Never hand
+                # the live CAD file to a resumable transfer.
+                with staged_revision_upload(consent, action) as staged_path:
+                    revalidate_action(consent, action, self.drive_client)
+                    if self.cancelled:
+                        raise StaleSyncPlan('the upload was cancelled before transfer')
+                    # Drive v3 update has no validated compare-and-swap in this
+                    # app. A writer can still race the final check and update.
+                    new_id, drive_md5 = self.drive_client.upload_file(
+                        str(staged_path), parent_id, idx, existing_drive_id)
             else:
                 import hashlib
                 import stat
@@ -372,60 +440,88 @@ class SyncExecutor(QObject):
                     staged_path.chmod(stat.S_IRUSR)
                     if self.cancelled:
                         raise RuntimeError('Upload cancelled before transfer')
+                    consent = getattr(self, 'consent', None)
+                    if consent is not None:
+                        observed = revalidate_action(consent, action, self.drive_client,
+                            created_folders=getattr(self, '_created_folders', {}))
+                        if len(observed.folders) != len(relative.parts) - 1:
+                            raise StaleSyncPlan('the new upload destination has no verified parent')
+                        verified_parent = (observed.folders[-1].file_id if observed.folders
+                                           else consent.snapshot.project_id)
+                        if parent_id != verified_parent:
+                            raise StaleSyncPlan('the upload destination parent changed')
+                        if self.cancelled:
+                            raise StaleSyncPlan('the upload was cancelled before transfer')
                     new_id, drive_md5 = self.drive_client.upload_file(str(staged_path), parent_id, idx, None)
         except Exception as e:
             logging.error(f'Upload failed before a result was available: {e}\n{traceback.format_exc()}')
+            failure_signal = getattr(self, 'guard_failed', None)
+            if not self.cancelled and failure_signal is not None:
+                failure_signal.emit('stale' if isinstance(e, StaleSyncPlan) else 'failed')
             signal_manager.action_failed.emit()
-            if not self.cancelled:
-                signal_manager.error_occurred.emit('')
             return
         logging.info(f'File uploaded to : {new_id}')
         logging.info(f'MD5 checksum of uploaded file: {drive_md5}')
-        checksum_matches = (drive_md5 == action[1].md5_checksum if revision else
-                            isinstance(drive_md5, str) and drive_md5.lower() == expected_md5.lower())
+        checksum_matches = isinstance(drive_md5, str) and drive_md5.lower() == expected_md5.lower()
         if new_id is not None and checksum_matches:
             logging.info(f'MD5 checksum matches for uploaded file: {local_path}')
-            self.log_sync_action(action, id=new_id)
+            try:
+                self.log_sync_action(action, id=new_id)
+            except Exception:
+                logging.exception('Upload completed but its local sync log could not be written')
+                failure_signal = getattr(self, 'guard_failed', None)
+                if failure_signal is not None:
+                    failure_signal.emit('failed')
+                signal_manager.action_failed.emit()
+                return
             signal_manager.action_complete.emit(action[1])
         else:
             logging.error(f'Upload failed (no ID returned) for file: {local_path}')
+            failure_signal = getattr(self, 'guard_failed', None)
+            if failure_signal is not None:
+                failure_signal.emit('failed')
             signal_manager.action_failed.emit()
 
     def _delete_local(self, action):
         if self.cancelled:
             signal_manager.action_failed.emit()
             return
-        logging.info(f'Deleting local file: {action[1].path}')
-        local_path = Path(self.working_directory) / self.project_name / action[1].path
         try:
+            revalidate_action(getattr(self, 'consent', None), action, self.drive_client)
+            if self.cancelled:
+                raise StaleSyncPlan('local deletion was cancelled before moving the file')
+            local_path = project_path(self.consent.snapshot.project_root, action[1].path)
             send2trash(local_path)
             self.log_sync_action(action)
-            signal_manager.action_complete.emit(None)
-        except Exception as e:
-            tb = traceback.format_exc()
-            logging.error(f'Failed to delete local file {local_path}: {e}\n{tb}')
-            signal_manager.error_occurred.emit('')
+        except Exception as error:
+            logging.error(f'Local deletion stopped: {error}\n{traceback.format_exc()}')
+            failure_signal = getattr(self, 'guard_failed', None)
+            if not self.cancelled and failure_signal is not None:
+                failure_signal.emit('stale' if isinstance(error, StaleSyncPlan) else 'failed')
+            signal_manager.action_failed.emit()
+            return
+        signal_manager.action_complete.emit(None)
 
     def _delete_cloud(self, action):
         if self.cancelled:
             signal_manager.action_failed.emit()
             return
-        path = action[1].path
-        drive_id = action[1].drive_id
-        logging.info(f'Deleting cloud file: {path} (ID: {drive_id})')
         try:
+            revalidate_action(getattr(self, 'consent', None), action, self.drive_client)
+            if self.cancelled:
+                raise StaleSyncPlan('cloud deletion was cancelled before moving the file')
+            drive_id = action[1].drive_id
             if not self.drive_client.delete_file(drive_id):
-                logging.error(f'Cloud deletion was not confirmed for file: {path} (ID: {drive_id})')
-                signal_manager.action_failed.emit()
-                return
+                raise RuntimeError('Cloud deletion was not confirmed')
             self.log_sync_action(action, id=drive_id)
-            signal_manager.action_complete.emit(None)
-        except Exception as e:
-            tb = traceback.format_exc()
-            logging.error(f'Failed to delete cloud file {path} (ID: {drive_id}): {e}\n{tb}')
+        except Exception as error:
+            logging.error(f'Cloud deletion stopped: {error}\n{traceback.format_exc()}')
+            failure_signal = getattr(self, 'guard_failed', None)
+            if not self.cancelled and failure_signal is not None:
+                failure_signal.emit('stale' if isinstance(error, StaleSyncPlan) else 'failed')
             signal_manager.action_failed.emit()
-            if not self.cancelled:
-                signal_manager.error_occurred.emit('')
+            return
+        signal_manager.action_complete.emit(None)
 
     def _make_local_folders(self, folder_path: Path):
         for parent in reversed(folder_path.parents):

@@ -76,6 +76,7 @@ class FakeDriveService:
         self.list_requests = []
         self.executed_keys = []
         self.batches_executed = 0
+        self.close = Mock()
 
     def files(self):
         return self
@@ -114,6 +115,8 @@ class ScanFixture:
         self.logger = Mock()
         self.build_calls = []
         self.drive_client = SimpleNamespace(service=self.service, build_drive_files=self.build_items)
+        self.drive_client._new_service = lambda: self.drive_client.service
+        self.drive_client._close_service = lambda service: service.close() if service is not None else None
         dependencies = dict(
             deque=deque, logging=self.logger,
             traceback=SimpleNamespace(format_exc=lambda: 'fixture traceback'),
