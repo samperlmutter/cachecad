@@ -4,6 +4,8 @@ import copy
 import hashlib
 import importlib.util
 import json
+import os
+from types import SimpleNamespace
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import tempfile
@@ -172,6 +174,22 @@ class WindowsPackagingSafetyTests(unittest.TestCase):
             records.append({'path': name, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
         (root / 'assembly-manifest.json').write_text(json.dumps({'files': records}), encoding='utf-8')
         return root, records
+
+    def test_installed_environment_preserves_windows_case_insensitivity(self):
+        source = ROOT / 'packaging/windows/test_installer.py'
+        function = next(node for node in ast.parse(source.read_text()).body
+                        if isinstance(node, ast.FunctionDef) and node.name == 'installed_environment')
+        for spelling in ('SystemRoot', 'SYSTEMROOT', 'systemroot'):
+            namespace = {'Path': Path, 'os': SimpleNamespace(
+                environ={spelling: 'C:/Windows', 'PythonPath': 'untrusted',
+                         'qt_plugin_path': 'untrusted', 'Path': 'untrusted'}, pathsep=os.pathsep)}
+            exec(compile(ast.Module(body=[function], type_ignores=[]), str(source), 'exec'), namespace)
+            result = namespace['installed_environment'](self.temporary)
+            self.assertEqual(result['SYSTEMROOT'], 'C:/Windows')
+            self.assertNotIn('PYTHONPATH', result)
+            self.assertNotIn('QT_PLUGIN_PATH', result)
+            self.assertNotIn('untrusted', result['PATH'])
+            self.assertEqual(result['TEMP'], str(self.temporary))
 
     def test_payload_read_is_manifest_scoped_and_never_executes_source(self):
         root, records = self.fixture()

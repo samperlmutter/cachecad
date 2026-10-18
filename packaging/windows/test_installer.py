@@ -51,11 +51,11 @@ def uninstall_key_exists():
 
 
 def installed_environment(profiles):
-    environment = dict(os.environ)
+    environment = {key.upper(): value for key, value in os.environ.items()}
     for key in list(environment):
         if key.startswith(('PYTHON', 'QT_', 'QML')) or key in ('VIRTUAL_ENV', 'CONDA_PREFIX'):
             environment.pop(key)
-    windows = Path(environment['SystemRoot'])
+    windows = Path(environment['SYSTEMROOT'])
     environment.update(PATH=os.pathsep.join((str(windows / 'System32'), str(windows))),
                        TMP=str(profiles), TEMP=str(profiles), TMPDIR=str(profiles))
     return environment
