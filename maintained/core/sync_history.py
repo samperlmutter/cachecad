@@ -6,6 +6,7 @@ import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import stat
+from core.file_identity import file_identity, handle_identity
 
 FIELDS = ('drive_id', 'name', 'path', 'md5', 'modified_time', 'size', 'timestamp', 'action')
 KINDS = frozenset(('upload_new', 'download_new', 'upload_revision', 'download_revision',
@@ -43,16 +44,15 @@ def read_sync_history(path):
         with os.fdopen(fd, 'rb') as stream:
             opened = os.fstat(stream.fileno())
             if (not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1
-                    or (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino)):
+                    or file_identity(opened) != file_identity(info)):
                 raise SyncHistoryError()
             raw = stream.read(64 * 1024 * 1024 + 1)
             after = os.fstat(stream.fileno())
             current = path.lstat()
             if (len(raw) > 64 * 1024 * 1024
-                    or (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns)
-                    != (after.st_size, after.st_mtime_ns, after.st_ctime_ns)
-                    or (current.st_dev, current.st_ino, current.st_nlink)
-                    != (opened.st_dev, opened.st_ino, 1)):
+                    or handle_identity(opened) != handle_identity(after)
+                    or file_identity(current) != file_identity(after)
+                    or current.st_nlink != 1):
                 raise SyncHistoryError()
         if not raw or not raw.endswith(b'\n'):
             raise SyncHistoryError()

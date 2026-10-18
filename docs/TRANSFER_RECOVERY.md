@@ -64,3 +64,14 @@ file must be preserved and reviewed; re-scanning does not recreate deletion inte
 - No multi-file assembly transaction or automatic destructive retry is introduced.
 
 See [the audit and test matrix](TRANSFER_RECOVERY_PLAN.md) for baseline evidence.
+
+## Windows file identity compatibility
+
+Windows CPython 3.12 pathname stat and handle fstat can expose different meanings
+for ctime. Cross-source identity now uses the common creation timestamp alongside
+volume/file ID, size and modification time; two samples of the same open handle
+also retain the raw change-time check. POSIX keeps ctime unchanged. Windows short
+and long path spellings are canonicalized only after link/reparse rejection.
+See [the CPython report](https://github.com/python/cpython/issues/157671) and the
+[native regression](../tests/test_file_identity.py). Old unresolved journals with
+noncanonical root strings are not silently migrated or retried.

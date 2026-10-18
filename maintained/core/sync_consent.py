@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import stat
 import tempfile
+from core.file_identity import file_identity, handle_identity
 
 
 DESTRUCTIVE_ACTIONS = frozenset((
@@ -87,7 +88,7 @@ class SyncConsent:
 
 
 def _identity(info):
-    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+    return file_identity(info)
 
 
 def _reject_path_links(path):
@@ -154,7 +155,8 @@ def capture_local_version(path, copy_to=None):
         finally:
             if target is not None:
                 target.close()
-    if (_identity(before) != _identity(opened) or _identity(before) != _identity(after)
+    if (_identity(before) != _identity(opened) or handle_identity(opened) != handle_identity(after)
+            or _identity(before) != _identity(after)
             or _identity(before) != _identity(path.lstat())):
         raise StaleSyncPlan('the local file changed while its version was read')
     return LocalVersion(True, _identity(before), digest.hexdigest(), before.st_size, before.st_mtime)

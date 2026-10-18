@@ -22,7 +22,7 @@ from unittest.mock import Mock, patch
 import test_maintained_sync_consent as fixtures
 from test_recovered_overwrite import bind_recovery_executor
 from test_recovered_overwrite import load_recovery_module
-from recovered_harness import ROOT, deny_external_effects, load_function
+from recovered_harness import ROOT, deny_external_effects, load_file_identity_module, load_function
 
 
 class CommittedTransferRecoveryTests(unittest.TestCase):
@@ -445,6 +445,9 @@ class RealQtExecutorOutcomeTests(unittest.TestCase):
         namespace = {name: getattr(QtCore, name) for name in (
             'QObject', 'Signal', 'QRunnable', 'QEventLoop', 'Qt', 'QTimer')}
         namespace.update(vars(fixtures.guard))
+        identity = load_file_identity_module()
+        namespace.update(file_identity=identity.file_identity,
+                         handle_identity=identity.handle_identity)
         namespace.update(signal_manager=manager, SyncActionType=kinds,
             CaseInsensitivePathDict=dict,
             get_project_app_folder=lambda working, project: Path(working) / project / '.cachecad',

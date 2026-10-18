@@ -14,13 +14,16 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+from recovered_harness import file_identity_imports
+
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'maintained/core/transfer_journal.py'
 if not SOURCE.is_file():
     raise unittest.SkipTest('Maintained application absent from prototype wheel')
 SPEC = importlib.util.spec_from_file_location('transfer_journal_test', SOURCE)
 journal = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(journal)
+with file_identity_imports():
+    SPEC.loader.exec_module(journal)
 
 
 def md5(data):
@@ -444,6 +447,11 @@ class DurableTransferJournalTests(unittest.TestCase):
     def test_process_exit_after_destructive_step_retains_recovery_and_retry_block(self):
         operation = self.preserve(self.prepare())
         script = '''import importlib.util, os, sys
+from pathlib import Path
+identity_spec = importlib.util.spec_from_file_location('core.file_identity', Path(sys.argv[1]).with_name('file_identity.py'))
+identity = importlib.util.module_from_spec(identity_spec)
+identity_spec.loader.exec_module(identity)
+sys.modules['core.file_identity'] = identity
 spec = importlib.util.spec_from_file_location('recovery', sys.argv[1])
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
@@ -468,6 +476,11 @@ os._exit(23)
     def test_process_exit_after_publication_keeps_unknown_instead_of_false_success(self):
         operation = self.preserve(self.prepare())
         script = '''import importlib.util, os, sys
+from pathlib import Path
+identity_spec = importlib.util.spec_from_file_location('core.file_identity', Path(sys.argv[1]).with_name('file_identity.py'))
+identity = importlib.util.module_from_spec(identity_spec)
+identity_spec.loader.exec_module(identity)
+sys.modules['core.file_identity'] = identity
 spec = importlib.util.spec_from_file_location('recovery', sys.argv[1])
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)

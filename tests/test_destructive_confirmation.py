@@ -98,7 +98,7 @@ def run_ui(folder):
     from types import MethodType, ModuleType, SimpleNamespace
     from unittest.mock import Mock
     sys.path[:0] = [str(ROOT), str(ROOT / 'tests'), str(ROOT / 'recovered')]
-    from recovered_harness import deny_external_effects, load_function
+    from recovered_harness import deny_external_effects, file_identity_imports, load_function
     # This test-only boundary avoids original utils.paths' top-level profile mkdir.
     paths = ModuleType('utils.paths')
     paths.RESOURCES_DIR = Path(folder)
@@ -111,7 +111,8 @@ def run_ui(folder):
     from core.signal_manager import signal_manager
     from gui.page import Page
     from gui.pages.selection_page import SelectionPage
-    from maintained.core.sync_consent import StaleSyncPlan
+    with file_identity_imports():
+        from maintained.core.sync_consent import StaleSyncPlan
     spec = importlib.util.spec_from_file_location('confirmation_under_test',
         ROOT / 'maintained/gui/destructive_confirmation.py')
     ui = importlib.util.module_from_spec(spec)

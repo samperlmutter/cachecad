@@ -25,6 +25,7 @@ import re
 import stat
 import threading
 import uuid
+from core.file_identity import file_identity, handle_identity
 import weakref
 
 
@@ -88,7 +89,7 @@ def _encoded(value):
 
 
 def _identity(info):
-    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+    return file_identity(info)
 
 
 def _reject_links(path, *, missing=False):
@@ -155,6 +156,7 @@ def _read_json(path):
         raw = stream.read(_MAX_JSON + 1)
         after = os.fstat(stream.fileno())
     if (_identity(before) != _identity(opened)
+            or handle_identity(opened) != handle_identity(after)
             or _identity(before) != _identity(after)
             or _identity(before) != _identity(_regular(path))):
         raise JournalError('Recovery record changed while being read')
@@ -217,6 +219,7 @@ def _hash(path):
             digest.update(chunk)
         after = os.fstat(stream.fileno())
     if (_identity(before) != _identity(opened)
+            or handle_identity(opened) != handle_identity(after)
             or _identity(before) != _identity(after)
             or _identity(before) != _identity(_regular(path))):
         raise JournalError('Recovery source changed while being verified')
@@ -254,6 +257,7 @@ def _copy_verified(source, target, md5, size, identity=None, *, readonly=True):
             os.fsync(copy.fileno())
         after = os.fstat(stream.fileno())
     if (_identity(before) != _identity(opened)
+            or handle_identity(opened) != handle_identity(after)
             or _identity(before) != _identity(after)
             or _identity(before) != _identity(_regular(source))
             or digest.hexdigest() != md5 or before.st_size != size):
@@ -321,7 +325,8 @@ class TransferJournal:
     def __init__(self, project_root, project_id, *, create=True):
         if not isinstance(project_id, str) or not project_id:
             raise JournalError('Recovery journal requires a project ID')
-        self.project_root = _reject_links(project_root)
+        self.project_root = _reject_links(project_root).resolve(strict=True)
+        _reject_links(self.project_root)
         info = self.project_root.stat()
         if not stat.S_ISDIR(info.st_mode) or not info.st_ino:
             raise JournalError('Project is not an identifiable directory')
@@ -585,7 +590,9 @@ class TransferOperation:
         self._read()
         self._approved_material('backup', md5, size)
         expected_source = self.journal.project_root / self._intent['path']
-        if Path(source).absolute() != expected_source:
+        source = _reject_links(source).resolve(strict=True)
+        _reject_links(source)
+        if source != expected_source:
             raise JournalError('Backup source is not the approved project path')
         approved_identity = self._intent['approved_local'].get('identity')
         if identity is not None and list(identity) != approved_identity:

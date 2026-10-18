@@ -257,7 +257,7 @@
       "baseline": "recovered/core/sync_executor.py",
       "maintained": "maintained/core/sync_executor.py",
       "baseline_sha256": "f56c886c5d950511163412d30c660efe17a2d0710b8fc7600bc942b5267f0d83",
-      "maintained_sha256": "ea268034bb87f4916869990a45e865b8ca89836001cd9287ee794bab6ee1ca31",
+      "maintained_sha256": "1102ae3464a4afdc22328bbeffd554f36b5eeb98f5fa8ae011b54038335bc6fd",
       "changed_functions": [
         "SyncExecutor.__init__",
         "SyncExecutor._delete_cloud",
@@ -281,6 +281,7 @@
       "added_imports": [
         "from PySide6.QtCore import QTimer",
         "from PySide6.QtCore import Qt",
+        "from core.file_identity import file_identity, handle_identity",
         "from core.sync_consent import StaleSyncPlan, approved_action, revalidate_action, staged_revision_upload, validate_selection, project_path, verify_downloaded_revision, verify_folder_creation",
         "from core.transfer_journal import TransferJournal, PendingTransferRecovery, fsync_directory",
         "from types import SimpleNamespace",
@@ -340,6 +341,14 @@
       "status": "new_reviewed_helper"
     },
     {
+      "module": "core.file_identity",
+      "maintained": "maintained/core/file_identity.py",
+      "maintained_sha256": "63a73b546ed9986e69bf3413b5e65c12a47fcda35476e4c954269eaf5f79a372",
+      "origin": "Consistent Windows path/handle metadata with separate same-handle mutation detection",
+      "regression_tests": "tests/test_file_identity.py",
+      "status": "new_reviewed_helper"
+    },
+    {
       "module": "core.google_session",
       "maintained": "maintained/core/google_session.py",
       "maintained_sha256": "4d5458b2f634d7b6cd7c5dfec6f9adc7396b1b882d1d1c50718ba722c0948264",
@@ -353,12 +362,12 @@
       "origin": "Immutable observed-version consent and fresh pre-write validation; residual check/write race",
       "regression_tests": "tests/test_maintained_sync_consent.py; tests/test_destructive_review.py",
       "status": "new_reviewed_helper",
-      "maintained_sha256": "7e540ad9bd4fde354091d24599eb8684adea082ac8197b7386d1c4574fa14f3a"
+      "maintained_sha256": "dea8bcb54c1e71f6cbe25681f721ad9cff4a698f7edb2bb17b84f6ad1a2467ba"
     },
     {
       "module": "core.sync_history",
       "maintained": "maintained/core/sync_history.py",
-      "maintained_sha256": "2dbe9831965fa647ec53916bc174986d28f71587b7aa713f5df61b6f627ce065",
+      "maintained_sha256": "01870379885b7834c4dfc2b8b1940dc2e813c515659137327bbf2b00b51705b1",
       "origin": "Strict legacy CSV baseline validation and identity binding",
       "regression_tests": "tests/test_sync_history_recovery.py",
       "status": "new_reviewed_helper"
@@ -366,7 +375,7 @@
     {
       "module": "core.transfer_journal",
       "maintained": "maintained/core/transfer_journal.py",
-      "maintained_sha256": "a3f415aeffd1d51607c75115168e20e58e146b09ced648d958ca7a223657c3de",
+      "maintained_sha256": "da503116c83add3e4e83d8ecba495de98e6044720953564eec4fb2d11ae2c03a",
       "origin": "Durable per-action intent, retained recovery copies and uncertain-outcome retry guard",
       "regression_tests": "tests/test_transfer_journal.py",
       "status": "new_reviewed_helper"

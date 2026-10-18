@@ -9,6 +9,7 @@ from core.sync_consent import (StaleSyncPlan, approved_action, revalidate_action
                                staged_revision_upload, validate_selection,
                                project_path, verify_downloaded_revision, verify_folder_creation)
 from core.transfer_journal import TransferJournal, PendingTransferRecovery, fsync_directory
+from core.file_identity import file_identity, handle_identity
 from utils.paths import CaseInsensitivePathDict, get_project_app_folder
 import threading
 from core.thread_manager import thread_pool, network_pool
@@ -147,7 +148,7 @@ class SyncExecutor(QObject):
                     raise OSError('The sync log is not a privately owned regular file')
                 return info
             def identity(info):
-                return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                return file_identity(info)
             before = inspect_path()
             flags = os.O_WRONLY | os.O_APPEND | getattr(os, 'O_NOFOLLOW', 0)
             if before is None:
@@ -572,8 +573,9 @@ class SyncExecutor(QObject):
                         digest.update(chunk)
                     after = os.fstat(source.fileno())
                 def fingerprint(info):
-                    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                    return file_identity(info)
                 if (not before.st_ino or fingerprint(before) != fingerprint(opened)
+                        or handle_identity(opened) != handle_identity(after)
                         or fingerprint(before) != fingerprint(after)
                         or fingerprint(before) != fingerprint(temp_path.stat(follow_symlinks=False))):
                     raise RuntimeError('Downloaded staging file changed during verification')
@@ -681,7 +683,7 @@ class SyncExecutor(QObject):
                         or before.st_size != expected_size or before.st_mtime != expected_mtime):
                     raise RuntimeError('Upload source no longer matches the selected action')
                 def fingerprint(info):
-                    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                    return file_identity(info)
                 consent = getattr(self, 'consent', None)
                 observed = approved_action(consent, action) if consent is not None else None
                 operation = self._prepare_transfer(action, kind, observed)
@@ -697,6 +699,7 @@ class SyncExecutor(QObject):
                         target.flush()
                         os.fsync(target.fileno())
                     if (fingerprint(before) != fingerprint(opened)
+                            or handle_identity(opened) != handle_identity(after)
                             or fingerprint(before) != fingerprint(after)
                             or fingerprint(before) != fingerprint(local_path.stat(follow_symlinks=False))
                             or digest.hexdigest() != expected_md5.lower()):

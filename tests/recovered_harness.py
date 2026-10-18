@@ -8,10 +8,29 @@ be supplied explicitly. Original bundled executable/bytecode is never executed.
 import ast
 import builtins
 from contextlib import ExitStack, contextmanager
+import importlib.util
 from pathlib import Path
+import sys
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_file_identity_module():
+    """Load only the reviewed pure metadata helper, without application imports."""
+    spec = importlib.util.spec_from_file_location(
+        'core.file_identity', ROOT / 'maintained/core/file_identity.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@contextmanager
+def file_identity_imports():
+    """Provide a scoped exact-name dependency for isolated maintained modules."""
+    module = load_file_identity_module()
+    with patch.dict(sys.modules, {'core.file_identity': module}):
+        yield module
 
 
 def denied(*args, **kwargs):

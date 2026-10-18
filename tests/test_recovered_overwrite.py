@@ -16,7 +16,8 @@ import traceback
 import unittest
 from unittest.mock import Mock, patch
 
-from recovered_harness import load_function, deny_external_effects, denied
+from recovered_harness import (load_function, deny_external_effects, denied,
+                               file_identity_imports, load_file_identity_module)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -26,7 +27,8 @@ def load_recovery_module():
     spec = importlib.util.spec_from_file_location(
         'transfer_journal_fixture', ROOT / 'maintained/core/transfer_journal.py')
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    with file_identity_imports():
+        spec.loader.exec_module(module)
     return module
 
 
@@ -35,6 +37,9 @@ def bind_recovery_executor(executor, namespace):
     journal = load_recovery_module()
     namespace.update(TransferJournal=journal.TransferJournal,
                      PendingTransferRecovery=journal.PendingTransferRecovery)
+    identity = load_file_identity_module()
+    namespace.update(file_identity=identity.file_identity,
+                     handle_identity=identity.handle_identity)
     namespace.setdefault('StaleSyncPlan', RuntimeError)
     executor._transfer_journal = None
     executor._result_lock = threading.Lock()
@@ -66,6 +71,9 @@ upload directories are also constrained beneath this test's fixture root.
         if level != 0 or name not in allowed or fromlist:
             return denied()
         return allowed[name]
+    identity = load_file_identity_module()
+    namespace = dict(namespace, file_identity=identity.file_identity,
+                     handle_identity=identity.handle_identity)
     method = load_function('maintained/core/sync_executor.py', qualname, namespace)
     method.__globals__['__builtins__']['__import__'] = reviewed_import
     return method

@@ -14,7 +14,7 @@ from types import MethodType, SimpleNamespace
 import unittest
 from unittest.mock import Mock
 
-from recovered_harness import deny_external_effects, load_function
+from recovered_harness import deny_external_effects, file_identity_imports, load_function
 from test_recovered_overwrite import bind_recovery_executor
 
 
@@ -25,7 +25,8 @@ SPEC = importlib.util.spec_from_file_location(
     'independent_destructive_review_guard', ROOT / 'maintained/core/sync_consent.py')
 guard = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = guard
-SPEC.loader.exec_module(guard)
+with file_identity_imports():
+    SPEC.loader.exec_module(guard)
 FOLDER = 'application/vnd.google-apps.folder'
 
 

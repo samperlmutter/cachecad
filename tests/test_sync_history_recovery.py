@@ -8,7 +8,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from recovered_harness import load_function
+from recovered_harness import file_identity_imports, load_function
 from test_recovered_scan_outcomes import LocalFixture
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,7 +17,8 @@ if not SOURCE.is_file():
     raise unittest.SkipTest('Actual maintained source absent')
 spec = importlib.util.spec_from_file_location('history_under_test', SOURCE)
 history = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(history)
+with file_identity_imports():
+    spec.loader.exec_module(history)
 
 
 class HistoryRecoveryTests(unittest.TestCase):
