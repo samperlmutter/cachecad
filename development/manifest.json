@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "kind": "offline-scanner-development; generated placeholder assets; no vendor assets",
+  "files": [
+    {
+      "source": "development/README.md",
+      "destination": "development/README.md",
+      "sha256": "e1e20f22701519d128619d142a33b46f9ca5e92a7614765ea369cefaedb3af42"
+    },
+    {
+      "source": "development/launch.py",
+      "destination": "development/launch.py",
+      "sha256": "7a02d65326ee4ac5da13629988d8131273fb40a6815ecd2dc2648533510dc401"
+    },
+    {
+      "source": "development/build_resources.py",
+      "destination": "development/build_resources.py",
+      "sha256": "f0c303331fe06a92ac8f73f94b8a67dcc6572f4e59334cdd43d5be7271e64d0f"
+    },
+    {
+      "source": "development/resources_rc.py",
+      "destination": "development/resources_rc.py",
+      "sha256": "214591910072339b87fa244fbe38756cbc6c443c1b2e76da2049daf76646afbb"
+    },
+    {
+      "source": "requirements/runtime-linux.in",
+      "destination": "development/runtime-linux.in",
+      "sha256": "6cc6a59a710950576caf3cdcc08b99c774732578015e97e3c3079e9a08eb81f7"
+    },
+    {
+      "source": "requirements/runtime-linux.lock",
+      "destination": "development/runtime-linux.lock",
+      "sha256": "45b7100d99141a8ab8e7debe31c600f26d48de4fea8086a25d72902493001208"
+    }
+  ]
+}

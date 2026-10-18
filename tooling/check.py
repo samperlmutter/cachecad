@@ -52,7 +52,7 @@ def main() -> int:
     else:
         print("Evidence check NOT RUN; supply --evidence-root for provenance gate.", flush=True)
     sources = []
-    for directory in ["src", "tests", "tooling", "tools/recovery", "recovered", "maintained"]:
+    for directory in ["src", "tests", "tooling", "tools/recovery", "recovered", "maintained", "development"]:
         for path in sorted((ROOT / directory).rglob("*.py")):
             ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             sources.append(path)
@@ -91,7 +91,7 @@ def main() -> int:
     else:
         print("Maintained scope gate NOT RUN: reviewed manifest not present", flush=True)
     if args.ruff:
-        result = subprocess.run([sys.executable, "-m", "ruff", "check", "src", "tests", "tooling", "tools/recovery"], cwd=ROOT,
+        result = subprocess.run([sys.executable, "-m", "ruff", "check", "src", "tests", "tooling", "tools/recovery", "development"], cwd=ROOT,
                                 env=env, check=False)
         if result.returncode:
             return result.returncode

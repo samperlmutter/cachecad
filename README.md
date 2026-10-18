@@ -37,6 +37,14 @@ It includes scan failure/retry isolation, OneDrive path warnings and bounded
 new-file transfer protection. Normal revision sync still has unresolved overwrite
 races; this source artifact is not an executable installer.
 
+## Run the actual application offline
+
+The [offline development launcher](development/README.md) runs the actual assembled
+GUI with real Qt and disposable synthetic scan fixtures. A separate hash-locked
+Linux runtime and generated neutral placeholder assets are included. Authentication,
+live services and transfers are disabled in this development mode. Hosted CI tests
+startup, failure/retry/stale-result isolation and closing a pending scan.
+
 ## Maintenance checks
 
 Use Python 3.12 and the hash-locked Linux tools:
@@ -67,8 +75,9 @@ PYTHONPATH=src python -m cachecad --demo --json
 
 It uses disposable fixtures and fake services. Do not use live projects or
 credentials for development tests. No executable installer has been rebuilt.
-Runtime dependencies, Qt resources, Windows/SolidWorks validation, packaging,
-signing and live Google Drive integration remain separate next stages.
+The offline runtime lock and neutral Qt resources now support the actual
+development launcher. Production resources, Windows/SolidWorks validation,
+installer packaging, signing and live Google Drive integration remain open.
 
 See [development instructions](docs/DEVELOPMENT.md) and
 [the recovery baseline notes](recovered/README.md).

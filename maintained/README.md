@@ -77,8 +77,9 @@ executor action or Qt delivery.
 `tooling/maintained.py` checks source hashes and explicit AST exceptions, rejecting
 unreviewed changes. `tooling/assemble_app.py` produces the actual application source
 tree from baseline plus this layer, with deterministic ZIP and origin hashes.
-The assembled source is not yet an installable app: resources, runtime dependencies,
-Windows and SolidWorks validation remain separate. The existing wheel still
+The assembled source has an explicitly offline, scanner-only development launcher
+using real Qt, generated neutral resources and a separate runtime lock. It is not
+an installable production app; Windows and SolidWorks validation remain separate. The existing wheel still
 contains only the earlier offline replacement package.
 
 ## Remaining defects and limits

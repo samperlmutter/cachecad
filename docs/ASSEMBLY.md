@@ -30,9 +30,11 @@ recovery baseline recorded by the patch manifest; it is not a claim that the
 current maintained edits existed in that commit. File hashes identify the exact
 assembled source. Identical validated inputs produce byte-identical ZIP output.
 
-This is a source artifact, not a runnable installer. Runtime dependencies,
-`resources_rc` and other bundled resources still require separate preparation
-and validation. The sanitized module remains non-equivalent to the original.
+The source artifact also includes a separately reviewed offline development
+launcher, runtime lock and generated neutral resources when development/manifest.json
+is present. These files have their own payload hashes and offline-development origin.
+See development/README.md for the real-Qt fixture workflow. This is not an installer;
+production resources/account configuration and target-platform packaging remain open. The sanitized module remains non-equivalent to the original.
 The earlier `cachecad` replacement package is not included. No credentials are
 added, and no original executable or application code is run by assembly.
 

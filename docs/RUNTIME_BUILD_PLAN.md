@@ -2,6 +2,12 @@
 
 ## Current evidence and boundary
 
+Update: the bounded offline-development path is now implemented; see
+[development launcher](../development/README.md). Actual real-Qt Linux startup and
+synthetic scan lifecycle are exercised without live account modules. The resource
+fallback is newly generated neutral artwork; original assets remain unbundled.
+The production-runtime stages below remain a plan rather than completed validation.
+
 The deterministic `tooling/assemble_app.py` output is an application **source
 archive**. It is not a runnable installer or a validated desktop application.
 The recovered entrypoint is `recovered/entrypoint/main.py`; it adds `src` to
@@ -98,10 +104,9 @@ source archive runnable merely because those constants are available.
 - Import-time side effects must be audited before a whole-module smoke test.
   Credential creation, telemetry, updater/network setup, application folders,
   and singleton/thread initialization cannot be treated as harmless imports.
-- `gui.reorder_project_list_dialog` contains a top-level
-  `from project_list_widget import ProjectListWidget` rather than the packaged
-  `gui.project_list_widget` import. The assembled layout only puts `src` on the
-  search path; resolve and test this packaging mismatch explicitly.
+- Import-path audit correction: `gui.reorder_project_list_dialog` already uses
+  the correct relative `.project_list_widget` import. No packaging patch is
+  needed for that path; an earlier static assessment omitted the relative level.
 - Platform assumptions (Windows paths, hidden-file APIs, shell/folder opening,
   tray behavior and native Qt plugins) require a maintained compatibility
   decision. Linux static/source validation does not validate Windows behavior.

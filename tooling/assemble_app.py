@@ -115,9 +115,28 @@ def assemble(root, output):
     files['main.py'] = raw
     records.append(dict(path='main.py', sha256=sha(raw), origin='recovered-entrypoint',
                         source='recovered/entrypoint/main.py', baseline_commit=baseline))
-    manifest = dict(schema_version=1, artifact_kind='source-only; not a runnable installer',
+    development_manifest = root / 'development/manifest.json'
+    development_files = []
+    if development_manifest.is_file():
+        development_files = json.loads(safe_source(root, 'development/manifest.json').read_text())['files']
+        for entry in development_files:
+            source = entry['source']
+            destination = entry['destination']
+            if not (source.startswith('development/') or source.startswith('requirements/runtime-linux')):
+                raise ValueError('Unapproved development artifact source')
+            relative = PurePosixPath(destination)
+            if relative.is_absolute() or '..' in relative.parts or relative.parts[0] != 'development':
+                raise ValueError('Unsafe development artifact destination')
+            raw = safe_source(root, source).read_bytes()
+            if sha(raw) != entry['sha256'] or destination in files:
+                raise ValueError('Development artifact hash/collision failure')
+            files[destination] = raw
+            records.append(dict(path=destination, sha256=sha(raw), origin='offline-development',
+                                source=source, baseline_commit=baseline))
+    manifest = dict(schema_version=1, artifact_kind='application source with optional offline development launcher; not an installer',
                     runtime_verified=False, baseline_commit=baseline,
-                    missing_runtime_inputs=['resources_rc and other bundled assets', 'runtime dependencies'],
+                    missing_runtime_inputs=['production resources and branding', 'authorized account configuration', 'installed target runtime'],
+                    offline_development=bool(development_files),
                     files=sorted(records, key=lambda record: record['path']))
     files['assembly-manifest.json'] = (json.dumps(manifest, indent=2, sort_keys=True) + '\n').encode()
     output.mkdir()  # Atomic refusal if another process created the target.

@@ -10,7 +10,6 @@ import os
 from send2trash import send2trash
 import traceback
 import csv
-from utils.cloud_logging import cloud_logging
 from app.app_version import APP_VERSION, APP_BUILD_DATE, APP_IS_BETA
 from utils.app_settings import settings
 
@@ -131,45 +130,48 @@ class SyncExecutor(QObject):
 
     def check_if_all_actions_finished(self):
         if self.failed_action_count + self.complete_action_count + self.cancelled_action_count == len(self.action_tuple):
-            total_size = 0
-            user_info = self.drive_client.get_user_info_for_cloud_logging()
-            try:
-                email = user_info['email_hash']
-            except:
-                email = 'unknown_user'
-            try:
-                domain = user_info['email_domain']
-            except:
-                domain = 'unknown_domain'
-            try:
-                usage = settings.get('usage')
-            except:
-                usage = 'unknown'
-            log_required = False
-            for action in self.completed_actions:
-                if action is None:
-                    continue
-                log_required = True
-                total_size += action.size if action.size is not None else 0
-                if action.action in (SyncActionType.UPLOAD_NEW, SyncActionType.UPLOAD_REVISION, SyncActionType.UPLOAD_UNKNOWN, SyncActionType.DELETE_CLOUD):
-                    action_type = 'upload'
-                else:
-                    action_type = 'download'
-                version = f'CacheCAD v{APP_VERSION}'
-                if APP_IS_BETA:
-                    version += f' - (Beta {APP_BUILD_DATE})'
-            if log_required:
-                log = {
-                    'email': email,
-                    'domain': domain,
-                    'usage': usage,
-                    'action': action_type,
-                    'succeed': self.complete_action_count,
-                    'size': total_size,
-                    'fail': self.failed_action_count,
-                    'version': version,
-                }
-                cloud_logging.log_sync(log)
+            from utils.development_mode import is_enabled
+            if not is_enabled():
+                total_size = 0
+                user_info = self.drive_client.get_user_info_for_cloud_logging()
+                try:
+                    email = user_info['email_hash']
+                except:
+                    email = 'unknown_user'
+                try:
+                    domain = user_info['email_domain']
+                except:
+                    domain = 'unknown_domain'
+                try:
+                    usage = settings.get('usage')
+                except:
+                    usage = 'unknown'
+                log_required = False
+                for action in self.completed_actions:
+                    if action is None:
+                        continue
+                    log_required = True
+                    total_size += action.size if action.size is not None else 0
+                    if action.action in (SyncActionType.UPLOAD_NEW, SyncActionType.UPLOAD_REVISION, SyncActionType.UPLOAD_UNKNOWN, SyncActionType.DELETE_CLOUD):
+                        action_type = 'upload'
+                    else:
+                        action_type = 'download'
+                    version = f'CacheCAD v{APP_VERSION}'
+                    if APP_IS_BETA:
+                        version += f' - (Beta {APP_BUILD_DATE})'
+                if log_required:
+                    log = {
+                        'email': email,
+                        'domain': domain,
+                        'usage': usage,
+                        'action': action_type,
+                        'succeed': self.complete_action_count,
+                        'size': total_size,
+                        'fail': self.failed_action_count,
+                        'version': version,
+                    }
+                    from utils.cloud_logging import cloud_logging
+                    cloud_logging.log_sync(log)
             logging.info('All actions completed')
             signal_manager.sync_execution_finished.emit()
             self.cancelled = False

@@ -10,34 +10,55 @@
       "baseline": "recovered/app/app_controller.py",
       "maintained": "maintained/app/app_controller.py",
       "baseline_sha256": "d0d2a638b189933a9c294b903c12aa3e84143eb96edba3893c66087f750f2f11",
-      "maintained_sha256": "e19bfc88f3895fda6573714f77bfbdf1a7a67fd9e72100e02125c823954d4232",
+      "maintained_sha256": "4397447d825fd330a6bfad666f9503453fc5769dff40aa3f44084b5f3f107b83",
       "changed_functions": [
         "AppController.__init__",
-        "AppController.project_selected",
-        "AppController.on_sync_analysis_finished",
-        "AppController.on_refresh_clicked",
+        "AppController.create_project_from_link",
         "AppController.on_auth_success",
-        "AppController.on_upload_card_clicked",
-        "AppController.on_download_card_clicked",
         "AppController.on_back_button_clicked",
+        "AppController.on_bug_clicked",
+        "AppController.on_bug_report",
+        "AppController.on_change_working_directory",
+        "AppController.on_download_app_update",
+        "AppController.on_download_card_clicked",
         "AppController.on_execute_sync",
-        "AppController.on_sync_execution_finished"
+        "AppController.on_new_installation",
+        "AppController.on_refresh_clicked",
+        "AppController.on_settings_clicked",
+        "AppController.on_signin_clicked",
+        "AppController.on_sync_analysis_finished",
+        "AppController.on_sync_execution_finished",
+        "AppController.on_upload_card_clicked",
+        "AppController.on_user_profile_loaded",
+        "AppController.project_selected",
+        "AppController.prompt_for_usage_data",
+        "AppController.set_main_window",
+        "AppController.user_clicked_sign_in"
       ],
       "regression_tests": "tests/test_recovered_scan_lifecycle.py",
       "status": "intentional_behavior_change_not_original_bytecode_equivalent",
       "added_nodes": [
-        "AppController._clear_sync_plan",
         "AppController._begin_sync_analysis",
+        "AppController._clear_sync_plan",
+        "AppController._configure_offline_drive",
         "AppController._scan_is_current",
         "AppController._settle_scan",
-        "AppController.on_scan_started",
-        "AppController.on_scan_succeeded",
+        "AppController.on_scan_cancelled",
         "AppController.on_scan_failed",
-        "AppController.on_scan_cancelled"
+        "AppController.on_scan_started",
+        "AppController.on_scan_succeeded"
       ],
       "added_imports": [
         "from PySide6.QtWidgets import QMessageBox",
+        "from utils.development_mode import current as current_development_mode",
         "from utils.path_advisory import confirm_project_location"
+      ],
+      "removed_imports": [
+        "from core.auth_manager import AuthManager",
+        "from core.bug_report import BugReport",
+        "from core.drive_client import DriveClient",
+        "from core.github_updater import github_updater",
+        "from core.user_validation import UserValidation"
       ]
     },
     {
@@ -139,14 +160,18 @@
       "baseline": "recovered/core/sync_executor.py",
       "maintained": "maintained/core/sync_executor.py",
       "baseline_sha256": "f56c886c5d950511163412d30c660efe17a2d0710b8fc7600bc942b5267f0d83",
-      "maintained_sha256": "50b9af27073074658f8f9d8e9bf32371f3ea3e9476c11ab02525bd3e1c896a73",
+      "maintained_sha256": "ca51008e7763cec40f0657a8727469297582ac5ad9e83acc75d2dce4f4d171f8",
       "changed_functions": [
-        "SyncExecutor._upload",
+        "SyncExecutor._delete_cloud",
         "SyncExecutor._download",
-        "SyncExecutor._delete_cloud"
+        "SyncExecutor._upload",
+        "SyncExecutor.check_if_all_actions_finished"
       ],
       "regression_tests": "tests/test_recovered_executor.py; tests/test_recovered_overwrite.py",
-      "status": "intentional_behavior_change_not_original_bytecode_equivalent"
+      "status": "intentional_behavior_change_not_original_bytecode_equivalent",
+      "removed_imports": [
+        "from utils.cloud_logging import cloud_logging"
+      ]
     },
     {
       "module": "gui.initial_settings_dialog",
@@ -194,6 +219,14 @@
       "maintained_sha256": "64333ba32b2c64f2a9521d1638f81efb3ad5e4428f3e343b5d5059305054a34a",
       "origin": "New application UI adapter with explicit advisory and session-only acknowledgement",
       "regression_tests": "tests/test_recovered_onedrive.py",
+      "status": "new_reviewed_helper"
+    },
+    {
+      "module": "utils.development_mode",
+      "maintained": "maintained/utils/development_mode.py",
+      "maintained_sha256": "322b32bfdf640c8f9e37e860a7e15efc90b0becd8ff8e8d6241a682bcac771f7",
+      "origin": "Explicit process-local offline development configuration, no environment toggle or credentials",
+      "regression_tests": "tests/test_offline_development_contract.py",
       "status": "new_reviewed_helper"
     }
   ]

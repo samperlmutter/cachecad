@@ -104,7 +104,8 @@ class AssemblyIntegrationTests(unittest.TestCase):
                              (second / 'app-source.zip').read_bytes())
             patch_manifest = json.loads((ROOT / 'maintained/patch-manifest.json').read_text())
             helper_count = len(patch_manifest.get('new_helpers', []))
-            self.assertEqual(len(a['files']), 50 + helper_count)
+            development_count = len(json.loads((ROOT / 'development/manifest.json').read_text())['files']) if (ROOT / 'development/manifest.json').exists() else 0
+            self.assertEqual(len(a['files']), 50 + helper_count + development_count)
             self.assertEqual(sum(r['origin'] == 'new-helper' for r in a['files']), helper_count)
             self.assertEqual(sum(r['origin'] == 'maintained' for r in a['files']),
                              len(patch_manifest['modules']))
@@ -114,7 +115,7 @@ class AssemblyIntegrationTests(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(raw).hexdigest(), record['sha256'])
                 self.assertEqual(raw, (ROOT / record['source']).read_bytes())
             with zipfile.ZipFile(first / 'app-source.zip') as archive:
-                self.assertEqual(len(archive.namelist()), 51 + helper_count)
+                self.assertEqual(len(archive.namelist()), 51 + helper_count + development_count)
                 self.assertEqual(archive.namelist(), sorted(archive.namelist()))
                 self.assertFalse(any('cachecad/' in name for name in archive.namelist()))
                 self.assertEqual(json.loads(archive.read('assembly-manifest.json')), a)

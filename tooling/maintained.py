@@ -9,10 +9,10 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def masked_ast(path, allowed, *, changed_signatures=(), added_nodes=(), added_imports=(), candidate=False):
+def masked_ast(path, allowed, *, changed_signatures=(), added_nodes=(), added_imports=(), removed_imports=(), candidate=False):
     """Mask only reviewed edits; require each exception exactly once on its side."""
     tree = ast.parse(path.read_text(encoding='utf-8'))
-    seen, removed, imports = set(), set(), set()
+    seen, removed, imports, deleted_imports = set(), set(), set(), set()
     allowed, signatures, additions = set(allowed), set(changed_signatures), set(added_nodes)
     if not signatures <= allowed:
         raise ValueError('Signature exception must also name a changed function')
@@ -22,7 +22,11 @@ def masked_ast(path, allowed, *, changed_signatures=(), added_nodes=(), added_im
                         for text in added_imports}
     if len(expected_imports) != len(added_imports):
         raise ValueError('Duplicate import exception')
-    for text in added_imports:
+    expected_removed = {ast.dump(ast.parse(text).body[0], include_attributes=False)
+                        for text in removed_imports}
+    if len(expected_removed) != len(removed_imports) or expected_removed & expected_imports:
+        raise ValueError('Duplicate or contradictory removed import exception')
+    for text in (*added_imports, *removed_imports):
         nodes = ast.parse(text).body
         if len(nodes) != 1 or not isinstance(nodes[0], (ast.Import, ast.ImportFrom)):
             raise ValueError('Import exception must be exactly one import')
@@ -44,6 +48,11 @@ def masked_ast(path, allowed, *, changed_signatures=(), added_nodes=(), added_im
                 continue
             if not prefix and isinstance(node, (ast.Import, ast.ImportFrom)):
                 key = ast.dump(node, include_attributes=False)
+                if key in expected_removed:
+                    if candidate or key in deleted_imports:
+                        raise ValueError('Removed import remains or is duplicated')
+                    deleted_imports.add(key)
+                    continue
                 if key in expected_imports:
                     if not candidate or key in imports:
                         raise ValueError('Added import already exists or is duplicated')
@@ -66,6 +75,8 @@ def masked_ast(path, allowed, *, changed_signatures=(), added_nodes=(), added_im
         raise ValueError('Patch function missing from source')
     if candidate and (removed != additions or imports != expected_imports):
         raise ValueError('Declared added node/import missing from source')
+    if not candidate and deleted_imports != expected_removed:
+        raise ValueError('Declared removed import absent from baseline')
     return ast.dump(tree, include_attributes=False)
 
 
@@ -103,7 +114,8 @@ def validate(root):
         if digest(baseline) != entry['baseline_sha256']:
             failures.append(entry['module'] + ': original baseline changed')
         exceptions = dict(changed_signatures=entry.get('changed_signatures', []),
-                          added_nodes=entry.get('added_nodes', []), added_imports=entry.get('added_imports', []))
+                          added_nodes=entry.get('added_nodes', []), added_imports=entry.get('added_imports', []),
+                          removed_imports=entry.get('removed_imports', []))
         if masked_ast(baseline, allowed, **exceptions) != masked_ast(candidate, allowed, candidate=True, **exceptions):
             failures.append(entry['module'] + ': changes outside reviewed AST exceptions')
     for entry in manifest.get('new_helpers', []):
