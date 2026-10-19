@@ -132,7 +132,7 @@ def parse_arguments(argv=None):
         help='Isolated persistent application profile (must not contain legacy credentials)')
     parser.add_argument('--startup-check', action='store_true',
         help='Render the actual signed-out UI with no network, then exit')
-    parser.add_argument('--platform', choices=('offscreen', 'windows'))
+    parser.add_argument('--platform', choices=('offscreen', 'windows', 'cocoa'))
     parser.add_argument('--preserved-profile-check', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--diagnostic-test', choices=('main', 'thread', 'qt', 'native'),
         help=argparse.SUPPRESS)
@@ -150,6 +150,8 @@ def parse_arguments(argv=None):
         args.app_source = Path(sys._MEIPASS) / 'app-source'
     if args.platform == 'windows' and sys.platform != 'win32':
         parser.error('--platform windows requires Windows')
+    if args.platform == 'cocoa' and sys.platform != 'darwin':
+        parser.error('--platform cocoa requires macOS')
     if args.client_config is None:
         supplied = os.environ.get('CACHECAD_GOOGLE_CLIENT_CONFIG')
         args.client_config = Path(supplied) if supplied else args.app_source / 'config' / 'google-desktop-client.json'
@@ -259,7 +261,8 @@ def application_profile(args, default):
             finally:
                 os.chdir(previous)
     if args.startup_check and args.profile_dir is None:
-        with tempfile.TemporaryDirectory(prefix='cachecad-startup-') as directory:
+        with tempfile.TemporaryDirectory(prefix='cachecad-startup-',
+                                         dir=Path(tempfile.gettempdir()).resolve()) as directory:
             with locked_profile(directory) as profile:
                 yield profile
     else:
@@ -424,6 +427,11 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
                                     'native_capture': native_capture,
                                     'helper_processes': int(native_capture)},
                 }
+                if sys.platform == 'darwin':
+                    import send2trash
+                    result['trash_backend'] = send2trash.send2trash.__module__
+                    if result['trash_backend'] != 'send2trash.mac.modern':
+                        raise RuntimeError('Native macOS Trash backend unavailable')
                 def finish_check():
                     pixmap = window.grab()
                     result.update(rendered_size=[pixmap.width(), pixmap.height()],

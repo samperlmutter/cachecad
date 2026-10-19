@@ -358,7 +358,7 @@ class ScanOutcomeTests(unittest.TestCase):
             def from_drive_item(item, full_path):
                 return SimpleNamespace(path=full_path, name=item['name'], id=item['id'], is_folder=False)
         build = load_function(DRIVE, 'DriveClient.build_drive_files', dict(
-            fixture.namespace, PureWindowsPath=PureWindowsPath, re=re, DriveItemInfo=FakeDriveItem))
+            fixture.namespace, Path=Path, PureWindowsPath=PureWindowsPath, re=re, DriveItemInfo=FakeDriveItem))
         fixture.client.build_drive_files = MethodType(build, fixture.client)
         fixture.start(60)
         self.assertEqual(fixture.successes, [])

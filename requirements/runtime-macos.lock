@@ -1,0 +1,71 @@
+# Official PyPI wheels verified 2026-10-19; CPython 3.12, macOS 12+ arm64.
+# Complete resolved target-platform closure. No sdists or alternate indexes.
+# See packaging/macos/dependency-artifacts.json and README.md.
+--only-binary :all:
+
+# cachetools-5.5.2-py3-none-any.whl (10080 bytes)
+cachetools==5.5.2 --hash=sha256:d26a22bcc62eb95c3beabd9f1ee5e820d3d2704fe2967cbe350e20c8ffcd3f0a
+# certifi-2026.10.18-py3-none-any.whl (134093 bytes)
+certifi==2026.10.18 --hash=sha256:73191c47aaa79da394e8fee2dbc2ec827432cab56311122c9e47abf79e390f62
+# cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl (184719 bytes)
+cffi==2.1.1 --hash=sha256:f81b3b8f3d4e343550fa4baa0e479bba9f2d29ce9c2e9b51d1ce1718d7442fcf
+# charset_normalizer-3.4.3-cp312-cp312-macosx_10_13_universal2.whl (205655 bytes)
+charset-normalizer==3.4.3 --hash=sha256:e28e334d3ff134e88989d90ba04b47d84382a828c061d0d1027b1b12a62b39b1
+# cryptography-50.0.2-cp311-abi3-macosx_11_0_arm64.whl (3914904 bytes)
+cryptography==50.0.2 --hash=sha256:fa8f5efb344d6908a1ce62f4a24e2e5780f825d6f53f5f50ec5ffacac72936cb
+# google_api_core-2.25.1-py3-none-any.whl (160807 bytes)
+google-api-core==2.25.1 --hash=sha256:8a2a56c1fef82987a524371f99f3bd0143702fecc670c72e600c1cda6bf8dbb7
+# google_api_python_client-2.179.0-py3-none-any.whl (13955142 bytes)
+google-api-python-client==2.179.0 --hash=sha256:79ab5039d70c59dab874fd18333fca90fb469be51c96113cb133e5fc1f0b2a79
+# google_auth-2.40.3-py2.py3-none-any.whl (216137 bytes)
+google-auth==2.40.3 --hash=sha256:1370d4593e86213563547f97a92752fc658456fe4514c809544f330fed45a7ca
+# google_auth_httplib2-0.4.4-py3-none-any.whl (9542 bytes)
+google-auth-httplib2==0.4.4 --hash=sha256:bbe5d7b2401bb3a4017f4720e1e91bd273ab9a2bb60b84e65edbc0de127852da
+# google_auth_oauthlib-1.5.0-py3-none-any.whl (20348 bytes)
+google-auth-oauthlib==1.5.0 --hash=sha256:71625fdea21c6c03217eb9ff13741c3096e6d257ebca0ad084dbd6e9f4aa4ef4
+# googleapis_common_protos-1.75.0-py3-none-any.whl (300631 bytes)
+googleapis-common-protos==1.75.0 --hash=sha256:961ed60399c457ceb0ee8f285a84c870aabc9c6a832b9d37bb281b5bebde43ed
+# httplib2-0.22.0-py3-none-any.whl (96854 bytes)
+httplib2==0.22.0 --hash=sha256:14ae0a53c1ba8f3d37e9e27cf37eabb0fb9980f435ba405d546948b009dd64dc
+# idna-3.20-py3-none-any.whl (69583 bytes)
+idna==3.20 --hash=sha256:ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c
+# oauthlib-3.3.1-py3-none-any.whl (160065 bytes)
+oauthlib==3.3.1 --hash=sha256:88119c938d2b8fb88561af5f6ee0eec8cc8d552b7bb1f712743136eb7523b7a1
+# proto_plus-1.28.2-py3-none-any.whl (50693 bytes)
+proto-plus==1.28.2 --hash=sha256:b874236fcac2358f601e4330bcb76cb8b89c851303ccf4078408b3d4774d1c52
+# protobuf-6.32.0-cp39-abi3-macosx_10_9_universal2.whl (426449 bytes)
+protobuf==6.32.0 --hash=sha256:d52691e5bee6c860fff9a1c86ad26a13afbeb4b168cd4445c922b7e2cf85aaf0
+# pyasn1-0.6.4-py3-none-any.whl (84410 bytes)
+pyasn1==0.6.4 --hash=sha256:deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b
+# pyasn1_modules-0.4.2-py3-none-any.whl (181259 bytes)
+pyasn1-modules==0.4.2 --hash=sha256:29253a9207ce32b64c3ac6600edc75368f98473906e8fd1043bd6b5b1de2c14a
+# pycparser-3.11-py3-none-any.whl (51178 bytes)
+pycparser==3.11 --hash=sha256:51d5a8ba2be0bbe440b99d2112604c95bbbc3c2748a64260186c541e1729cd80
+# pyobjc_core-12.2.2-cp312-cp312-macosx_10_13_universal2.whl (6427637 bytes)
+pyobjc-core==12.2.2 --hash=sha256:122e6ad302a2abf5d4d4adb0156db751600ddf2768441696cba17b31323085e7
+# pyobjc_framework_cocoa-12.2.2-cp312-cp312-macosx_10_13_universal2.whl (388117 bytes)
+pyobjc-framework-cocoa==12.2.2 --hash=sha256:e106f395531e67694376b0f1184612cbeea3ec8b9bf56b55ef41d026171d2a2d
+# pyparsing-3.3.3-py3-none-any.whl (126420 bytes)
+pyparsing==3.3.3 --hash=sha256:ece8c00a69cf01b45d0b1dedabb469c90d8caf996d4fda40f147627a122849a4
+# pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl (133092348 bytes)
+pyside6-essentials==6.9.2 --hash=sha256:713eb8dcbb016ff10e6fca129c1bf2a0fd8cfac979e689264e0be3b332f9398e
+# requests-2.32.5-py3-none-any.whl (64738 bytes)
+requests==2.32.5 --hash=sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6
+# requests_oauthlib-2.0.0-py2.py3-none-any.whl (24179 bytes)
+requests-oauthlib==2.0.0 --hash=sha256:7dd8a5c40426b779b0868c404bdef9768deccf22749cde15852df527e6269b36
+# rsa-4.9.1-py3-none-any.whl (34696 bytes)
+rsa==4.9.1 --hash=sha256:68635866661c6836b8d39430f97a996acbd61bfa49406748ea243539fe239762
+# securesystemslib-1.5.1-py3-none-any.whl (876390 bytes)
+securesystemslib==1.5.1 --hash=sha256:ada8bdf817da29ece4ba91654f6a162ce7cfbadbc3ae3f840f7313f9d22675de
+# send2trash-2.1.0-py3-none-any.whl (17610 bytes)
+send2trash==2.1.0 --hash=sha256:0da2f112e6d6bb22de6aa6daa7e144831a4febf2a87261451c4ad849fe9a873c
+# shiboken6-6.9.2-cp39-abi3-macosx_12_0_universal2.whl (406337 bytes)
+shiboken6==6.9.2 --hash=sha256:8bb1c4326330e53adeac98bfd9dcf57f5173a50318a180938dcc4825d9ca38da
+# tuf-7.0.1-py3-none-any.whl (56253 bytes)
+tuf==7.0.1 --hash=sha256:d30434bda6e079ab303fb30d1b3006d939a10ca34783b1573d61cd9b802fa45c
+# tzlocal-5.4.4-py3-none-any.whl (18115 bytes)
+tzlocal==5.4.4 --hash=sha256:aae09f0126a8a86fa736be266eb4a471380d26a0de3bc14844e7821fee3e2a15
+# uritemplate-4.2.0-py3-none-any.whl (11488 bytes)
+uritemplate==4.2.0 --hash=sha256:962201ba1c4edcab02e60f9a0d3821e82dfc5d2d6662a21abd533879bdb8a686
+# urllib3-2.5.0-py3-none-any.whl (129795 bytes)
+urllib3==2.5.0 --hash=sha256:e6b01673c0fa6a13e374b50871808eb3bf7046c4b125b216f6bf1cc604cff0dc

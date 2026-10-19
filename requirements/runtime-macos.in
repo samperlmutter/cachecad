@@ -1,0 +1,24 @@
+# Native Apple Silicon CPython 3.12, macOS 12+.
+# Essentials provides the actual PySide6 package and required Qt modules.
+# No Qt Addons, vendor cloud logging, or macOS updater platform is included.
+PySide6-Essentials==6.9.2
+shiboken6==6.9.2
+google-api-python-client==2.179.0
+google-api-core==2.25.1
+google-auth==2.40.3
+google-auth-oauthlib==1.5.0
+httplib2==0.22.0
+requests==2.32.5
+protobuf==6.32.0
+oauthlib==3.3.1
+urllib3==2.5.0
+charset-normalizer==3.4.3
+Send2Trash==2.1.0
+tzlocal==5.4.4
+# Existing shared update verification imports; no macOS install helper/feed.
+tuf==7.0.1
+securesystemslib[crypto]==1.5.1
+cryptography==50.0.2
+# Modern native Trash API without pulling the full PyObjC framework collection.
+pyobjc-core==12.2.2
+pyobjc-framework-Cocoa==12.2.2

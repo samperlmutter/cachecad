@@ -17,7 +17,9 @@ class ApplicationConfig:
 
     @property
     def session_path(self):
-        return self.profile_root / 'app_data' / 'google-session.dpapi'
+        # On macOS this is a Keychain identity, never an on-disk token file.
+        name = 'google-session.keychain' if sys.platform == 'darwin' else 'google-session.dpapi'
+        return self.profile_root / 'app_data' / name
 
 
 _configuration: ApplicationConfig | None = None
@@ -28,6 +30,8 @@ def default_profile_root():
     if sys.platform == 'win32':
         base = Path(os.environ.get('LOCALAPPDATA', Path.home() / 'AppData' / 'Local'))
         return base / 'CacheCADReconstructed' / 'v1'
+    if sys.platform == 'darwin':
+        return Path.home() / 'Library' / 'Application Support' / 'CacheCADReconstructed' / 'v1'
     base = Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local' / 'share'))
     return base / 'cachecad-reconstructed' / 'v1'
 

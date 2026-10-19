@@ -192,3 +192,65 @@ jobs:
             dist/windows/build-provenance.json
           if-no-files-found: ignore
           retention-days: 7
+
+  macos-application:
+    needs: [offline, offline-qt]
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      SOURCE_DATE_EPOCH: '1792324800'
+      PYTHONHASHSEED: '0'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.10'
+          architecture: arm64
+      - name: Install hash-locked Apple Silicon runtime and build tools
+        run: |
+          test "$(uname -m)" = arm64
+          python -m pip install --index-url https://pypi.org/simple --only-binary=:all: --require-hashes -r requirements/runtime-macos.lock -r requirements/macos-build.lock
+          python -m pip check
+      - name: Verify actual macOS platform contracts and isolated session storage
+        env:
+          CACHECAD_TEST_MACOS_KEYCHAIN: '1'
+        run: |
+          python -m unittest discover -s tests -p test_macos_application.py -v
+          python -m unittest discover -s tests -p test_crossplatform_drive_paths.py -v
+          python -m unittest discover -s tests -p test_macos_token_store.py -v
+          python -m unittest discover -s tests -p test_profile_lock.py -v
+          python -m unittest discover -s tests -p test_google_session.py -v
+      - name: Build real arm64 application bundle
+        run: |
+          python packaging/macos/build.py --output dist/macos
+      - name: Extract and launch distributed app with native Cocoa window
+        run: |
+          python packaging/macos/test_app.py --archive dist/macos/CacheCAD-macOS-arm64.zip --report-dir dist/macos/test-results
+      - name: Upload verified Apple Silicon application
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: CacheCAD-macOS-arm64-${{ github.sha }}
+          path: |
+            dist/macos/CacheCAD-macOS-arm64.zip
+            dist/macos/archive.sha256
+            dist/macos/build-provenance.json
+            dist/macos/test-results/*.json
+            packaging/macos/README.md
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload bounded Mac failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: CacheCAD-macOS-Diagnostics-${{ github.sha }}
+          path: |
+            dist/macos/build-logs/*.log
+            dist/macos/build-provenance.json
+            dist/macos/test-results/*.json
+            dist/macos/test-results/*.log
+          if-no-files-found: ignore
+          retention-days: 7

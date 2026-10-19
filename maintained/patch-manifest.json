@@ -10,7 +10,7 @@
       "baseline": "recovered/app/app_controller.py",
       "maintained": "maintained/app/app_controller.py",
       "baseline_sha256": "d0d2a638b189933a9c294b903c12aa3e84143eb96edba3893c66087f750f2f11",
-      "maintained_sha256": "23a99a454a0660bb17a7c8cdb044836ff3243d41ddf8d18b435750fabf0069a9",
+      "maintained_sha256": "6db0b5c38d350189561f66ff920f6b168d64e6bcefc3cc7945878901fe9d77e3",
       "changed_functions": [
         "AppController.__init__",
         "AppController.create_project_from_link",
@@ -86,7 +86,7 @@
       "baseline": "recovered/core/auth_manager.py",
       "maintained": "maintained/core/auth_manager.py",
       "baseline_sha256": "d3e469cdbdc55cb69c11ac6df489861fd74d0e4efff6490f5110e7e4ae79522e",
-      "maintained_sha256": "25760714f58035383e223add9e13f57e481818123467598b10714c1792a06c11",
+      "maintained_sha256": "3d220092579a6d652b052cbb00bc8d2e7edc3502de9d2683c4c574526801de6c",
       "changed_functions": [
         "AuthManager.__init__",
         "AuthManager._auth_worker",
@@ -146,7 +146,7 @@
       "baseline": "recovered/core/drive_client.py",
       "maintained": "maintained/core/drive_client.py",
       "baseline_sha256": "2665419d983e07bc5c3b71a6c012ac863ebf23c03d98dd0a2efc79f23b8e5fb4",
-      "maintained_sha256": "aa84810479dffc9907af46895e687922b062423396daeed00e0d449298f226f4",
+      "maintained_sha256": "35ff0c70075f5958e3e91d5bd306a80271dacaf44de3174967d6fa15095c7e77",
       "changed_functions": [
         "DriveClient.__init__",
         "DriveClient._finish",
@@ -361,7 +361,7 @@
     {
       "module": "core.google_session",
       "maintained": "maintained/core/google_session.py",
-      "maintained_sha256": "4d5458b2f634d7b6cd7c5dfec6f9adc7396b1b882d1d1c50718ba722c0948264",
+      "maintained_sha256": "c9ab55a3f179d175979eb68d152af1a73691f4310d47577066a91f2d1331502e",
       "origin": "Real Google SDK credentials, protected persistence and refresh/revocation lifecycle",
       "regression_tests": "tests/test_google_session.py; tests/test_production_auth_review.py",
       "status": "new_reviewed_helper"
@@ -449,7 +449,7 @@
     {
       "module": "utils.application_mode",
       "maintained": "maintained/utils/application_mode.py",
-      "maintained_sha256": "92fcb5c50608159e277a1d07049de58866f76fc5de0b7d071f522777d9a57ee8",
+      "maintained_sha256": "25219dced54d4656a498aae82da9a6c4365df7f8297549dc575d446cd203d081",
       "origin": "Explicit real application profile/client configuration; no synthetic backend",
       "regression_tests": "tests/test_application_auth_runtime.py",
       "status": "new_reviewed_helper"
@@ -460,6 +460,14 @@
       "maintained_sha256": "322b32bfdf640c8f9e37e860a7e15efc90b0becd8ff8e8d6241a682bcac771f7",
       "origin": "Explicit process-local offline development configuration, no environment toggle or credentials",
       "regression_tests": "tests/test_offline_development_contract.py",
+      "status": "new_reviewed_helper"
+    },
+    {
+      "module": "utils.macos_token_store",
+      "maintained": "maintained/utils/macos_token_store.py",
+      "maintained_sha256": "de96fef8ae7dbb8bb9e5dccb8ffce303fabfc069b3534390da6bfce140f58bf4",
+      "origin": "Native current-user macOS Keychain storage with profile-bound identity and no plaintext fallback",
+      "regression_tests": "tests/test_macos_token_store.py",
       "status": "new_reviewed_helper"
     },
     {
@@ -489,7 +497,7 @@
     {
       "module": "utils.windows_token_store",
       "maintained": "maintained/utils/windows_token_store.py",
-      "maintained_sha256": "cbe7d47026621486c5bebe271448fa27882900222a2ba1942d08b305583bec88",
+      "maintained_sha256": "31aaf9a7862e4fb0d763fcd8c2e0fc6239fdcbc503272c8478265bd2a77eec24",
       "origin": "Windows CurrentUser DPAPI encrypted atomic session storage",
       "regression_tests": "tests/test_windows_token_store.py; tests/test_production_auth_review.py",
       "status": "new_reviewed_helper"

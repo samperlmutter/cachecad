@@ -407,8 +407,16 @@ class DriveClient(QObject):
 
     def build_drive_files(self, folders: list, files: list, root_id: str, *, report_error=None) -> dict[str, DriveItemInfo]:
         folder_by_id = {folder['id']: folder for folder in folders}
-        INVALID_WIN_CHARS = re.compile(r'[<>:"/\\|?*]')
+        INVALID_WIN_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
         RESERVED_NAMES = {'CON', 'PRN', 'AUX', 'NUL', *(f'COM{i}' for i in range(1, 10)), *(f'LPT{i}' for i in range(1, 10))}
+        def is_valid_component(name):
+            # Validate each provider name before joining: path parsers otherwise
+            # reinterpret separators in a name as extra folders or an absolute path.
+            return (isinstance(name, str) and bool(name.strip())
+                    and not INVALID_WIN_CHARS.search(name)
+                    and not name.endswith((' ', '.'))
+                    and not name.startswith(('.', '~$'))
+                    and name.upper().split('.')[0] not in RESERVED_NAMES)
         def is_valid_path(path_str: str) -> bool:
             if not isinstance(path_str, str) or not path_str.strip():
                 return False
@@ -422,6 +430,8 @@ class DriveClient(QObject):
                     return False
             return True
         def get_path(item: dict):
+            if not is_valid_component(item.get('name')):
+                return None
             parents = item.get('parents')
             if not parents:
                 return None
@@ -443,7 +453,7 @@ class DriveClient(QObject):
                 if parent_id == drive_id:
                     return None
                 parent = folder_by_id.get(parent_id)
-                if not parent:
+                if not parent or not is_valid_component(parent.get('name')):
                     return None
                 parts.append(parent['name'])
                 current = parent
@@ -452,7 +462,9 @@ class DriveClient(QObject):
                     print(f"Max depth exceeded for item {item['id']}")
                     return None
             parts.reverse()
-            return str(PureWindowsPath(*parts))
+            # Match LocalFileInfo, SQLite joins and SyncAction's native Path use
+            # on both Windows and macOS; keep the shared Windows-safe name rules.
+            return str(Path(*parts))
         drive_items = []
         for file in files:
             full_path = get_path(file)

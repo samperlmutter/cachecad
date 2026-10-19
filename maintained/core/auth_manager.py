@@ -8,7 +8,7 @@ SCOPES = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/a
 SAFE_MESSAGES = {
     'configuration': 'Google sign-in is not configured by this application’s owner. Contact the distributor.',
     'dependencies': 'Google sign-in dependencies are unavailable. Reinstall this application.',
-    'platform': 'Secure remembered sign-in requires Windows for this build.',
+    'platform': 'Secure remembered sign-in requires Windows or macOS for this build.',
     'storage': 'The protected sign-in could not be saved or read. Try again or contact support.',
     'reauth_required': 'Your Google session needs a new sign-in.',
     'network': 'Google could not be reached. Check your connection and try again.',

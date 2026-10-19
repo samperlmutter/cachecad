@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import sys
 import tempfile
 
 
@@ -23,7 +24,7 @@ _MAX_BYTES = 262144
 class TokenStoreError(Exception):
     def __init__(self, code='storage'):
         self.code = code if code in ('storage', 'platform') else 'storage'
-        super().__init__('Windows protected sign-in storage is unavailable.' if self.code == 'platform'
+        super().__init__('Protected sign-in storage is unavailable on this platform.' if self.code == 'platform'
                          else 'The protected sign-in cache could not be read or updated.')
 
 
@@ -198,4 +199,11 @@ class WindowsTokenStore:
             raise TokenStoreError()
 
 
-SecureTokenStore = WindowsTokenStore
+def SecureTokenStore(path=None):
+    """Select the OS-owned store lazily; unsupported systems fail closed."""
+    if sys.platform == 'darwin':
+        from .macos_token_store import MacOSTokenStore
+        return MacOSTokenStore(path)
+    if sys.platform == 'win32':
+        return WindowsTokenStore(path)
+    raise TokenStoreError('platform')

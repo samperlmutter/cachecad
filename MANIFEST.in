@@ -13,3 +13,4 @@ recursive-include development *.py *.json *.md
 recursive-include packaging/windows *.py *.spec *.iss *.md *.txt
 include .gitattributes
 recursive-include application *.py *.json *.md
+recursive-include packaging/macos *.py *.spec *.md *.txt *.json

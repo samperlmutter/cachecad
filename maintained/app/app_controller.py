@@ -578,6 +578,9 @@ class AppController:
     def on_download_app_update(self):
         if getattr(self, 'development', None) is not None:
             return
+        if sys.platform == 'darwin':
+            self.main_window.show_status_message('Mac updates are installed manually. Quit CacheCAD, then replace the application with the approved new build; your profile stays separate.', 15000)
+            return
         if getattr(self, '_update_install_pending', False):
             return
         previous = getattr(self, '_update_dialog', None)
@@ -716,13 +719,16 @@ class AppController:
             browser.setPlainText('CacheCAD Reconstructed connects your local project folders to Google Drive. '
                 'Sign in with Google to select a Drive folder, compare files and choose transfers. '
                 'Google permission is requested only when you click Sign in. '
-                'Saved sessions are encrypted for your Windows account. '
+                'Saved sessions use your operating system’s protected credential storage. '
                 'Updates require your confirmation; crash reports stay on this computer. '
                 'Review each sync plan before changing your files.')
         page = window.pages[Page.SETTINGS]
         page.latest_version_label.setText('Updates are checked only when you ask.')
         page.update_button.setText('Check for Updates')
         page.update_button.setEnabled(True)
+        if sys.platform == 'darwin':
+            page.latest_version_label.setText('Mac updates are installed manually.')
+            page.update_button.setText('Mac Update Instructions')
         for label in page.findChildren(QLabel):
             if label.text().startswith(('Update user data:', 'This is the only info collected')):
                 label.hide()

@@ -53,17 +53,31 @@ startup, failure/retry/stale-result isolation and closing a pending scan.
 
 ## Windows application and Google sign-in
 
-The existing verified Windows artifact is an **offline-development build** with
-placeholder artwork. The maintained production application path is being wired to
-real Google Desktop OAuth, Windows-protected persistent credentials, refresh and
-the actual Drive client. End users will sign in using the application owner's
-client configuration; they will not create their own OAuth clients.
+The maintained Windows application includes real Google Desktop OAuth,
+Windows-protected persistent credentials, refresh and the actual Drive client,
+with neutral placeholder artwork. The distributor must supply its own reviewed
+OAuth client configuration; end users do not create their own OAuth clients.
 
 See [production Google setup](docs/PRODUCTION_GOOGLE_SETUP.md) for owner setup,
 consent/scope requirements and the remaining release gates. A successful signed-out
 installer startup test does not validate a live Google grant, real sync, or CAD
 compatibility. The separate identity-only development launcher is retained for
 tests; it is not the production authentication architecture.
+
+## Apple Silicon macOS application
+
+The Mac packaging pipeline builds the same maintained application as a native
+arm64 `CacheCAD.app` ZIP. CI extracts that distribution and requires both offscreen
+and native Cocoa startup, rendered-window and clean-exit evidence before uploading
+it. Session storage uses the current user's macOS Keychain with no plaintext
+fallback. Profiles live under `~/Library/Application Support/CacheCADReconstructed/v1`.
+See [Mac build and tryout instructions](packaging/macos/README.md).
+
+The tryout is ad-hoc signed, without Developer ID or notarization; macOS may block
+its first launch. Mac updates are manual app replacement after quitting. Live
+Google authorization, CAD transfers and SolidWorks compatibility are separate,
+unverified release gates. CI results, rather than this source description, establish
+whether a particular artifact passed native startup.
 
 ## Application updates
 

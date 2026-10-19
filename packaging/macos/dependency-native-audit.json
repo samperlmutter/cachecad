@@ -1,0 +1,3229 @@
+{
+  "debug_symbol_files_skipped": 568,
+  "minimum_macos": "12.0",
+  "problems": [],
+  "records": [
+    {
+      "path": "_cffi_backend.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "cffi-2.1.1-cp312-cp312-macosx_11_0_arm64.whl"
+    },
+    {
+      "path": "charset_normalizer/md.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "charset_normalizer-3.4.3-cp312-cp312-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "charset_normalizer/md__mypyc.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "charset_normalizer-3.4.3-cp312-cp312-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "cryptography/hazmat/bindings/_rust.abi3.so",
+      "slices": [
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "cryptography-50.0.2-cp311-abi3-macosx_11_0_arm64.whl"
+    },
+    {
+      "path": "google/_upb/_message.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "11.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "protobuf-6.32.0-cp39-abi3-macosx_10_9_universal2.whl"
+    },
+    {
+      "path": "PyInstaller/bootloader/Darwin-64bit/run",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyinstaller-6.22.3-py3-none-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "PyInstaller/bootloader/Darwin-64bit/run_d",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyinstaller-6.22.3-py3-none-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "PyInstaller/bootloader/Darwin-64bit/runw",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyinstaller-6.22.3-py3-none-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "PyInstaller/bootloader/Darwin-64bit/runw_d",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyinstaller-6.22.3-py3-none-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "objc/_machsignals.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyobjc_core-12.2.2-cp312-cp312-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "objc/_objc.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyobjc_core-12.2.2-cp312-cp312-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "AppKit/_AppKit.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyobjc_framework_cocoa-12.2.2-cp312-cp312-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "AppKit/_inlines.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyobjc_framework_cocoa-12.2.2-cp312-cp312-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "CoreFoundation/_CoreFoundation.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyobjc_framework_cocoa-12.2.2-cp312-cp312-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "CoreFoundation/_inlines.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyobjc_framework_cocoa-12.2.2-cp312-cp312-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "Foundation/_Foundation.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyobjc_framework_cocoa-12.2.2-cp312-cp312-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "Foundation/_inlines.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "10.13.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyobjc_framework_cocoa-12.2.2-cp312-cp312-macosx_10_13_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtConcurrent.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtCore.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtDBus.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtDesigner.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtExampleIcons.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtGui.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtHelp.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtNetwork.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtOpenGL.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtOpenGLWidgets.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtPrintSupport.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtQml.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtQuick.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtQuickControls2.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtQuickTest.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtQuickWidgets.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtSql.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtSvg.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtSvgWidgets.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtTest.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtUiTools.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtWidgets.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/QtXml.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/libpyside6.abi3.6.9.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/libpyside6qml.abi3.6.9.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/lrelease",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/lupdate",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/qmlformat",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/qmllint",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/qmlls",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/svgtoqml",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Assistant.app/Contents/MacOS/Assistant",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Designer.app/Contents/MacOS/Designer",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Linguist.app/Contents/MacOS/Linguist",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtConcurrent.framework/Versions/A/QtConcurrent",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtCore.framework/Versions/A/QtCore",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtDBus.framework/Versions/A/QtDBus",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtDesigner.framework/Versions/A/QtDesigner",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtDesignerComponents.framework/Versions/A/QtDesignerComponents",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtGui.framework/Versions/A/QtGui",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtHelp.framework/Versions/A/QtHelp",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtLabsAnimation.framework/Versions/A/QtLabsAnimation",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtLabsFolderListModel.framework/Versions/A/QtLabsFolderListModel",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtLabsPlatform.framework/Versions/A/QtLabsPlatform",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtLabsQmlModels.framework/Versions/A/QtLabsQmlModels",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtLabsSettings.framework/Versions/A/QtLabsSettings",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtLabsSharedImage.framework/Versions/A/QtLabsSharedImage",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtLabsWavefrontMesh.framework/Versions/A/QtLabsWavefrontMesh",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtNetwork.framework/Versions/A/QtNetwork",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtOpenGL.framework/Versions/A/QtOpenGL",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtOpenGLWidgets.framework/Versions/A/QtOpenGLWidgets",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtPrintSupport.framework/Versions/A/QtPrintSupport",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQml.framework/Versions/A/QtQml",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQmlCompiler.framework/Versions/A/QtQmlCompiler",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQmlCore.framework/Versions/A/QtQmlCore",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQmlLocalStorage.framework/Versions/A/QtQmlLocalStorage",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQmlMeta.framework/Versions/A/QtQmlMeta",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQmlModels.framework/Versions/A/QtQmlModels",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQmlNetwork.framework/Versions/A/QtQmlNetwork",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQmlWorkerScript.framework/Versions/A/QtQmlWorkerScript",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQmlXmlListModel.framework/Versions/A/QtQmlXmlListModel",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuick.framework/Versions/A/QtQuick",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2.framework/Versions/A/QtQuickControls2",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2Basic.framework/Versions/A/QtQuickControls2Basic",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2BasicStyleImpl.framework/Versions/A/QtQuickControls2BasicStyleImpl",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2FluentWinUI3StyleImpl.framework/Versions/A/QtQuickControls2FluentWinUI3StyleImpl",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2Fusion.framework/Versions/A/QtQuickControls2Fusion",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2FusionStyleImpl.framework/Versions/A/QtQuickControls2FusionStyleImpl",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2IOSStyleImpl.framework/Versions/A/QtQuickControls2IOSStyleImpl",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2Imagine.framework/Versions/A/QtQuickControls2Imagine",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2ImagineStyleImpl.framework/Versions/A/QtQuickControls2ImagineStyleImpl",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2Impl.framework/Versions/A/QtQuickControls2Impl",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2MacOSStyleImpl.framework/Versions/A/QtQuickControls2MacOSStyleImpl",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2Material.framework/Versions/A/QtQuickControls2Material",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2MaterialStyleImpl.framework/Versions/A/QtQuickControls2MaterialStyleImpl",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2Universal.framework/Versions/A/QtQuickControls2Universal",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickControls2UniversalStyleImpl.framework/Versions/A/QtQuickControls2UniversalStyleImpl",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickDialogs2.framework/Versions/A/QtQuickDialogs2",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickDialogs2QuickImpl.framework/Versions/A/QtQuickDialogs2QuickImpl",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickDialogs2Utils.framework/Versions/A/QtQuickDialogs2Utils",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickEffects.framework/Versions/A/QtQuickEffects",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickLayouts.framework/Versions/A/QtQuickLayouts",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickParticles.framework/Versions/A/QtQuickParticles",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickShapes.framework/Versions/A/QtQuickShapes",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickTemplates2.framework/Versions/A/QtQuickTemplates2",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickTest.framework/Versions/A/QtQuickTest",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickTimeline.framework/Versions/A/QtQuickTimeline",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickTimelineBlendTrees.framework/Versions/A/QtQuickTimelineBlendTrees",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickVectorImage.framework/Versions/A/QtQuickVectorImage",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickVectorImageGenerator.framework/Versions/A/QtQuickVectorImageGenerator",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtQuickWidgets.framework/Versions/A/QtQuickWidgets",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtSql.framework/Versions/A/QtSql",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtSvg.framework/Versions/A/QtSvg",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtSvgWidgets.framework/Versions/A/QtSvgWidgets",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtTest.framework/Versions/A/QtTest",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtUiTools.framework/Versions/A/QtUiTools",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtWidgets.framework/Versions/A/QtWidgets",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/lib/QtXml.framework/Versions/A/QtXml",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/libexec/qmlcachegen",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/libexec/qmlimportscanner",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/libexec/qmltyperegistrar",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/libexec/rcc",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/libexec/uic",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/designer/libPySidePlugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/designer/libqquickwidget.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/designer/libqwebengineview.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/generic/libqtuiotouchplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/iconengines/libqsvgicon.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqgif.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqicns.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqico.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqjpeg.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqmacheif.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqmacjp2.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqpdf.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqsvg.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqtga.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqtiff.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqwbmp.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/imageformats/libqwebp.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/networkinformation/libqscnetworkreachability.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/platforminputcontexts/libqtvirtualkeyboardplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/platforms/libqcocoa.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/platforms/libqminimal.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/platforms/libqoffscreen.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmllint/libquicklintplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_debugger.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_inspector.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_local.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_messages.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_native.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_nativedebugger.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_preview.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_profiler.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_quick3dprofiler.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_quickprofiler.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_server.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/qmltooling/libqmldbg_tcp.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/sqldrivers/libqsqlite.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/sqldrivers/libqsqlmimer.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/sqldrivers/libqsqlodbc.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/sqldrivers/libqsqlpsql.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/styles/libqmacstyle.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/tls/libqcertonlybackend.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/tls/libqopensslbackend.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/plugins/tls/libqsecuretransportbackend.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/Qt/labs/animation/liblabsanimationplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/Qt/labs/folderlistmodel/libqmlfolderlistmodelplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/Qt/labs/platform/liblabsplatformplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/Qt/labs/qmlmodels/liblabsmodelsplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/Qt/labs/settings/libqmlsettingsplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/Qt/labs/sharedimage/libsharedimageplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/Qt/labs/wavefrontmesh/libqmlwavefrontmeshplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtCore/libqtqmlcoreplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtNetwork/libqmlnetworkplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQml/libqmlplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQml/Models/libmodelsplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQml/StateMachine/libqtqmlstatemachineplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQml/WorkerScript/libworkerscriptplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQml/XmlListModel/libqmlxmllistmodelplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/libqtquick2plugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/libqtquickcontrols2plugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/Basic/libqtquickcontrols2basicstyleplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/Basic/impl/libqtquickcontrols2basicstyleimplplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/FluentWinUI3/libqtquickcontrols2fluentwinui3styleplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/FluentWinUI3/impl/libqtquickcontrols2fluentwinui3styleimplplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/Fusion/libqtquickcontrols2fusionstyleplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/Fusion/impl/libqtquickcontrols2fusionstyleimplplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/Imagine/libqtquickcontrols2imaginestyleplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/Imagine/impl/libqtquickcontrols2imaginestyleimplplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/Material/libqtquickcontrols2materialstyleplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/Material/impl/libqtquickcontrols2materialstyleimplplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/Universal/libqtquickcontrols2universalstyleplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/Universal/impl/libqtquickcontrols2universalstyleimplplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/iOS/libqtquickcontrols2iosstyleplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/iOS/impl/libqtquickcontrols2iosstyleimplplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/impl/libqtquickcontrols2implplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/macOS/libqtquickcontrols2macosstyleplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Controls/macOS/impl/libqtquickcontrols2macosstyleimplplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Dialogs/libqtquickdialogsplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Dialogs/quickimpl/libqtquickdialogs2quickimplplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Effects/libeffectsplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Layouts/libqquicklayoutsplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/LocalStorage/libqmllocalstorageplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/NativeStyle/libqtquickcontrols2nativestyleplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Particles/libparticlesplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Pdf/libpdfquickplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Scene2D/libqtquickscene2dplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Scene3D/libqtquickscene3dplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Shapes/libqmlshapesplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Templates/libqtquicktemplates2plugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Timeline/libqtquicktimelineplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Timeline/BlendTrees/libqtquicktimelineblendtreesplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VectorImage/libqquickvectorimageplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/libqtvkbplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Components/libqtvkbcomponentsplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Core/libvirtualkeyboardplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Layouts/libqtvkblayoutsplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Plugins/libqtvkbpluginsplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Plugins/Hangul/libqtvkbhangulplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Plugins/OpenWNN/libqtvkbopenwnnplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Plugins/Pinyin/libqtvkbpinyinplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Plugins/TCIme/libqtvkbtcimeplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Plugins/Thai/libqtvkbthaiplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Settings/libqtvkbsettingsplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Styles/libqtvkbstylesplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/VirtualKeyboard/Styles/Builtin/libqtvkbbuiltinstylesplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/Window/libquickwindowplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtQuick/tooling/libquicktoolingplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "PySide6/Qt/qml/QtTest/libquicktestplugin.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "pyside6_essentials-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "yaml/_yaml.cpython-312-darwin.so",
+      "slices": [
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "pyyaml-6.0.3-cp312-cp312-macosx_11_0_arm64.whl"
+    },
+    {
+      "path": "ruff-0.8.2.data/scripts/ruff",
+      "slices": [
+        {
+          "architecture": "arm64",
+          "minimum_macos": "11.0.0"
+        }
+      ],
+      "wheel": "ruff-0.8.2-py3-none-macosx_11_0_arm64.whl"
+    },
+    {
+      "path": "shiboken6/Shiboken.abi3.so",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "shiboken6-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    },
+    {
+      "path": "shiboken6/libshiboken6.abi3.6.9.dylib",
+      "slices": [
+        {
+          "architecture": "x86_64",
+          "minimum_macos": "12.0.0"
+        },
+        {
+          "architecture": "arm64",
+          "minimum_macos": "12.0.0"
+        }
+      ],
+      "wheel": "shiboken6-6.9.2-cp39-abi3-macosx_12_0_universal2.whl"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "Mach-O runtime/build binaries in locked wheels; dSYM debug-symbol directories excluded and not bundled",
+  "static_only": true,
+  "target": "macOS arm64"
+}

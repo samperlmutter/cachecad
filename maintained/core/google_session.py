@@ -1,4 +1,4 @@
-"""Production Google Drive sessions: verified OAuth, DPAPI persistence, safe refresh.
+"""Production Google Drive sessions: verified OAuth, protected persistence, safe refresh.
 
 No live grant or app-owned client is provided by this module. The distributor must
 supply its own reviewed Desktop OAuth client and scopes. All network operations
@@ -20,9 +20,9 @@ from .desktop_signin import (AuthorizationResult, DesktopAuthorization, DesktopS
                              TOKEN_URI, canonical_scopes, load_client_config,
                              validate_client_config, validate_scopes, _quiet_oauth_logs)
 if __package__ == 'core':
-    from utils.windows_token_store import WindowsTokenStore, TokenStoreError
+    from utils.windows_token_store import SecureTokenStore, TokenStoreError
 else:
-    from ..utils.windows_token_store import WindowsTokenStore, TokenStoreError
+    from ..utils.windows_token_store import SecureTokenStore, TokenStoreError
 
 try:
     from google.oauth2.credentials import Credentials as _Credentials
@@ -39,7 +39,7 @@ _MAX_RESPONSE = 131072
 _MESSAGES = {
     'configuration': 'The app-owned Google sign-in configuration is unavailable or invalid.',
     'dependencies': 'The Google sign-in dependencies are unavailable.',
-    'platform': 'Protected Google sign-in is supported on Windows only.',
+    'platform': 'Protected Google sign-in is supported on Windows and macOS.',
     'storage': 'The protected Google sign-in cache could not be read or updated.',
     'reauth_required': 'Google access expired or was revoked. Sign in again.',
     'network': 'Google could not be reached. Please try again.',
@@ -130,7 +130,7 @@ def _valid_record(record, config, scopes):
         identity = record['identity']
         if not isinstance(identity, dict) or set(identity) != {'email', 'sub'}:
             raise ValueError
-        # Identity is authenticated by DPAPI and was verified before first save.
+        # Identity is protected by the OS credential store and was verified before first save.
         import re
         if (not isinstance(identity['email'], str) or len(identity['email']) > 254
                 or not re.fullmatch(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+",
@@ -297,7 +297,7 @@ class GoogleSession:
         self._scopes = validate_scopes(scopes)
         failure = None
         try:
-            self._store = store if store is not None else WindowsTokenStore()
+            self._store = store if store is not None else SecureTokenStore()
         except TokenStoreError as error:
             failure = error.code
         if failure:
