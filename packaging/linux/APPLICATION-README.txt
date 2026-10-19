@@ -19,8 +19,13 @@ used in packaging/startup tests.
 Read build-provenance.json alongside the download for the measured GLIBC floor.
 A build made on a recent distribution may not run on an older one. The GLIBC
 floor is only one compatibility condition. An x86_64 graphical Linux desktop with
-the native dependencies needed by Qt xcb is required; Wayland is not a tested
-target. The archive has no publisher signature and no Linux automatic installer.
+a working X11 display (or XWayland) and host graphics drivers is required.
+Qt/X11 libraries, including libxcb-shape.so.0, are collected in _internal; GLIBC
+and graphics drivers remain host dependencies. If startup fails, from the folder
+containing CacheCAD run:
+  LD_LIBRARY_PATH="$PWD/CacheCAD/_internal:$PWD/CacheCAD/_internal/PySide6/Qt/lib" ldd CacheCAD/_internal/PySide6/Qt/plugins/platforms/libqxcb.so
+Resolve any "not found" prerequisites with your distribution's package manager.
+Wayland-native behavior and other desktop/driver combinations are not tested. The archive has no publisher signature and no Linux automatic installer.
 
 For a safe signed-out startup check in a new disposable profile:
   ./CacheCAD/CacheCAD --startup-check --platform offscreen --profile-dir /tmp/cachecad-new-test

@@ -275,11 +275,20 @@ jobs:
       - name: Install Linux GUI prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0
+          sudo apt-get install -y --no-install-recommends xvfb xauth libegl1 libgl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0
       - name: Install hash-locked application and packaging tools
         run: |
           python -m pip install --index-url https://pypi.org/simple --only-binary=:all: --require-hashes -r requirements/runtime-linux.lock -r requirements/linux-package.lock
           python -m pip check
+          python - <<'PYQT'
+          import subprocess
+          from pathlib import Path
+          import PySide6
+          plugin = Path(PySide6.__file__).parent / 'Qt/plugins/platforms/libqxcb.so'
+          result = subprocess.run(['ldd', str(plugin)], capture_output=True, text=True, check=True)
+          if 'not found' in result.stdout:
+              raise SystemExit('Qt X11 runtime has unresolved shared libraries:\n' + result.stdout)
+          PYQT
       - name: Build actual Linux application distribution
         run: |
           python packaging/linux/build.py --output dist/linux-application

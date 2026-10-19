@@ -66,6 +66,9 @@ class WorkflowYamlTests(unittest.TestCase):
         self.assertFalse(job['steps'][0]['with']['persist-credentials'])
         commands = [step['run'] for step in job['steps'] if 'run' in step]
         self.assertIn('xvfb', commands[0])
+        self.assertIn('libxcb-shape0', commands[0])
+        self.assertIn("'not found' in result.stdout", commands[1])
+        self.assertIn('libqxcb.so', commands[1])
         self.assertIn('--require-hashes', commands[1])
         self.assertIn('packaging/linux/build.py', commands[2])
         self.assertIn('xvfb-run', commands[3])

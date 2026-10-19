@@ -17,6 +17,26 @@ python3.12 -m venv .venv-linux
 .venv-linux/bin/python packaging/linux/build.py --output dist/linux-application
 ```
 
+On Ubuntu 24.04 the tested build/runtime prerequisites are:
+
+```sh
+sudo apt-get install libegl1 libgl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0
+```
+
+The package collects the resolved Qt/X11 libraries, including `libxcb-shape.so.0`;
+builds now reject a missing copy. GLIBC, a working X11 display (or compatible
+XWayland), and host graphics drivers still come from the target computer. CI checks
+`ldd` on the Qt xcb plugin before building. If another machine fails at startup,
+check unresolved shared libraries from the extracted folder with:
+
+```sh
+LD_LIBRARY_PATH="$PWD/CacheCAD/_internal:$PWD/CacheCAD/_internal/PySide6/Qt/lib" ldd CacheCAD/_internal/PySide6/Qt/plugins/platforms/libqxcb.so
+```
+
+Any `not found` entry is an unresolved prerequisite, not a verified application
+startup. Use the package manager for your distribution; do not download arbitrary
+shared libraries. Hardware/driver and Wayland desktop behavior remain untested.
+
 The build directory must be new. Linux system libraries required by Qt must be
 installed on the build host. For a cloud environment with reviewed distribution
 libraries extracted rather than installed, `--system-library-dir /absolute/path`

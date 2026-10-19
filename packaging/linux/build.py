@@ -87,7 +87,7 @@ def main():
     bundled = verified_payload(bundle_source(bundle))
     if {key: sha256(value) for key, value in original.items()} != {key: sha256(value) for key, value in bundled.items()}:
         raise RuntimeError('Bundled source differs from reviewed production assembly')
-    for name in ('drive.v3.json', 'libqoffscreen.so', 'libqxcb.so'):
+    for name in ('drive.v3.json', 'libqoffscreen.so', 'libqxcb.so', 'libxcb-shape.so.0'):
         if not list(bundle.rglob(name)):
             raise RuntimeError('Required runtime data/plugin is missing: ' + name)
     if list(bundle.rglob('CacheCADUpdateHelper*')):
