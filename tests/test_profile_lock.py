@@ -31,7 +31,9 @@ class ProfileLockTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
-        self.root = Path(self.folder.name) / 'synthetic-profile'
+        # macOS exposes its trusted temporary directory through /var aliases.
+        # Canonicalize the fixture root, retaining explicit symlink rejection tests.
+        self.root = Path(self.folder.name).resolve(strict=True) / 'synthetic-profile'
 
     def child(self):
         return subprocess.run([sys.executable, '-c', CHILD, str(self.root)], cwd=ROOT,
