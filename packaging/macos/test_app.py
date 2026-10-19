@@ -5,6 +5,7 @@ import json
 from pathlib import Path, PurePosixPath
 import platform
 import posixpath
+import re
 import stat
 import subprocess
 import sys
@@ -15,6 +16,114 @@ from macos_support import (APP_NAME, EXECUTABLE, audit_native_files, bundle_sour
                            isolated_environment, sha256, snapshot,
                            validate_application_smoke, verify_bundle_info)
 from build import check_signature
+
+
+SANDBOX_PROFILE = '(version 1)(allow default)(deny network*)'
+STARTUP_PHASES = frozenset(('profile_ready', 'before_qapplication', 'after_qapplication',
+    'before_window_show', 'after_window_show', 'before_event_loop', 'finish_check',
+    'after_event_loop', 'result_written'))
+
+
+def read_profile_json(profile, filename, limit):
+    """Read only a fixed, bounded, non-linked CI report after process exit."""
+    profile = Path(profile)
+    path = profile / filename
+    if profile.is_symlink() or path.is_symlink():
+        raise ValueError('Linked startup report rejected')
+    if not path.exists():
+        return None
+    if not path.is_file() or path.stat().st_size > limit:
+        raise ValueError('Invalid startup report size or type')
+    return json.loads(path.read_text(encoding='utf-8'))
+
+
+def read_startup_result(stdout, profile, qt_platform):
+    """GUI stdout can disconnect; the fixed final report must meet the same gates."""
+    payload = read_profile_json(profile, 'startup-check-result.json', 65536)
+    if payload is None and (Path(profile) / 'startup-check-result.json').exists():
+        raise ValueError('Final startup report is not an object')
+    has_stdout = any(line.startswith('CACHECAD_APPLICATION_RESULT=') for line in stdout.splitlines())
+    from_stdout = validate_application_smoke(stdout, qt_platform) if has_stdout else None
+    from_file = (validate_application_smoke('CACHECAD_APPLICATION_RESULT=' + json.dumps(payload), qt_platform)
+                 if payload is not None else None)
+    if from_stdout is not None and from_file is not None and from_stdout != from_file:
+        raise ValueError('Startup stdout and final profile report disagree')
+    result = from_file if from_file is not None else from_stdout
+    if result is None:
+        raise ValueError('No complete startup result on stdout or in the final profile report')
+    return result, ('stdout-and-profile' if from_file is not None and from_stdout is not None
+                    else 'profile' if from_file is not None else 'stdout')
+
+
+def preserve_startup_evidence(profile, report_dir, name):
+    """Retain only allowlisted stages and existing redacted crash reports."""
+    evidence = {'phases': [], 'redacted_crash_reports': [], 'rejected_reports': 0}
+    try:
+        phases = read_profile_json(profile, 'startup-check-phases.json', 4096)
+        if phases is not None:
+            if (not isinstance(phases, list) or len(phases) > 32
+                    or any(type(phase) is not str or phase not in STARTUP_PHASES for phase in phases)):
+                raise ValueError('Invalid startup phase labels')
+            evidence['phases'] = phases
+    except (OSError, ValueError, UnicodeError):
+        evidence['rejected_reports'] += 1
+    diagnostics = Path(profile) / 'diagnostics'
+    if diagnostics.is_dir() and not diagnostics.is_symlink():
+        fields = {'schema', 'application', 'version', 'build_sha256', 'platform',
+                  'timestamp_utc', 'kind', 'frames', 'breadcrumbs', 'exception_type'}
+        for path in sorted(diagnostics.glob('crash-*.json'))[:8]:
+            try:
+                if not re.fullmatch(r'crash-[0-9a-f]{32}\.json', path.name):
+                    raise ValueError('Invalid crash record filename')
+                record = read_profile_json(diagnostics, path.name, 32768)
+                if (not isinstance(record, dict) or set(record) - fields
+                        or record.get('schema') != 1 or record.get('application') != 'CacheCAD'):
+                    raise ValueError('Not an application redacted crash record')
+                evidence['redacted_crash_reports'].append(record)
+            except (OSError, ValueError, UnicodeError):
+                evidence['rejected_reports'] += 1
+    (report_dir / f'{name}.evidence.json').write_text(
+        json.dumps(evidence, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+    return evidence
+
+
+def diagnose_cocoa(sandbox, report_dir, *, env, cwd):
+    """Failure-only source Qt probe; never substitutes for the packaged app test."""
+    phases = ('before_import', 'after_import', 'after_application', 'after_show',
+              'quit_requested', 'after_exec')
+    script = (
+        "print('CACHECAD_QT_PROBE=before_import', flush=True)\n"
+        "from PySide6.QtWidgets import QApplication, QWidget\n"
+        "from PySide6.QtCore import QTimer\n"
+        "print('CACHECAD_QT_PROBE=after_import', flush=True)\n"
+        "app = QApplication(['cachecad-cocoa-ci-probe', '-platform', 'cocoa'])\n"
+        "print('CACHECAD_QT_PROBE=after_application', flush=True)\n"
+        "window = QWidget(); window.resize(240, 160); window.show()\n"
+        "print('CACHECAD_QT_PROBE=after_show', flush=True)\n"
+        "def stop():\n"
+        "    print('CACHECAD_QT_PROBE=quit_requested', flush=True)\n"
+        "    app.quit()\n"
+        "QTimer.singleShot(200, stop)\n"
+        "code = app.exec()\n"
+        "print('CACHECAD_QT_PROBE=after_exec', flush=True)\n"
+        "raise SystemExit(code)\n"
+    )
+    report = {'diagnostic_only': True, 'counts_as_native_app_pass': False,
+              'same_network_denial': True, 'phases': []}
+    try:
+        process = subprocess.run([str(sandbox), '-p', SANDBOX_PROFILE, sys.executable, '-I', '-c', script],
+                                 cwd=cwd, env=env, capture_output=True, text=True,
+                                 encoding='utf-8', errors='replace', timeout=20)
+        report.update(exit_code=process.returncode, stderr_bytes=len(process.stderr.encode('utf-8')))
+        report['phases'] = [line.partition('=')[2] for line in process.stdout.splitlines()
+                            if line.startswith('CACHECAD_QT_PROBE=') and line.partition('=')[2] in phases]
+    except subprocess.TimeoutExpired:
+        report['timed_out'] = True
+    except OSError:
+        report['probe_unavailable'] = True
+    (report_dir / 'cocoa-source-probe.json').write_text(
+        json.dumps(report, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+    return report
 
 
 def validate_archive(path):
@@ -93,11 +202,18 @@ def test_application(archive, report_dir):
                 profile = home / name
                 # deny network* applies at the OS boundary as well as the app's
                 # Python socket/browser/process tripwires. No signing/trust edit.
-                command = [sandbox, '-p', '(version 1)(allow default)(deny network*)',
+                command = [sandbox, '-p', SANDBOX_PROFILE,
                            executable, '--startup-check', '--platform', qt_platform,
                            '--profile-dir', profile, '--client-config', root / 'absent-client.json']
-                process = run_capture(command, report_dir, name, env=environment, cwd=root)
-                result = validate_application_smoke(process.stdout, qt_platform)
+                try:
+                    process = run_capture(command, report_dir, name, env=environment, cwd=root)
+                    result, result_transport = read_startup_result(process.stdout, profile, qt_platform)
+                except Exception:
+                    if qt_platform == 'cocoa':
+                        diagnose_cocoa(sandbox, report_dir, env=environment, cwd=root)
+                    raise
+                finally:
+                    preserve_startup_evidence(profile, report_dir, name)
                 if result.get('trash_backend') != 'send2trash.mac.modern':
                     raise RuntimeError('Frozen app did not load the modern macOS Trash backend')
                 if snapshot(bundle) != initial:
@@ -106,7 +222,7 @@ def test_application(archive, report_dir):
                     if list(home.rglob(pattern)):
                         raise RuntimeError('Signed-out startup created credential material')
                 record = {'platform': qt_platform, 'exit_code': process.returncode,
-                          'result': result, 'disposable_home': True,
+                          'result': result, 'result_transport': result_transport, 'disposable_home': True,
                           'os_network_denied': True, 'clean_exit': True,
                           'bundle_unchanged': True}
                 summary['scenarios'].append(record)

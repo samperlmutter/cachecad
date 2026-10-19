@@ -362,6 +362,13 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
                      if getattr(args, 'preserved_profile_check', False) else {})
         diagnostics.activate(profile / 'diagnostics')
         diagnostics.mark('profile_ready')
+        startup_phases = []
+        def startup_phase(name):
+            if args.startup_check and sys.platform == 'darwin':
+                startup_phases.append(name)
+                (profile / 'startup-check-phases.json').write_text(
+                    json.dumps(startup_phases), encoding='utf-8')
+        startup_phase('profile_ready')
         native_capture = diagnostics.enable_native(native_helper_command(args, root, profile))
         if args.diagnostic_test:
             diagnostics.mark('diagnostic_test')
@@ -386,14 +393,18 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
             slot_errors = []
             diagnostics.set_qt_callback(lambda: slot_errors.append('Unhandled application callback'))
             qInstallMessageHandler(lambda *args: None)
+            startup_phase('before_qapplication')
             app = QApplication(['cachecad'])
+            startup_phase('after_qapplication')
             diagnostics.mark('qt_started')
             controller = AppController()
             window = MainWindow(controller)
             controller.set_main_window(window)
             if not QSystemTrayIcon.isSystemTrayAvailable():
                 window.tray_icon.hide()
+            startup_phase('before_window_show')
             window.show()
+            startup_phase('after_window_show')
             diagnostics.mark('window_shown')
             if diagnostics.previous_reports and not args.startup_check:
                 notice = QMessageBox(window)
@@ -433,6 +444,7 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
                     if result['trash_backend'] != 'send2trash.mac.modern':
                         raise RuntimeError('Native macOS Trash backend unavailable')
                 def finish_check():
+                    startup_phase('finish_check')
                     pixmap = window.grab()
                     result.update(rendered_size=[pixmap.width(), pixmap.height()],
                         signed_in=controller.signed_in,
@@ -447,7 +459,9 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
                         raise RuntimeError('Synthetic diagnostic callback failure')
                     QTimer.singleShot(0, fail_qt_callback)
                 QTimer.singleShot(80, finish_check)
+            startup_phase('before_event_loop')
             exit_code = app.exec()
+            startup_phase('after_event_loop')
             diagnostics.mark('shutdown_started')
             account_stopped = controller.shutdown()
             pools_stopped = thread_pool.waitForDone(5000) and network_pool.waitForDone(5000)
@@ -492,6 +506,12 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
                     and coordinator.install_pending):
                 pending_updates.append(coordinator)
             diagnostics.mark('shutdown_finished')
+            if args.startup_check and sys.platform == 'darwin':
+                # Cocoa may replace GUI standard streams. Keep the same bounded,
+                # post-shutdown result in the already locked disposable profile.
+                with (profile / 'startup-check-result.json').open('x', encoding='utf-8') as stream:
+                    json.dump(result, stream, sort_keys=True)
+                startup_phase('result_written')
             diagnostics.set_qt_callback(None)
     if result is not None:
         print('CACHECAD_APPLICATION_RESULT=' + json.dumps(result, sort_keys=True))

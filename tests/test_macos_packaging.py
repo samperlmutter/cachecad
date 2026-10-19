@@ -204,6 +204,106 @@ class MacOSPackagingTests(unittest.TestCase):
         self.assertNotIn('xattr', text)
         self.assertNotIn('spctl', text)
 
+    def harness(self):
+        with patch.dict(sys.modules, {'macos_support': support}):
+            builder = load('macos_packaging_build', PACKAGING / 'build.py')
+        with patch.dict(sys.modules, {'macos_support': support, 'build': builder}):
+            return load('macos_app_test', PACKAGING / 'test_app.py')
+
+    def startup_result(self):
+        return {'mode': 'application', 'actual_gui': 'gui.main_window.MainWindow',
+                'qt_platform': 'cocoa', 'frozen': True, 'source_loader': 'verified-source',
+                'signed_in': False, 'has_credentials': False, 'drive_client_created': False,
+                'network_disabled': True, 'active_threads': 0, 'setup_required': True,
+                'sdk_imports_verified': True, 'certificate_bundle_present': True,
+                'drive_discovery_present': True, 'rendered_size': [813, 518],
+                'trash_backend': 'send2trash.mac.modern', 'errors': [], 'external_attempts': [],
+                'development_modules_loaded': [], 'forbidden_modules_loaded': [], 'credential_files': []}
+
+    def test_final_profile_result_uses_same_strict_native_validator(self):
+        app_test = self.harness()
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory)
+            result = self.startup_result()
+            report = profile / 'startup-check-result.json'
+            report.write_text(json.dumps(result))
+            self.assertEqual(app_test.read_startup_result('', profile, 'cocoa'), (result, 'profile'))
+            stdout = 'CACHECAD_APPLICATION_RESULT=' + json.dumps(result)
+            self.assertEqual(app_test.read_startup_result(stdout, profile, 'cocoa'),
+                             (result, 'stdout-and-profile'))
+            result['qt_platform'] = 'offscreen'
+            report.write_text(json.dumps(result))
+            with self.assertRaises(ValueError):
+                app_test.read_startup_result('', profile, 'cocoa')
+
+    def test_stdout_and_profile_mismatch_and_duplicate_records_are_rejected(self):
+        app_test = self.harness()
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory)
+            result = self.startup_result()
+            stdout = 'CACHECAD_APPLICATION_RESULT=' + json.dumps(result)
+            result['rendered_size'] = [900, 600]
+            (profile / 'startup-check-result.json').write_text(json.dumps(result))
+            for text in (stdout, stdout + '\n' + stdout):
+                with self.assertRaises(ValueError):
+                    app_test.read_startup_result(text, profile, 'cocoa')
+
+    def test_missing_partial_oversized_linked_profile_report_never_implies_success(self):
+        app_test = self.harness()
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory)
+            path = profile / 'startup-check-result.json'
+            with self.assertRaises(ValueError):
+                app_test.read_startup_result('', profile, 'cocoa')
+            for content in ('{', 'x' * 65537, 'null', '{}'):
+                path.write_text(content)
+                with self.subTest(content=content[:8]), self.assertRaises(ValueError):
+                    app_test.read_startup_result('', profile, 'cocoa')
+            path.write_text('null')
+            with self.assertRaises(ValueError):
+                app_test.read_startup_result('CACHECAD_APPLICATION_RESULT=' + json.dumps(self.startup_result()), profile, 'cocoa')
+            path.unlink()
+            target = profile / 'other.json'
+            target.write_text(json.dumps(self.startup_result()))
+            path.symlink_to(target)
+            with self.assertRaises(ValueError):
+                app_test.read_startup_result('', profile, 'cocoa')
+
+    def test_phase_evidence_is_bounded_allowlisted_and_survives_profile_cleanup(self):
+        app_test = self.harness()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            profile = root / 'profile'
+            profile.mkdir()
+            phases = profile / 'startup-check-phases.json'
+            phases.write_text(json.dumps(['profile_ready', 'before_qapplication']))
+            result = app_test.preserve_startup_evidence(profile, root, 'cocoa')
+            self.assertEqual(result['phases'], ['profile_ready', 'before_qapplication'])
+            phases.write_text(json.dumps(['private user text']))
+            result = app_test.preserve_startup_evidence(profile, root, 'bad')
+            self.assertEqual(result['phases'], [])
+            self.assertEqual(result['rejected_reports'], 1)
+            self.assertNotIn('private user text', (root / 'bad.evidence.json').read_text())
+            phases.unlink()
+            profile.rmdir()
+            self.assertEqual(json.loads((root / 'cocoa.evidence.json').read_text())['phases'],
+                             ['profile_ready', 'before_qapplication'])
+
+    def test_failure_probe_is_diagnostic_only_and_uses_unchanged_network_denial(self):
+        app_test = self.harness()
+        from types import SimpleNamespace
+        fake = SimpleNamespace(returncode=0,
+            stdout='CACHECAD_QT_PROBE=before_import\nCACHECAD_QT_PROBE=after_import\nprivate output\n',
+            stderr='private error details')
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(app_test.subprocess, 'run', return_value=fake) as run:
+                result = app_test.diagnose_cocoa(Path('/usr/bin/sandbox-exec'), Path(directory),
+                                               env={}, cwd=directory)
+            self.assertFalse(result['counts_as_native_app_pass'])
+            self.assertEqual(result['phases'], ['before_import', 'after_import'])
+            self.assertEqual(run.call_args.args[0][2], '(version 1)(allow default)(deny network*)')
+            self.assertNotIn('private', (Path(directory) / 'cocoa-source-probe.json').read_text())
+
     def test_hash_locks_match_official_wheel_evidence_and_are_arm_compatible(self):
         evidence = json.loads((PACKAGING / 'dependency-artifacts.json').read_text())
         for filename in ('runtime-macos.lock', 'macos-build.lock'):
