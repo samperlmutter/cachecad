@@ -7,6 +7,9 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
+if not (Path(__file__).resolve().parents[1] / 'maintained/utils/application_mode.py').is_file():
+    raise unittest.SkipTest('Maintained application absent from isolated prototype wheel')
+
 from maintained.utils import application_mode, windows_token_store
 from recovered_harness import deny_external_effects, load_function
 
