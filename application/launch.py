@@ -132,7 +132,8 @@ def parse_arguments(argv=None):
         help='Isolated persistent application profile (must not contain legacy credentials)')
     parser.add_argument('--startup-check', action='store_true',
         help='Render the actual signed-out UI with no network, then exit')
-    parser.add_argument('--platform', choices=('offscreen', 'windows', 'cocoa'))
+    parser.add_argument('--platform', choices=('offscreen', 'windows', 'cocoa', 'xcb'))
+    parser.add_argument('--interaction-check', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--preserved-profile-check', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--diagnostic-test', choices=('main', 'thread', 'qt', 'native'),
         help=argparse.SUPPRESS)
@@ -152,12 +153,24 @@ def parse_arguments(argv=None):
         parser.error('--platform windows requires Windows')
     if args.platform == 'cocoa' and sys.platform != 'darwin':
         parser.error('--platform cocoa requires macOS')
+    if args.platform == 'xcb' and sys.platform != 'linux':
+        parser.error('--platform xcb requires Linux')
     if args.client_config is None:
         supplied = os.environ.get('CACHECAD_GOOGLE_CLIENT_CONFIG')
         args.client_config = Path(supplied) if supplied else args.app_source / 'config' / 'google-desktop-client.json'
     args.client_config = args.client_config.absolute()
     if args.profile_dir is not None:
         args.profile_dir = args.profile_dir.absolute()
+    if args.interaction_check:
+        if (sys.platform != 'linux' or not args.startup_check or args.profile_dir is None
+                or args.preserved_profile_check or args.diagnostic_test or args.diagnostic_native_helper
+                or os.environ.get('CACHECAD_ENABLE_INTERACTION_TESTS') != '1'
+                or args.client_config.exists() or args.client_config.is_symlink()):
+            parser.error('Interaction checks require Linux, explicit startup test mode, a new disposable profile and missing client configuration')
+        temporary = Path(tempfile.gettempdir()).resolve()
+        profile = args.profile_dir.resolve()
+        if profile == temporary or not profile.is_relative_to(temporary):
+            parser.error('Interaction checks require a profile inside the disposable temporary directory')
     if args.preserved_profile_check:
         if (not args.startup_check or args.profile_dir is None or args.diagnostic_test
                 or args.diagnostic_native_helper or os.environ.get('CACHECAD_ENABLE_UPGRADE_TESTS') != '1'
@@ -349,6 +362,162 @@ def snapshot_preserved_profile(profile):
     return preserved
 
 
+def schedule_interaction_check(app, window, controller, profile, result, errors, finish_check):
+    """Bounded Linux test of existing Qt controls, never an account/Drive fixture.
+
+    The caller has already required an empty disposable profile, missing client
+    configuration and startup effect guards. Qt input events target real widgets.
+    Settings has no Back control; its existing previous_page handler is tested
+    separately. The directory picker, not the missing-setup status, is the modal.
+    """
+    from PySide6.QtCore import QEvent, QPointF, QTimer, Qt
+    from PySide6.QtGui import QKeyEvent, QMouseEvent
+    from PySide6.QtWidgets import QFileDialog, QPushButton
+    from core.auth_manager import SAFE_MESSAGES
+    from gui.page import Page
+    from utils.app_settings import settings
+
+    report = {'completed': False, 'checks': [], 'screenshots': [],
+              'input_method': 'Qt mouse/key events', 'back_method': 'MainWindow.previous_page',
+              'modal': 'Settings directory picker', 'shutdown_signal_received': False}
+    result['interaction_check'] = report
+    state = {'finished': False, 'stage': 'initial_state'}
+    original_quit = app.quitOnLastWindowClosed()
+    # Keep the disposable test process alive long enough to reopen after Close
+    # and exercise the real Exit action. Normal application behavior is unchanged.
+    app.setQuitOnLastWindowClosed(False)
+    app.aboutToQuit.connect(lambda: report.update(shutdown_signal_received=True))
+
+    def require(condition):
+        if not condition:
+            raise RuntimeError('Interaction invariant failed')
+
+    def click(button):
+        point = QPointF(button.rect().center())
+        global_point = QPointF(button.mapToGlobal(button.rect().center()))
+        for kind, buttons in ((QEvent.MouseButtonPress, Qt.LeftButton),
+                              (QEvent.MouseButtonRelease, Qt.NoButton)):
+            app.sendEvent(button, QMouseEvent(kind, point, global_point,
+                                             Qt.LeftButton, buttons, Qt.NoModifier))
+
+    def screenshot(name):
+        pixmap = window.grab()
+        require(not pixmap.isNull() and pixmap.save(str(profile / name), 'PNG'))
+        report['screenshots'].append({'file': name, 'size': [pixmap.width(), pixmap.height()],
+            'sha256': hashlib.sha256((profile / name).read_bytes()).hexdigest()})
+
+    def failed():
+        if state['finished']:
+            return
+        state['finished'] = True
+        errors.append('Interaction check failed: ' + state['stage'])
+        try:
+            modal = app.activeModalWidget()
+            if isinstance(modal, QFileDialog):
+                modal.reject()
+            finish_check(quit_app=False)
+        except Exception:
+            errors.append('Interaction failure snapshot unavailable')
+        finally:
+            app.quit()
+
+    def step(name, action, next_step=None):
+        if state['finished']:
+            return
+        state['stage'] = name
+        try:
+            action()
+            require(not errors)
+            report['checks'].append(name)
+            if next_step is not None:
+                QTimer.singleShot(80, next_step)
+        except Exception:
+            failed()
+
+    def navigate():
+        require(window.isVisible() and window.main_stack.currentIndex() == Page.HOME.value)
+        require(window.settings_btn.isEnabled())
+        for _ in range(3):
+            click(window.settings_btn)
+            require(window.main_stack.currentIndex() == Page.SETTINGS.value)
+        screenshot('interaction-settings.png')
+        window.previous_page()
+        require(window.main_stack.currentIndex() == Page.HOME.value)
+        click(window.settings_btn)
+        require(window.main_stack.currentIndex() == Page.SETTINGS.value)
+        window.previous_page()
+        require(window.main_stack.currentIndex() == Page.HOME.value)
+
+    def missing_configuration():
+        manager = controller.auth_manager
+        account = window.signin_button
+        require(not manager.configuration.client_config_path.exists())
+        require(manager.state == 'setup_missing' and not account.button.isEnabled())
+        for _ in range(3):
+            click(account.button)
+            # The visible control is correctly disabled. Also exercise its
+            # existing controller guard without enabling it or faking a session.
+            controller.on_signin_clicked()
+        require(manager.state == 'setup_missing' and manager._session is None
+                and manager._thread is None and not manager._auth_in_progress)
+        require(account.status_label.text() == SAFE_MESSAGES['configuration'])
+        require(not controller.signed_in and manager.get_creds() is None
+                and not hasattr(controller, 'drive_client'))
+
+    def cancel_picker():
+        click(window.settings_btn)
+        before = (profile / 'app_data/settings.json').read_bytes()
+        dismissed = []
+
+        def dismiss():
+            try:
+                modal = app.activeModalWidget()
+                require(isinstance(modal, QFileDialog) and modal.isVisible())
+                for kind in (QEvent.KeyPress, QEvent.KeyRelease):
+                    app.sendEvent(modal, QKeyEvent(kind, Qt.Key_Escape, Qt.NoModifier))
+                require(not modal.isVisible())
+                dismissed.append(True)
+            except Exception:
+                failed()
+
+        browse = [button for button in window.pages[Page.SETTINGS].findChildren(QPushButton)
+                  if button.text() == 'Browse...']
+        require(len(browse) == 1 and browse[0].isEnabled())
+        QTimer.singleShot(100, dismiss)
+        click(browse[0])  # Runs the actual directory picker's nested Qt event loop.
+        require(dismissed and app.activeModalWidget() is None)
+        require((profile / 'app_data/settings.json').read_bytes() == before)
+        require(window.main_stack.currentIndex() == Page.SETTINGS.value)
+        window.previous_page()
+        require(window.main_stack.currentIndex() == Page.HOME.value)
+        screenshot('interaction-home.png')
+
+    def close_reopen():
+        require(not settings.get_use_tray_icon())
+        require(window.close() and not window.isVisible())
+        window.show_app()
+        require(window.isVisible() and not controller._shutting_down)
+
+    def explicit_exit():
+        finish_check(quit_app=False)
+        exits = [action for action in window.tray_icon.contextMenu().actions()
+                 if action.text() == 'Exit']
+        require(len(exits) == 1)
+        app.setQuitOnLastWindowClosed(original_quit)
+        exits[0].trigger()
+        exits[0].trigger()
+        require(window._exit_requested)
+        report['completed'] = True
+        state['finished'] = True
+
+    QTimer.singleShot(8000, failed)
+    QTimer.singleShot(80, lambda: step('settings_repeated_clicks_and_back', navigate,
+        lambda: step('missing_configuration_rejected', missing_configuration,
+        lambda: step('directory_modal_escape_and_navigation', cancel_picker,
+        lambda: step('ordinary_close_and_reopen', close_reopen,
+        lambda: step('explicit_exit_repeated', explicit_exit))))))
+
+
 def run_application(args, root, diagnostics, lifetime=None, pending_updates=None):
     from utils.application_mode import configure_application, default_profile_root
     if args.platform or args.startup_check:
@@ -358,6 +527,11 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
         from core.windows_update_install import ApplicationRunLease
         lifetime.enter_context(ApplicationRunLease())
     with application_profile(args, default_profile_root()) as profile:
+        if getattr(args, 'interaction_check', False):
+            # Isolate Qt's directory-picker preferences as well as application
+            # settings. No desktop user's recent directories are read or saved.
+            for name in ('XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME'):
+                os.environ[name] = str(profile / name.lower())
         preserved = (snapshot_preserved_profile(profile)
                      if getattr(args, 'preserved_profile_check', False) else {})
         diagnostics.activate(profile / 'diagnostics')
@@ -443,7 +617,7 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
                     result['trash_backend'] = send2trash.send2trash.__module__
                     if result['trash_backend'] != 'send2trash.mac.modern':
                         raise RuntimeError('Native macOS Trash backend unavailable')
-                def finish_check():
+                def finish_check(*, quit_app=True):
                     startup_phase('finish_check')
                     pixmap = window.grab()
                     result.update(rendered_size=[pixmap.width(), pixmap.height()],
@@ -453,12 +627,17 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
                         setup_required=controller.auth_manager.state == 'setup_missing')
                     if pixmap.isNull():
                         slot_errors.append('Window render failed')
-                    app.quit()
+                    if quit_app:
+                        app.quit()
                 if args.diagnostic_test == 'qt':
                     def fail_qt_callback():
                         raise RuntimeError('Synthetic diagnostic callback failure')
                     QTimer.singleShot(0, fail_qt_callback)
-                QTimer.singleShot(80, finish_check)
+                if getattr(args, 'interaction_check', False):
+                    schedule_interaction_check(app, window, controller, profile,
+                                               result, slot_errors, finish_check)
+                else:
+                    QTimer.singleShot(80, finish_check)
             startup_phase('before_event_loop')
             exit_code = app.exec()
             startup_phase('after_event_loop')
@@ -496,6 +675,10 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
                     result['preserved_profile_unchanged'] = after == preserved
                     if after != preserved:
                         result['errors'].append('Preserved upgrade fixture bytes changed during startup')
+                if getattr(args, 'interaction_check', False):
+                    interaction = result['interaction_check']
+                    if not interaction['completed'] or not interaction['shutdown_signal_received']:
+                        result['errors'].append('Interaction check did not complete a clean explicit exit')
                 if (result['signed_in'] or result['has_credentials'] or result['drive_client_created']
                         or attempts or result['active_threads'] or result['credential_files']
                         or result['development_modules_loaded'] or result['forbidden_modules_loaded']):
@@ -506,7 +689,7 @@ def run_application(args, root, diagnostics, lifetime=None, pending_updates=None
                     and coordinator.install_pending):
                 pending_updates.append(coordinator)
             diagnostics.mark('shutdown_finished')
-            if args.startup_check and sys.platform == 'darwin':
+            if args.startup_check and (sys.platform == 'darwin' or getattr(args, 'interaction_check', False)):
                 # Cocoa may replace GUI standard streams. Keep the same bounded,
                 # post-shutdown result in the already locked disposable profile.
                 with (profile / 'startup-check-result.json').open('x', encoding='utf-8') as stream:

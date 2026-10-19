@@ -51,7 +51,8 @@ class ControllerDialogSafetyTests(unittest.TestCase):
         }
         method = load_function('maintained/app/app_controller.py',
             'AppController.on_download_app_update', {
-                'Path': Path, 'sys': SimpleNamespace(platform='fixture-only'),
+                'Path': Path, 'sys': SimpleNamespace(platform='win32',
+                    getwindowsversion=lambda: SimpleNamespace(build=19045)),
                 '__file__': str(ROOT / 'maintained/app/app_controller.py'),
                 'APP_VERSION': '0.1.0'})
         def fixture_import(name, *args, **kwargs):

@@ -79,6 +79,22 @@ Google authorization, CAD transfers and SolidWorks compatibility are separate,
 unverified release gates. CI results, rather than this source description, establish
 whether a particular artifact passed native startup.
 
+## Linux x86_64 application
+
+The Linux pipeline packages the actual maintained app as an extractable tarball.
+Its test harness installs the archive into a separate directory and checks the
+frozen executable with Qt's X11 backend on a disposable Xvfb display, alongside
+offscreen, interaction, repeated-launch and synthetic crash-report checks.
+See [Linux build and tryout instructions](packaging/linux/README.md) for system
+libraries, installation, tested host and artifact-specific GLIBC requirements.
+
+This Linux tryout supports signed-out interface testing. Protected credential
+storage is not implemented on Linux, so Google sign-in and Drive sync fail closed
+with an explicit error; no plaintext credential fallback is provided. Updates
+are manual directory replacement after quitting. Native X11 tests on a virtual
+display do not establish compatibility with every desktop, Wayland compositor,
+GPU, live account or CAD project.
+
 ## Application updates
 
 A real, manual **Check → Download → Verify → Install and close** flow is now

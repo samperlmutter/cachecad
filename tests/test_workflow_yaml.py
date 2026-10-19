@@ -56,6 +56,24 @@ class WorkflowYamlTests(unittest.TestCase):
         self.assertIn('dist/macos/test-results/*.json', uploads[0]['with']['path'])
         self.assertNotIn('always()', uploads[0].get('if', ''))
 
+    def test_linux_job_installs_and_tests_packaged_application(self):
+        path = ROOT / '.github/workflows/linux-ci.yml'
+        if not path.is_file():
+            self.skipTest('Workflow not included in isolated wheel fixture')
+        job = yaml.safe_load(path.read_text())['jobs']['linux-application']
+        self.assertEqual(job['runs-on'], 'ubuntu-24.04')
+        self.assertEqual(job['needs'], ['offline', 'offline-qt'])
+        self.assertFalse(job['steps'][0]['with']['persist-credentials'])
+        commands = [step['run'] for step in job['steps'] if 'run' in step]
+        self.assertIn('xvfb', commands[0])
+        self.assertIn('--require-hashes', commands[1])
+        self.assertIn('packaging/linux/build.py', commands[2])
+        self.assertIn('xvfb-run', commands[3])
+        self.assertIn('--archive dist/linux-application/CacheCAD-Linux-x86_64.tar.gz', commands[3])
+        upload = next(step for step in job['steps'] if 'upload-artifact@' in step.get('uses', ''))
+        self.assertIn('test-results/*.png', upload['with']['path'])
+        self.assertNotIn('always()', upload.get('if', ''))
+
     def test_unquoted_colon_space_command_is_rejected(self):
         with self.assertRaises(yaml.YAMLError):
             yaml.safe_load('run: python -m pip install --only-binary=:all: --require-hashes\n')

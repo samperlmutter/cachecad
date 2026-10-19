@@ -1,0 +1,14 @@
+# Official PyPI wheels verified 2026-10-19; Linux x86_64 / CPython 3.12.
+# Packaging-only closure; install alongside runtime-linux.lock.
+--only-binary :all:
+
+# altgraph-0.17.5-py2.py3-none-any.whl (21228 bytes)
+altgraph==0.17.5 --hash=sha256:f3a22400bce1b0c701683820ac4f3b159cd301acab067c51c653e06961600597
+# packaging-26.3-py3-none-any.whl (129956 bytes)
+packaging==26.3 --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
+# pyinstaller-6.22.3-py3-none-manylinux2014_x86_64.whl (764974 bytes)
+pyinstaller==6.22.3 --hash=sha256:451a4ae14b719365bf1a2f0a99dae7b3463060061c3a394c70d5264cfb439528
+# pyinstaller_hooks_contrib-2026.8-py3-none-any.whl (462145 bytes)
+pyinstaller-hooks-contrib==2026.8 --hash=sha256:6d21d65323ea4467753afc21f52d7d0e69416ae8101dd88269bf273ad48db084
+# setuptools-75.6.0-py3-none-any.whl (1224032 bytes)
+setuptools==75.6.0 --hash=sha256:ce74b49e8f7110f9bf04883b730f4765b774ef3ef28f722cce7c273d253aaf7d

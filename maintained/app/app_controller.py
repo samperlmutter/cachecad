@@ -581,6 +581,9 @@ class AppController:
         if sys.platform == 'darwin':
             self.main_window.show_status_message('Mac updates are installed manually. Quit CacheCAD, then replace the application with the approved new build; your profile stays separate.', 15000)
             return
+        if sys.platform != 'win32':
+            self.main_window.show_status_message('Updates on this platform are installed manually. Quit CacheCAD, then replace the application directory with the approved new build; keep your separate profile directory.', 15000)
+            return
         if getattr(self, '_update_install_pending', False):
             return
         previous = getattr(self, '_update_dialog', None)
@@ -716,6 +719,13 @@ class AppController:
         for browser in window.pages[Page.HOME].findChildren(QTextBrowser):
             browser.setOpenExternalLinks(False)
             browser.setOpenLinks(False)
+            if sys.platform not in ('win32', 'darwin'):
+                browser.setPlainText('CacheCAD Reconstructed can open its signed-out interface on this platform. '
+                    'Google sign-in and Drive sync are unavailable because this build has no supported '
+                    'protected credential storage for this operating system. No plaintext fallback is used. '
+                    'Updates are installed manually; crash reports stay on this computer. '
+                    'Live Google access and CAD compatibility have not been validated on Linux.')
+                continue
             browser.setPlainText('CacheCAD Reconstructed connects your local project folders to Google Drive. '
                 'Sign in with Google to select a Drive folder, compare files and choose transfers. '
                 'Google permission is requested only when you click Sign in. '
@@ -729,6 +739,9 @@ class AppController:
         if sys.platform == 'darwin':
             page.latest_version_label.setText('Mac updates are installed manually.')
             page.update_button.setText('Mac Update Instructions')
+        elif sys.platform != 'win32':
+            page.latest_version_label.setText('Updates on this platform are installed manually.')
+            page.update_button.setText('Manual Update Instructions')
         for label in page.findChildren(QLabel):
             if label.text().startswith(('Update user data:', 'This is the only info collected')):
                 label.hide()

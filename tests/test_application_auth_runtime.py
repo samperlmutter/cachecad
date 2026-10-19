@@ -55,6 +55,8 @@ class ApplicationAuthRuntimeTests(unittest.TestCase):
             text=True, capture_output=True, timeout=45)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         self.assertIn('APPLICATION_AUTH_LIFECYCLE_OK', run.stdout)
+        if sys.platform == 'linux':
+            self.assertIn('APPLICATION_LINUX_STORAGE_GUARD_OK', run.stdout)
 
 
 def run_lifecycle(source):
@@ -152,7 +154,6 @@ def run_lifecycle(source):
                 self.credentials = self.identity = None
 
         session = SessionTransport()
-        manager._session = session
         build = Mock(return_value=Mock())
         profile_fetch = Mock(side_effect=AssertionError('Arbitrary profile fetch forbidden'))
 
@@ -165,6 +166,24 @@ def run_lifecycle(source):
             assert predicate(), ('Qt result timeout', manager.state, slot_errors)
             assert not slot_errors, slot_errors
 
+        if sys.platform == 'linux':
+            # Before injecting the pre-existing lifecycle transport below,
+            # exercise the actual unsupported platform path with real Qt signal
+            # delivery. Browser, network and process tripwires remain active.
+            from core.auth_manager import SAFE_MESSAGES
+            before = {path.relative_to(profile) for path in profile.rglob('*')}
+            for operation in (manager.authorize, manager.restore, manager.authorize):
+                assert operation()
+                pump(lambda: not manager._auth_in_progress)
+                assert manager.state == 'error' and manager.message == SAFE_MESSAGES['platform']
+                assert manager._session is None and manager.get_creds() is None
+                assert not controller.signed_in and not hasattr(controller, 'drive_client')
+                assert window.signin_button.status_label.text() == SAFE_MESSAGES['platform']
+                assert not attempts, attempts
+            assert {path.relative_to(profile) for path in profile.rglob('*')} == before
+            print('APPLICATION_LINUX_STORAGE_GUARD_OK')
+
+        manager._session = session
         with patch.object(drive_module, 'build', build), patch.object(drive_module.DriveClient, 'get_user_profile', profile_fetch):
             # No automatic browser or fake authenticated state from an empty cache.
             assert manager.restore()

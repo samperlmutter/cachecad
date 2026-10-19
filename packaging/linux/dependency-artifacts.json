@@ -1,0 +1,56 @@
+{
+  "artifacts": [
+    {
+      "bytes": 21228,
+      "filename": "altgraph-0.17.5-py2.py3-none-any.whl",
+      "lock": "linux-package.lock",
+      "metadata_url": "https://pypi.org/pypi/altgraph/0.17.5/json",
+      "name": "altgraph",
+      "sha256": "f3a22400bce1b0c701683820ac4f3b159cd301acab067c51c653e06961600597",
+      "version": "0.17.5",
+      "wheel_url": "https://files.pythonhosted.org/packages/a9/ba/000a1996d4308bc65120167c21241a3b205464a2e0b58deda26ae8ac21d1/altgraph-0.17.5-py2.py3-none-any.whl"
+    },
+    {
+      "bytes": 129956,
+      "filename": "packaging-26.3-py3-none-any.whl",
+      "lock": "linux-package.lock",
+      "metadata_url": "https://pypi.org/pypi/packaging/26.3/json",
+      "name": "packaging",
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "version": "26.3",
+      "wheel_url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl"
+    },
+    {
+      "bytes": 764974,
+      "filename": "pyinstaller-6.22.3-py3-none-manylinux2014_x86_64.whl",
+      "lock": "linux-package.lock",
+      "metadata_url": "https://pypi.org/pypi/pyinstaller/6.22.3/json",
+      "name": "pyinstaller",
+      "sha256": "451a4ae14b719365bf1a2f0a99dae7b3463060061c3a394c70d5264cfb439528",
+      "version": "6.22.3",
+      "wheel_url": "https://files.pythonhosted.org/packages/7b/b6/dd21d61fc5e25377be24eabf13e99e4e46548a5abe2bf7b15d8b3d9cc74a/pyinstaller-6.22.3-py3-none-manylinux2014_x86_64.whl"
+    },
+    {
+      "bytes": 462145,
+      "filename": "pyinstaller_hooks_contrib-2026.8-py3-none-any.whl",
+      "lock": "linux-package.lock",
+      "metadata_url": "https://pypi.org/pypi/pyinstaller-hooks-contrib/2026.8/json",
+      "name": "pyinstaller-hooks-contrib",
+      "sha256": "6d21d65323ea4467753afc21f52d7d0e69416ae8101dd88269bf273ad48db084",
+      "version": "2026.8",
+      "wheel_url": "https://files.pythonhosted.org/packages/8f/f1/3eee0263b487e571aed9204257b45bc2a0b6fec34d0a1adade4d8d8a968c/pyinstaller_hooks_contrib-2026.8-py3-none-any.whl"
+    },
+    {
+      "bytes": 1224032,
+      "filename": "setuptools-75.6.0-py3-none-any.whl",
+      "lock": "linux-package.lock",
+      "metadata_url": "https://pypi.org/pypi/setuptools/75.6.0/json",
+      "name": "setuptools",
+      "sha256": "ce74b49e8f7110f9bf04883b730f4765b774ef3ef28f722cce7c273d253aaf7d",
+      "version": "75.6.0",
+      "wheel_url": "https://files.pythonhosted.org/packages/55/21/47d163f615df1d30c094f6c8bbb353619274edccf0327b185cc2493c2c33/setuptools-75.6.0-py3-none-any.whl"
+    }
+  ],
+  "schema_version": 1,
+  "target": "Linux x86_64 / CPython 3.12"
+}

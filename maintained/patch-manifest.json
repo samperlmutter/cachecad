@@ -10,7 +10,7 @@
       "baseline": "recovered/app/app_controller.py",
       "maintained": "maintained/app/app_controller.py",
       "baseline_sha256": "d0d2a638b189933a9c294b903c12aa3e84143eb96edba3893c66087f750f2f11",
-      "maintained_sha256": "6db0b5c38d350189561f66ff920f6b168d64e6bcefc3cc7945878901fe9d77e3",
+      "maintained_sha256": "441fc6072c9819158f0588413d4431590d7b4f9eca81fa0ed269ac4a80ad349f",
       "changed_functions": [
         "AppController.__init__",
         "AppController.create_project_from_link",
@@ -462,7 +462,7 @@
     {
       "module": "utils.application_mode",
       "maintained": "maintained/utils/application_mode.py",
-      "maintained_sha256": "25219dced54d4656a498aae82da9a6c4365df7f8297549dc575d446cd203d081",
+      "maintained_sha256": "f257d06b1e6bcf053ef8e71a429f00b98fbb662eadca54afcf63ea21430e1fce",
       "origin": "Explicit real application profile/client configuration; no synthetic backend",
       "regression_tests": "tests/test_application_auth_runtime.py",
       "status": "new_reviewed_helper"

@@ -32,7 +32,12 @@ def default_profile_root():
         return base / 'CacheCADReconstructed' / 'v1'
     if sys.platform == 'darwin':
         return Path.home() / 'Library' / 'Application Support' / 'CacheCADReconstructed' / 'v1'
-    base = Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local' / 'share'))
+    # Empty or relative XDG values must not put persistent state in the
+    # launch directory (which may be the extracted application distribution).
+    configured = os.environ.get('XDG_DATA_HOME', '')
+    base = Path(configured) if configured else Path.home() / '.local' / 'share'
+    if not base.is_absolute():
+        base = Path.home() / '.local' / 'share'
     return base / 'cachecad-reconstructed' / 'v1'
 
 
