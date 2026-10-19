@@ -318,6 +318,19 @@
       ]
     },
     {
+      "module": "gui.main_window",
+      "baseline": "recovered/gui/main_window.py",
+      "maintained": "maintained/gui/main_window.py",
+      "baseline_sha256": "e4c0a1c3a8a66dda309b7d58b4c9bfe082d26677d6f74408e67c9bcccc0da404",
+      "maintained_sha256": "5f62aa76f421ac1046bee0ddc3ac37877ff61f98e5ca63890209080fd829d360",
+      "changed_functions": [
+        "MainWindow.closeEvent",
+        "MainWindow.exit_app"
+      ],
+      "regression_tests": "tests/test_window_quit_lifecycle.py",
+      "status": "intentional_behavior_change_not_original_bytecode_equivalent"
+    },
+    {
       "module": "gui.pages.settings_page",
       "baseline": "recovered/gui/pages/settings_page.py",
       "maintained": "maintained/gui/pages/settings_page.py",
