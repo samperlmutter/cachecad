@@ -124,9 +124,9 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = Windows ]; then
-            target/cad-build-env/Scripts/python.exe tooling/cad/test.py
+            node_modules/.cache/permafrost-cad-env/Scripts/python.exe tooling/cad/test.py
           else
-            target/cad-build-env/bin/python tooling/cad/test.py
+            node_modules/.cache/permafrost-cad-env/bin/python tooling/cad/test.py
           fi
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Verify stable local signing across rebuilds and the development runner

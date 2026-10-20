@@ -41,7 +41,9 @@ if (
   console.log("Reusing the bundled native CAD runtime.");
   process.exit(0);
 }
-const environment = resolve(root, "target/cad-build-env");
+// Rust's target cache prunes non-Rust build files. Keep the Python environment
+// in npm's ignored cache so restored Cargo artifacts cannot leave a partial pip.
+const environment = resolve(root, "node_modules/.cache/permafrost-cad-env");
 const environmentPython = resolve(
   environment,
   process.platform === "win32" ? "Scripts/python.exe" : "bin/python",
