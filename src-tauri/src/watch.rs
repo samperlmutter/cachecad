@@ -95,6 +95,7 @@ fn evict_changed(files: &mut permafrost_core::Tree, event: &Event, root: &Path) 
 }
 impl WatchSet {
     fn replace(&mut self, app: &tauri::AppHandle, projects: Vec<Project>) {
+        let expected = projects.len();
         self.handles.retain(|id, (_, identity, broken)| {
             !broken.load(Ordering::SeqCst)
                 && projects
@@ -152,6 +153,16 @@ impl WatchSet {
                     );
                 }
             }
+        }
+        // Recovery belongs to the entire workspace: reconnecting one root must
+        // not hide another project's unavailable or broken watch.
+        if self.handles.len() == expected
+            && self
+                .handles
+                .values()
+                .all(|(_, _, broken)| !broken.load(Ordering::SeqCst))
+        {
+            let _ = app.emit("watcher-warning", "");
         }
     }
 }

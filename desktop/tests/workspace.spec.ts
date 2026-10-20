@@ -70,6 +70,20 @@ test("local notifications update files while a Drive request remains stalled", a
       cancelled: false,
       scanCalls: 0,
       files: { "Original.step": entry("Original.step") },
+      watchingWarning(message: string) {
+        callbacks.get(listeners.get("watcher-warning")!)?.({
+          event: "watcher-warning",
+          id: 1,
+          payload: message,
+        });
+      },
+      cacheWarning(message: string) {
+        callbacks.get(listeners.get("preview-cache-warning")!)?.({
+          event: "preview-cache-warning",
+          id: 1,
+          payload: message,
+        });
+      },
       change(path: string | null) {
         this.files = path ? { [path]: entry(path) } : {};
         callbacks.get(listeners.get("local-change")!)?.({
@@ -162,6 +176,24 @@ test("local notifications update files while a Drive request remains stalled", a
     .poll(() => page.evaluate(() => (window as any).localFixture.cancelled))
     .toBe(true);
   await expect(page.getByRole("status")).toContainText("Refresh cancelled");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.evaluate(() =>
+    (window as any).localFixture.watchingWarning(
+      "Folder disconnected; reconnecting.",
+    ),
+  );
+  await expect(page.getByRole("alert")).toContainText("Folder disconnected");
+  await page.evaluate(() =>
+    (window as any).localFixture.cacheWarning("Preview cache cleanup failed."),
+  );
+  await expect(page.getByRole("alert")).toContainText(
+    "Preview cache cleanup failed",
+  );
+  await page.evaluate(() => (window as any).localFixture.watchingWarning(""));
+  await expect(page.getByRole("alert")).toContainText(
+    "Preview cache cleanup failed",
+  );
+  await page.evaluate(() => (window as any).localFixture.cacheWarning(""));
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(
     page

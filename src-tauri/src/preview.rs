@@ -91,9 +91,7 @@ pub fn start_cleanup(app: tauri::AppHandle) {
             if let Ok(mut retained) = super::lock(&state.preview_cache_error) {
                 *retained = warning.clone();
             }
-            if let Some(warning) = warning {
-                let _ = app.emit("watcher-warning", warning);
-            }
+            let _ = app.emit("preview-cache-warning", warning.unwrap_or_default());
         }
     });
 }

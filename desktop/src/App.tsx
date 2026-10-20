@@ -148,6 +148,7 @@ export default function App() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [backgroundWarning, setBackgroundWarning] = useState("");
+  const [watcherWarning, setWatcherWarning] = useState("");
   const [selected, setSelected] = useState(new Set<string>());
   selectionRef.current = selected;
   const [filter, setFilter] = useState<Filter>("all");
@@ -221,10 +222,15 @@ export default function App() {
     // Register before bootstrap so cleanup failures are visible whether they
     // happen before startup (retained by native state) or during it (events).
     const warningListener = native
-      ? listen<string>("watcher-warning", (event) => {
-          if (!closed) setBackgroundWarning(event.payload);
-        })
-      : Promise.resolve(() => {});
+      ? Promise.all([
+          listen<string>("watcher-warning", (event) => {
+            if (!closed) setWatcherWarning(event.payload);
+          }),
+          listen<string>("preview-cache-warning", (event) => {
+            if (!closed) setBackgroundWarning(event.payload);
+          }),
+        ])
+      : Promise.resolve([]);
     void warningListener
       .then(() => api.bootstrap())
       .then((result) => {
@@ -243,7 +249,7 @@ export default function App() {
     return () => {
       closed = true;
       mounted.current = false;
-      void warningListener.then((stop) => stop());
+      void warningListener.then((stops) => stops.forEach((stop) => stop()));
     };
   }, []);
   useEffect(() => {
@@ -614,7 +620,7 @@ export default function App() {
         : new Set(allSelectable.map((a) => a.id)),
     );
   const startupError = !data && error;
-  const noticeError = error || backgroundWarning;
+  const noticeError = error || backgroundWarning || watcherWarning;
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -844,6 +850,7 @@ export default function App() {
                 onClick={() => {
                   setError("");
                   setBackgroundWarning("");
+                  setWatcherWarning("");
                   setMessage("");
                   if (update) setUpdate(null);
                 }}
@@ -1366,8 +1373,18 @@ export default function App() {
                                   </>
                                 ) : (
                                   <>
-                                    <Check size={12} />
-                                    {plan ? "Synced" : "Local"}
+                                    {plan?.remote[path] && localFiles[path] ? (
+                                      <Check size={12} />
+                                    ) : (
+                                      <File size={12} />
+                                    )}
+                                    {!plan
+                                      ? "Local"
+                                      : !plan.remote[path]
+                                        ? "Local only"
+                                        : !localFiles[path]
+                                          ? "Drive only"
+                                          : "Synced"}
                                   </>
                                 )}
                               </span>

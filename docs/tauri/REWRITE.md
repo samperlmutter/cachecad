@@ -164,9 +164,12 @@ OS credential store and contain no development-helper path or dependency.
 login Keychain. Two different authenticated callers restore and update it;
 unrelated identifiers, the right identifier without the certificate, and direct
 invocation by another process are rejected. The test removes its generated item.
-Both Mac CI jobs run this regression. Authorizing the helper for the existing
-Google entry requires one migration approval; actual saved-session rebuild
-verification remains pending while the Mac is locked again.
+Both Mac CI jobs run this regression. After the owner approved the helper for
+the existing Google entry, native computer use verified saved-session restoration
+after a complete quit/relaunch, forced process termination, and a changed app
+rebuild. The main executable's SHA-256 changed from `3c57f60c…` to `70e6ef08…`;
+the fixed helper stayed unchanged. These launches restored the account and
+completed live Drive comparisons without another credential prompt.
 
 ## Hardening follow-up
 
@@ -211,8 +214,40 @@ counts include renames and removals as well as transfers.
 The integrated local pass completed 42 Rust tests, 21 frontend unit tests, and all
 24 browser interaction/stress tests, plus the production frontend build and
 Clippy with warnings denied. Settings and recovery screenshots were visually
-reviewed. Native crash/restart and the corrected signing identity's credential
-migration remain waiting for the owner to unlock the Mac.
+reviewed. Installer CI run `39424611440` passed on Windows, Apple Silicon, and
+Intel, including the actual login-Keychain helper regressions on both Mac jobs.
+
+On October 20, native computer use also exercised the live disposable QA project:
+
+- Read-only mode suppressed uploads while the watcher detected a newly created
+  local file and 120 rapid create/edit/rename/remove mutations. A local-only file
+  was incorrectly labelled Synced; it now says Local only with selection disabled.
+  A browser regression reproduced the old label before the fix, and the rebuilt
+  native app verified the corrected label.
+- A test harness killed only the QA app process while its generated 96 MiB
+  upload was recorded as running. Reopening changed that record to uncertain,
+  without advancing its baseline or replaying the upload. An independent Drive
+  listing showed no completed file, and the local payload still matched its
+  original MD5. Activity required the explicit recovery acknowledgement before
+  marking the record reviewed. The generated payload was retained outside the
+  project after inspection.
+- Temporarily renaming only the QA root produced an unavailable-folder message
+  and disabled sync. Restoring it recovered scans and live watching. This exposed
+  a stale warning after recovery; watcher health now clears its own warning only
+  when all project watches are healthy, preserving independent preview-cache
+  warnings.
+- A generated STL rendered through the actual native mesh worker with its
+  one-triangle geometry and camera controls visible. The fixture was then moved
+  outside the QA project. Prior native STEP and Drive-only preview checks remain
+  recorded above.
+
+The final local acceptance pass completed 42 Rust tests, 21 frontend unit tests,
+all 25 browser interaction/stress tests, the production frontend build, strict
+Mac bundle signature verification, and all-features Clippy with warnings denied.
+The final native reconnect check recovered automatically and cleared the warning
+without dismissal. The disposable project returned to three synchronized files,
+with no running or uncertain transfer records. Temporary Mac idle-time changes
+used for computer testing were restored to their original values afterward.
 
 A further recovery test forcibly kills a separate process with SQLite still open,
 both during a running operation and after completion was committed. Reopening the

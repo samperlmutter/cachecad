@@ -1,6 +1,46 @@
 import { expect, test } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 
+test("read-only local files are not described as synchronized", async ({
+  page,
+}) => {
+  await page.goto("/?demo=1");
+  await expect(page.locator(".scan-time")).toContainText("Scanned");
+  await page.evaluate(async () => {
+    const resource = performance
+      .getEntriesByType("resource")
+      .find((entry) => new URL(entry.name).pathname === "/src/api.ts");
+    const { api } = await import(resource?.name ?? "/src/api.ts");
+    const scan = api.scan;
+    api.scan = async (id: string) => {
+      const plan = await scan(id);
+      // Match the native read-only planner, which suppresses Drive writes.
+      plan.actions = plan.actions.filter(
+        (action: any) =>
+          !action.kind.startsWith("upload") && action.kind !== "delete_cloud",
+      );
+      return plan;
+    };
+  });
+  await page
+    .getByRole("button", { name: "Project options", exact: true })
+    .click();
+  await page
+    .getByRole("checkbox", { name: /Make this project read-only/ })
+    .check();
+  await page.getByRole("button", { name: "Save project", exact: true }).click();
+  await expect(page.locator(".scan-time")).toContainText("Scanned");
+  await page.getByRole("tab", { name: /All files/ }).click();
+  const localFile = page
+    .locator(".file-row")
+    .filter({
+      has: page.getByRole("button", { name: /Mounting bracket.stl/ }),
+    });
+  await expect(localFile).toContainText("Local only");
+  await expect(localFile.getByRole("checkbox")).toBeDisabled();
+  await expect(localFile).not.toContainText("Synced");
+});
+
 test("native installer readiness includes actual mesh-worker parsing", async ({
   page,
 }) => {
