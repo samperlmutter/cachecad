@@ -440,4 +440,116 @@ mod tests {
             assert!(!store.has_unresolved(&project.id).unwrap());
         }
     }
+
+    #[test]
+    fn forced_process_termination_recovers_the_open_transfer_journal() {
+        use std::{
+            io::{BufRead, Write},
+            process::{Command, Stdio},
+            sync::mpsc,
+            time::Duration,
+        };
+        const CHILD_ROOT: &str = "PERMAFROST_CRASH_QA_ROOT";
+        const CHILD_STAGE: &str = "PERMAFROST_CRASH_QA_STAGE";
+        const READY: &str = "PERMAFROST_CRASH_QA_READY";
+        if let Some(root) = std::env::var_os(CHILD_ROOT) {
+            let stage = std::env::var(CHILD_STAGE).unwrap();
+            let mut store = Store::open(&Path::new(&root).join("journal.sqlite")).unwrap();
+            let action = Action {
+                id: "crash-action".into(),
+                path: "assembly.step".into(),
+                kind: ActionKind::UploadRevision,
+                reason: "Disposable process termination test".into(),
+                size: 1,
+                local: None,
+                remote: None,
+            };
+            let operation = store.begin("one", &action).unwrap();
+            if stage == "completed" {
+                store
+                    .finish(&operation, "completed", "Verified", Some("new-generation"))
+                    .unwrap();
+            }
+            println!("{READY}");
+            std::io::stdout().flush().unwrap();
+            // Keep SQLite open until the parent kills this process. No Drop,
+            // connection close, or clean WAL checkpoint can assist recovery.
+            loop {
+                std::thread::park();
+            }
+        }
+        for stage in ["running", "completed"] {
+            let root = tempfile::tempdir().unwrap();
+            let path = root.path().join("journal.sqlite");
+            {
+                let mut store = Store::open(&path).unwrap();
+                store.save_project(&project(root.path())).unwrap();
+                store
+                    .db
+                    .execute(
+                        "INSERT INTO baseline VALUES('one','assembly.step','old-generation')",
+                        [],
+                    )
+                    .unwrap();
+            }
+            let mut child = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "store::tests::forced_process_termination_recovers_the_open_transfer_journal",
+                    "--nocapture",
+                ])
+                .env(CHILD_ROOT, root.path())
+                .env(CHILD_STAGE, stage)
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let stdout = child.stdout.take().unwrap();
+            let (sender, receiver) = mpsc::channel();
+            let reader = std::thread::spawn(move || {
+                for line in std::io::BufReader::new(stdout).lines() {
+                    if line.as_deref().is_ok_and(|line| line == READY) {
+                        let _ = sender.send(());
+                        break;
+                    }
+                }
+            });
+            let ready = receiver.recv_timeout(Duration::from_secs(15));
+            let killed = child.kill();
+            let status = child.wait().unwrap();
+            reader.join().unwrap();
+            assert!(ready.is_ok(), "The child never reached {stage}: {ready:?}");
+            killed.unwrap();
+            assert!(!status.success());
+            let mut store = Store::open(&path).unwrap();
+            let activity = store.activity().unwrap();
+            assert_eq!(activity.len(), 1);
+            let interrupted = stage == "running";
+            assert_eq!(
+                activity[0].state,
+                if interrupted {
+                    "uncertain"
+                } else {
+                    "completed"
+                }
+            );
+            assert_eq!(store.has_unresolved("one").unwrap(), interrupted);
+            assert_eq!(
+                store.baseline("one").unwrap()["assembly.step"],
+                if interrupted {
+                    "old-generation"
+                } else {
+                    "new-generation"
+                }
+            );
+            if interrupted {
+                assert!(store.remove_project("one").is_err());
+                store.resolve(&activity[0].id).unwrap();
+                assert!(!store.has_unresolved("one").unwrap());
+                assert_eq!(
+                    store.baseline("one").unwrap()["assembly.step"],
+                    "old-generation"
+                );
+            }
+        }
+    }
 }

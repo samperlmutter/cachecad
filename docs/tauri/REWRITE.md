@@ -151,7 +151,8 @@ restored the account without another prompt. The initial login-Keychain signing
 key still prompted on subsequent signing, so it was replaced by the isolated
 development Keychain. Two different executable fixtures now sign and verify
 without prompts and retain an identical designated requirement. The existing
-Google session's migration to that corrected identity is awaiting owner approval.
+Google session's migration to that corrected identity was approved by the owner;
+actual restart/rebuild verification is waiting for the Mac to be unlocked.
 Production distribution still uses
 the separately gated Developer ID identity.
 
@@ -195,17 +196,25 @@ Cancelling also clears queued automatic retries and displays a neutral status
 instead of an offline error. Direction cards say changes “to apply” because their
 counts include renames and removals as well as transfers.
 
-The integrated local pass completed 40 Rust tests, 21 frontend unit tests, and all
-23 browser interaction/stress tests, plus the production frontend build and
+The integrated local pass completed 41 Rust tests, 21 frontend unit tests, and all
+24 browser interaction/stress tests, plus the production frontend build and
 Clippy with warnings denied. Settings and recovery screenshots were visually
 reviewed. Native crash/restart and the corrected signing identity's credential
-migration remain waiting for the owner to unlock the Mac and approve its prompt.
+migration remain waiting for the owner to unlock the Mac.
+
+A further recovery test forcibly kills a separate process with SQLite still open,
+both during a running operation and after completion was committed. Reopening the
+database preserves the completed baseline and marks the interrupted operation
+uncertain without advancing its baseline. Project removal remains blocked until
+explicit review. This tests OS process loss without a clean connection close or
+WAL checkpoint, using only disposable local data.
 
 Windows CI reproduced an atomic-save observation whose canonical path moved into
 NTFS `$Extend/$Deleted`. The scanner still rejects that out-of-root observation,
 but now reports a changed snapshot requiring another scan instead of telling the
 user to rename a valid filename. The focused `core_test_filter` workflow input
-reproduces this guard without rebuilding installers. Temporary path probes were
+reproduces this guard without rebuilding installers and passed on Windows in run
+`39381005050`. Temporary path probes were
 removed after capturing the cause.
 
 The cached-preview CI image mismatch was limited to 665 pixels of the Reset
