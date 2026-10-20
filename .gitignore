@@ -12,6 +12,7 @@ wheelhouse/
 
 # User-owned OAuth configuration and token caches must remain outside source.
 client_secret*.json
+google-client-desktop.json
 credentials*.json
 token.json
 creds.json
