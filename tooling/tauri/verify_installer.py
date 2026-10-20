@@ -16,6 +16,10 @@ import time
 
 
 def run_smoke(executable, report, diagnostics, cad=False):
+    # macOS /var is a symlink to /private/var. Tauri intentionally rejects a
+    # symlinked launch path when resolving resources; launch the installed file
+    # by its canonical path, as LaunchServices does for a normal app launch.
+    executable = executable.resolve(strict=True)
     prefix = 'native-cad' if cad else 'native'
     stdout = (diagnostics / f'{prefix}-stdout.log').open('wb')
     stderr = (diagnostics / f'{prefix}-stderr.log').open('wb')
