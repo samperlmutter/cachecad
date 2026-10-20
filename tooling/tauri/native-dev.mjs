@@ -16,6 +16,9 @@ const env = { ...process.env };
 const args = process.argv.slice(2);
 if (process.platform === "darwin") {
   developmentIdentity();
+  env.MACOSX_DEPLOYMENT_TARGET ||= JSON.parse(
+    readFileSync(resolve(root, "src-tauri/tauri.conf.json"), "utf8"),
+  ).bundle.macOS.minimumSystemVersion;
   if (args[0] === "dev") {
     const target =
       process.arch === "arm64" ? "aarch64-apple-darwin" : "x86_64-apple-darwin";

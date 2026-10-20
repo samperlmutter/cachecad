@@ -112,6 +112,9 @@ jobs:
           python-version: "3.12"
       - run: npm ci
       - run: cargo fmt --all -- --check
+      - name: Match the Mac deployment target across tests, installers, and upgrade fixtures
+        if: runner.os == 'macOS'
+        run: echo "MACOSX_DEPLOYMENT_TARGET=12.0" >> "$GITHUB_ENV"
       - run: cargo test --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Verify stable local signing across rebuilds and the development runner

@@ -201,6 +201,25 @@ Clippy with warnings denied. Settings and recovery screenshots were visually
 reviewed. Native crash/restart and the corrected signing identity's credential
 migration remain waiting for the owner to unlock the Mac and approve its prompt.
 
+Windows CI reproduced an atomic-save observation whose canonical path moved into
+NTFS `$Extend/$Deleted`. The scanner still rejects that out-of-root observation,
+but now reports a changed snapshot requiring another scan instead of telling the
+user to rename a valid filename. The focused `core_test_filter` workflow input
+reproduces this guard without rebuilding installers. Temporary path probes were
+removed after capturing the cause.
+
+The cached-preview CI image mismatch was limited to 665 pixels of the Reset
+button's CSS hover fade (at most two channel values); scene pixels were identical.
+That comparison now disables finite CSS animations while retaining exact image
+equality. Lazy preview, worker, and native-plugin dependencies are pre-optimized
+to prevent Vite from reloading an in-progress dev workspace on first use.
+
+The onboarding sample now goes through binary STL export and the real mesh
+worker. Native installer readiness requires that reader as well as visible
+geometry; failed previews write structured failure evidence. This exercises the
+same worker-loading path in native WebView2 and WKWebView, alongside the browser
+contract regression, without touching user profiles or Google credentials.
+
 
 The first Windows CI installer evidence (commit `4630a59`, run `39367328407`)
 proves installation, a rendered native workspace/Three.js canvas, clean exit and

@@ -1,6 +1,45 @@
 import { expect, test } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 
+test("native installer readiness includes actual mesh-worker parsing", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const global = window as any;
+    let next = 1;
+    global.isTauri = true;
+    global.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} };
+    global.__TAURI_INTERNALS__ = {
+      transformCallback() {
+        return next++;
+      },
+      async invoke(command: string, args: any) {
+        if (command === "plugin:event|listen") return args.handler;
+        if (command === "bootstrap")
+          return {
+            projects: [],
+            account: null,
+            settings: { checkUpdates: false },
+            googleConfigured: false,
+            updaterConfigured: false,
+            activity: [],
+            version: "2.0.0-alpha.1",
+            accountError: null,
+          };
+        if (command === "native_ready") global.smokeEvidence = args.evidence;
+      },
+    };
+  });
+  await page.goto("/");
+  await expect
+    .poll(() => page.evaluate(() => (window as any).smokeEvidence?.reader))
+    .toBe("mesh-worker");
+  await expect(page.locator("[data-preview-ready]")).toBeVisible();
+  expect(
+    await page.evaluate(() => (window as any).smokeEvidence.modelRendered),
+  ).toBe(true);
+});
+
 test("connecting a project performs one initial comparison", async ({
   page,
 }) => {

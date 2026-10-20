@@ -362,6 +362,10 @@ struct UiEvidence {
     canvas_height: u32,
     #[serde(default)]
     renderer: Option<String>,
+    #[serde(default)]
+    reader: Option<String>,
+    #[serde(default)]
+    error: Option<String>,
     title: String,
 }
 #[tauri::command]
@@ -378,10 +382,17 @@ fn native_ready(
         || evidence.canvas_width < 100
         || evidence.canvas_height < 100
         || evidence.title != "Permafrost"
+        || evidence.reader.as_deref() != Some("mesh-worker")
+        || evidence.error.is_some()
     {
-        return Err(
-            "The installed WebView did not render the expected workspace and 3D model.".into(),
-        );
+        let report = serde_json::json!({"schema":1,"version":app.package_info().version.to_string(),"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"failure":"The installed WebView did not parse and render the expected workspace and 3D model.","ui":evidence});
+        std::fs::write(output, serde_json::to_vec_pretty(&report).map_err(err)?).map_err(err)?;
+        let handle = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            handle.exit(2);
+        });
+        return Ok(());
     }
     #[cfg(feature = "updater-qa")]
     if update_qa::start(&app)? {

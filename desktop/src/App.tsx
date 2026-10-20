@@ -445,15 +445,20 @@ export default function App() {
       const canvas = document.querySelector<HTMLCanvasElement | SVGElement>(
         "[data-preview-ready]",
       );
-      if (!canvas) return;
+      const previewError = document
+        .querySelector(".preview-message.error")
+        ?.textContent?.trim();
+      if (!canvas && !previewError) return;
       clearInterval(timer);
       void invoke("native_ready", {
         evidence: {
           workspaceVisible: !!document.querySelector(".sidebar .brand"),
-          modelRendered: true,
-          canvasWidth: Math.round(canvas.getBoundingClientRect().width),
-          canvasHeight: Math.round(canvas.getBoundingClientRect().height),
-          renderer: canvas.getAttribute("data-preview-renderer"),
+          modelRendered: !!canvas,
+          canvasWidth: Math.round(canvas?.getBoundingClientRect().width ?? 0),
+          canvasHeight: Math.round(canvas?.getBoundingClientRect().height ?? 0),
+          renderer: canvas?.getAttribute("data-preview-renderer") ?? null,
+          reader: canvas?.getAttribute("data-preview-reader") ?? null,
+          error: previewError ?? null,
           title: document.title,
         },
       }).catch((e) => setError(String(e)));

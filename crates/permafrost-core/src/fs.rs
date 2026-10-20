@@ -51,8 +51,6 @@ pub fn identity(path: &str) -> String {
 pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
     validate_relative(relative)?;
     if !root.is_absolute() || std::fs::symlink_metadata(root)?.file_type().is_symlink() {
-        #[cfg(test)]
-        eprintln!("[DEBUG-PERMAFROST-PATH] invalid root: {}", root.display());
         return Err(unsafe_path());
     }
     let canonical = root.canonicalize()?;
@@ -61,21 +59,15 @@ pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
         cursor.push(part);
         match std::fs::symlink_metadata(&cursor) {
             Ok(meta) if meta.file_type().is_symlink() => {
-                #[cfg(test)]
-                eprintln!("[DEBUG-PERMAFROST-PATH] symlink: {}", cursor.display());
                 return Err(unsafe_path());
             }
             Ok(_) => {
                 let resolved = cursor.canonicalize()?;
                 if !resolved.starts_with(&canonical) {
-                    #[cfg(test)]
-                    eprintln!(
-                        "[DEBUG-PERMAFROST-PATH] canonical mismatch: root={} cursor={} resolved={}",
-                        canonical.display(),
-                        cursor.display(),
-                        resolved.display()
-                    );
-                    return Err(unsafe_path());
+                    // A replacement can relocate an open NTFS file into
+                    // $Extend/$Deleted during canonicalization. Reject the
+                    // changed observation, preserving the boundary check.
+                    return Err(Error::Stale);
                 }
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -177,11 +169,6 @@ pub fn inspect(root: &Path, relative: &str, cancel: &CancellationToken) -> Resul
     };
     let before = file.metadata()?;
     if !before.is_file() {
-        #[cfg(test)]
-        eprintln!(
-            "[DEBUG-PERMAFROST-PATH] open handle is not a regular file: {} {before:?}",
-            path.display()
-        );
         return Err(unsafe_path());
     }
     let modified = timestamp(&before)?;

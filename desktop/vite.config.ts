@@ -21,6 +21,20 @@ export default defineConfig({
     },
   ],
   server: { port: 1420, strictPort: true, host: "127.0.0.1" },
+  // Discover lazy preview/worker and native plugins before opening a workspace;
+  // late dependency optimization otherwise reloads an in-progress dev session.
+  optimizeDeps: {
+    include: [
+      "three",
+      "three/examples/jsm/controls/OrbitControls.js",
+      "three/examples/jsm/loaders/GLTFLoader.js",
+      "three/examples/jsm/loaders/STLLoader.js",
+      "three/examples/jsm/loaders/OBJLoader.js",
+      "three/examples/jsm/exporters/STLExporter.js",
+      "@tauri-apps/plugin-updater",
+      "@tauri-apps/plugin-process",
+    ],
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,

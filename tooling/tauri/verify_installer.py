@@ -35,6 +35,9 @@ def run_smoke(executable, report, diagnostics):
         assert evidence['isolatedProfile'] and evidence['networkServicesDisabled'], evidence
         assert evidence['ui']['workspaceVisible'] and evidence['ui']['modelRendered'], evidence
         assert (evidence['ui'].get('renderer') or 'webgl') in ('webgl', 'software-svg'), evidence
+        # Legacy diagnostic artifacts predate reader evidence; new native builds
+        # require the actual worker before their readiness command can succeed.
+        assert evidence['ui'].get('reader') in (None, 'mesh-worker'), evidence
         assert evidence['ui']['canvasWidth'] >= 100 and evidence['ui']['canvasHeight'] >= 100, evidence
         return evidence
     finally:

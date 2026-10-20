@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
 import { Box, Expand, Grid2X2, RotateCcw, Scan, X } from "lucide-react";
 import { previewable } from "../types";
 import { createPreviewRenderer } from "./previewRenderer";
@@ -363,19 +364,33 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
       };
       void (async () => {
         try {
+          let buffer: ArrayBuffer;
+          let extension = path.split(".").pop()!.toLowerCase();
           if (sample) {
-            mount(sampleBracket());
-            return;
+            phase("Preparing sample…");
+            const model = sampleBracket();
+            try {
+              model.updateWorldMatrix(true, true);
+              const exported = new STLExporter().parse(model, { binary: true });
+              buffer = new Uint8Array(
+                exported.buffer,
+                exported.byteOffset,
+                exported.byteLength,
+              ).slice().buffer;
+              extension = "stl";
+            } finally {
+              dispose(model);
+            }
+          } else {
+            if (!load) throw new Error("Select a local file to preview it.");
+            phase("Loading file…");
+            buffer = await load();
           }
-          if (!load) throw new Error("Select a local file to preview it.");
-          phase("Loading file…");
-          const buffer = await load();
           if (closed) return;
           if (buffer.byteLength > PREVIEW_BYTE_LIMIT)
             throw new Error(
               "This file exceeds the 512 MiB preview limit. Export a lighter model.",
             );
-          const extension = path.split(".").pop()!.toLowerCase();
           const useOpenCascade = [
             "step",
             "stp",
@@ -385,6 +400,10 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
             "brp",
           ].includes(extension);
           if (useOpenCascade || extension === "stl" || extension === "obj") {
+            renderer.domElement.setAttribute(
+              "data-preview-reader",
+              useOpenCascade ? "opencascade" : "mesh-worker",
+            );
             phase("Preparing model…");
             // Hash before transferring the source buffer. A revision at the same
             // path must never reuse stale geometry; hashing failure only skips reuse.
@@ -457,6 +476,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
             };
             worker.postMessage({ buffer, extension }, [buffer]);
           } else {
+            renderer.domElement.setAttribute("data-preview-reader", "gltf");
             const manager = new THREE.LoadingManager();
             manager.setURLModifier((url) => {
               if (url.startsWith("data:") || url.startsWith("blob:"))
