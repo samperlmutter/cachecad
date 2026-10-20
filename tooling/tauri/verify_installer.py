@@ -45,9 +45,6 @@ def run_smoke(executable, report, diagnostics):
         stderr.close()
         if report.exists():
             shutil.copy2(report, diagnostics / 'native-render.json')
-        probe = report.with_suffix('.probe.json')
-        if probe.exists():
-            shutil.copy2(probe, diagnostics / 'native-probe.json')
 
 
 def main():

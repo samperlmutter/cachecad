@@ -14,7 +14,7 @@ on:
         required: false
         default: ""
       diagnostic_source_build:
-        description: "Build an instrumented Intel installer on Apple Silicon first"
+        description: "Build a debug Intel installer on Apple Silicon first"
         type: boolean
         default: false
 permissions:
@@ -106,7 +106,7 @@ jobs:
             installer-evidence/
             upgrade-evidence/
   installer-diagnostics-build:
-    name: Build instrumented Intel installer on Apple Silicon
+    name: Build debug Intel installer on Apple Silicon
     if: github.event_name == 'workflow_dispatch' && inputs.installer_run_id != '' && inputs.diagnostic_source_build
     runs-on: macos-14
     steps:
