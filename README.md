@@ -26,12 +26,16 @@ owner's Desktop OAuth client at build time; no recovered credentials are used.
 For local development, place the approved Desktop client configuration at the
 ignored `google-client-desktop.json` path (or set `PERMAFROST_GOOGLE_CLIENT_FILE`).
 The desktop helpers load it into the native build without logging its contents.
-On macOS, run `npm run desktop:setup-signing` once. Local debug bundles and dev
-reloads reuse that machine's signing certificate, avoiding new Keychain prompts
-for every rebuild. Its private key lives in a dedicated development Keychain,
-unlocked only while signing. Its random password is held in a mode-0600 local file.
-Approve the one-time saved session migration with Always Allow. This local identity stays outside the repo;
-it does not replace Developer ID signing and notarization for distribution.
+On macOS, run `npm run desktop:setup-signing` once. Debug builds use that machine's
+signing certificate and a fixed credential helper so login-Keychain build-hash
+checks do not prompt on every app rebuild. The helper accepts only Permafrost
+callers signed with the same certificate; Google sessions remain in the login
+Keychain. Approve its first saved-session access with Always Allow. The signing
+key lives in a separate development Keychain, unlocked only while signing with a
+mode-0600 local password file. The local keys and compiled helper stay outside the repo and do not
+replace Developer ID signing and notarization for distribution.
+`npm run desktop:verify-keychain` checks rebuilt callers and rejects unrelated
+ones using only a disposable generated credential.
 The feature/validation inventory and remaining release gates are tracked in
 [the rewrite document](docs/tauri/REWRITE.md).
 

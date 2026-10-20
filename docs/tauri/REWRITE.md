@@ -135,26 +135,38 @@ directions, Drive trash, and local removal as part of a remote folder move.
 Replacement backups and downloaded CAD bytes were independently checked. A
 Drive-only STEP preview rendered before the reviewed download promoted its cache.
 
-Ad-hoc rebuilds changed the app's designated requirement and repeatedly requested
-Keychain access. Local development helpers now use a persistent per-machine
-certificate stored in a dedicated development Keychain, with only codesign and
-Apple's signing tools authorized for its non-extractable private key.
-`desktop:setup-signing` creates it once, outside the checkout. Builds unlock that
-Keychain using a random password in a mode-0600 local file and lock it afterward;
-the login Keychain and production credentials are untouched. No trusted root is
-added and Google credentials never allow access by arbitrary
-applications; the owner approves the new specific app identity during migration.
-Both bundled debug builds and Cargo's dev runner sign before launch with the same
-certificate and application identifier. After the owner approved migration of
-the existing credential with Always Allow, restarting the unchanged signed build
-restored the account without another prompt. The initial login-Keychain signing
-key still prompted on subsequent signing, so it was replaced by the isolated
-development Keychain. Two different executable fixtures now sign and verify
-without prompts and retain an identical designated requirement. The existing
-Google session's migration to that corrected identity was approved by the owner;
-actual restart/rebuild verification is waiting for the Mac to be unlocked.
-Production distribution still uses
-the separately gated Developer ID identity.
+Mac local builds use a persistent per-machine certificate stored in a dedicated
+development Keychain. Only codesign and Apple's signing tools are authorized for
+its non-extractable private key. `desktop:setup-signing` creates it outside the
+checkout. Builds unlock that signing Keychain using a mode-0600 local password
+file and lock it afterward; no trusted root is added.
+
+Native testing confirmed a prompt-free restart but reproduced the prompt after
+rebuilding with the same certificate. The login Keychain has a separate partition
+gate: the saved Google entry lists individual code hashes. A disposable test
+reproduced a successful creator read and a denied rebuilt reader despite equal
+designated requirements. Apple's implementation classifies self-signed code by
+its code hash: https://github.com/apple-oss-distributions/Security/blob/main/securityd/src/clientid.cpp
+
+Local Mac debug builds therefore use a small fixed credential helper outside the
+checkout. The helper remains unchanged across app rebuilds and authenticates its
+live parent using both the Permafrost identifier and the helper's signing
+certificate. It accepts only get/set/delete requests for Permafrost's Google
+service. Sessions stay in the login Keychain; secrets travel only through a
+private pipe to native Rust. The app checks the helper's pinned file SHA-256 and
+authenticates its running process against its pinned code hash before sending
+credential bytes. A native regression accepts a process with the exact hash and
+rejects a wrong or malformed requirement. The helper uses hardened runtime.
+Release builds use the normal
+OS credential store and contain no development-helper path or dependency.
+
+`desktop:verify-keychain` uses a disposable generated credential in the actual
+login Keychain. Two different authenticated callers restore and update it;
+unrelated identifiers, the right identifier without the certificate, and direct
+invocation by another process are rejected. The test removes its generated item.
+Both Mac CI jobs run this regression. Authorizing the helper for the existing
+Google entry requires one migration approval; actual saved-session rebuild
+verification remains pending while the Mac is locked again.
 
 ## Hardening follow-up
 
@@ -196,7 +208,7 @@ Cancelling also clears queued automatic retries and displays a neutral status
 instead of an offline error. Direction cards say changes “to apply” because their
 counts include renames and removals as well as transfers.
 
-The integrated local pass completed 41 Rust tests, 21 frontend unit tests, and all
+The integrated local pass completed 42 Rust tests, 21 frontend unit tests, and all
 24 browser interaction/stress tests, plus the production frontend build and
 Clippy with warnings denied. Settings and recovery screenshots were visually
 reviewed. Native crash/restart and the corrected signing identity's credential

@@ -12,6 +12,7 @@
     "check": "npm run build && npm test && cargo test --workspace --locked",
     "desktop:setup-signing": "node tooling/tauri/setup-development-signing.mjs",
     "desktop:verify-signing": "node tooling/tauri/verify_development_signing.mjs",
+    "desktop:verify-keychain": "node tooling/tauri/verify_development_keychain.mjs",
     "desktop:dev": "node tooling/tauri/native-dev.mjs dev",
     "desktop:debug": "node tooling/tauri/native-dev.mjs build --debug --bundles app"
   },

@@ -122,6 +122,9 @@ jobs:
         run: |
           npm run desktop:setup-signing
           npm run desktop:verify-signing
+      - name: Verify login-Keychain access across rebuilt authenticated callers
+        if: runner.os == 'macOS'
+        run: npm run desktop:verify-keychain
       - run: node tooling/tauri/configure-release.mjs
       - run: npm run tauri -- build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - name: Install, render native workspace and Three.js, exit, uninstall

@@ -1,6 +1,7 @@
-// A persistent local certificate gives rebuilds the same designated requirement.
-// Ad-hoc signatures use a different code hash on every build, which repeatedly
-// asks for Keychain access. This does not confer Developer ID or notarization.
+// A persistent local certificate authenticates rebuilt apps to the fixed local
+// credential helper. Login-Keychain partitions still bind self-signed code to
+// individual builds; a stable requirement alone does not prevent their prompts.
+// This does not confer Developer ID or notarization.
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -22,7 +23,11 @@ export function developmentIdentity() {
     );
   return identity;
 }
-export function signDevelopment(target) {
+export function signDevelopment(
+  target,
+  identifier = "com.permafrost.desktop",
+  hardened = false,
+) {
   const file = join(signingDirectory, "identity.json");
   const config = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {};
   const keychain =
@@ -48,9 +53,10 @@ export function signDevelopment(target) {
         "--sign",
         developmentIdentity(),
         "--identifier",
-        "com.permafrost.desktop",
+        identifier,
         "--timestamp=none",
         "--preserve-metadata=entitlements,flags",
+        ...(hardened ? ["--options", "runtime"] : []),
         ...(keychain ? ["--keychain", keychain] : []),
         target,
       ],

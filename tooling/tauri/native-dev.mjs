@@ -8,6 +8,7 @@ import {
   developmentIdentity,
   signDevelopment,
 } from "./development-signing.mjs";
+import { developmentKeychain } from "./development-keychain.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const configPath =
   process.env.PERMAFROST_GOOGLE_CLIENT_FILE ??
@@ -16,6 +17,12 @@ const env = { ...process.env };
 const args = process.argv.slice(2);
 if (process.platform === "darwin") {
   developmentIdentity();
+  if (args[0] === "dev" || args.includes("--debug")) {
+    const helper = developmentKeychain();
+    env.PERMAFROST_DEV_KEYCHAIN_HELPER = helper.path;
+    env.PERMAFROST_DEV_KEYCHAIN_SHA256 = helper.sha256;
+    env.PERMAFROST_DEV_KEYCHAIN_CDHASH = helper.cdhash;
+  }
   env.MACOSX_DEPLOYMENT_TARGET ||= JSON.parse(
     readFileSync(resolve(root, "src-tauri/tauri.conf.json"), "utf8"),
   ).bundle.macOS.minimumSystemVersion;

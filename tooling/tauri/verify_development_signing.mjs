@@ -1,5 +1,6 @@
 // Exercise real signing and the Cargo runner with two different Mach-O binaries.
-// Equal designated requirements let Keychain recognize both as the same app.
+// Stable requirements identify callers; verify_development_keychain.mjs also
+// exercises the separate login-Keychain partition gate with actual stored data.
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";

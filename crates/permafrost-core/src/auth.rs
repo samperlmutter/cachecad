@@ -87,9 +87,10 @@ impl Auth {
     pub fn account(&self) -> Option<Account> {
         self.session.as_ref().map(|s| s.account.clone())
     }
-    fn key(&self) -> Result<keyring::Entry> {
+    fn key(&self) -> Result<crate::credentials::Credential> {
         let config = self.config.as_ref().ok_or(Error::SignedOut)?;
-        keyring::Entry::new(STORE_SERVICE, &config.client_id).map_err(|_| Error::CredentialStore)
+        crate::credentials::Credential::new(STORE_SERVICE, &config.client_id)
+            .map_err(|_| Error::CredentialStore)
     }
     pub fn restore(&mut self) -> Result<Option<Account>> {
         if self.config.is_none() {

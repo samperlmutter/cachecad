@@ -1,4 +1,5 @@
 pub mod auth;
+mod credentials;
 pub mod drive;
 pub mod fs;
 pub mod model;
