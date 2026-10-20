@@ -9,7 +9,8 @@ Tauri application.
 ```sh
 # Node 22 and stable Rust; native Tauri prerequisites are required.
 npm ci
-npm run tauri dev
+npm run desktop:dev
+# Standalone native debug application: npm run desktop:debug
 # Browser-only sample workspace: npm run dev, then http://127.0.0.1:1420/?demo=1
 npm run check
 npm run test:e2e
@@ -21,6 +22,9 @@ The desktop workflow builds, installs, launches, verifies native WebView/Three.j
 rendering, and uninstalls Windows and macOS installers. Signed updates use version
 tags and the repository's release configuration. Google sign-in requires the
 owner's Desktop OAuth client at build time; no recovered credentials are used.
+For local development, place the approved Desktop client configuration at the
+ignored `google-client-desktop.json` path (or set `PERMAFROST_GOOGLE_CLIENT_FILE`).
+The desktop helpers load it into the native build without logging its contents.
 The feature/validation inventory and remaining release gates are tracked in
 [the rewrite document](docs/tauri/REWRITE.md).
 
