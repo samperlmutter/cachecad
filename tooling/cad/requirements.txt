@@ -51,3 +51,5 @@ macholib==1.16.4; sys_platform == "darwin" \
     --hash=sha256:da1a3fa8266e30f0ce7e97c6a54eefaae8edd1e5f86f3eb8b95457cae90265ea
 pywin32-ctypes==0.2.3; sys_platform == "win32" \
     --hash=sha256:8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8
+pefile==2023.2.7; sys_platform == "win32" \
+    --hash=sha256:da185cd2af68c08a6cd4481f7325ed600a88f6a813bad9dea07ab3ef73d8d8d6
