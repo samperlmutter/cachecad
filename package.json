@@ -9,7 +9,9 @@
     "test": "vitest run --config desktop/vite.config.ts",
     "test:e2e": "playwright test --config desktop/playwright.config.ts",
     "tauri": "tauri",
-    "check": "npm run build && npm test && cargo test -p permafrost-core"
+    "check": "npm run build && npm test && cargo test --workspace --locked",
+    "desktop:dev": "node tooling/tauri/native-dev.mjs dev",
+    "desktop:debug": "node tooling/tauri/native-dev.mjs build --debug --bundles app"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
