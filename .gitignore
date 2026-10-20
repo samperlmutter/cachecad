@@ -19,8 +19,8 @@ creds.json
 node_modules/
 /target/
 /desktop/dist/
-/test-results/
-/playwright-report/
+test-results/
+playwright-report/
 *.key
 *.key.pub
 /desktop/public/occt/
