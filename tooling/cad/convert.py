@@ -176,7 +176,8 @@ def main():
         if args.parent:
             command = [sys.executable] if getattr(sys, "frozen", False) else [sys.executable, __file__]
             watcher = subprocess.Popen(command + ["--watch-parent", str(args.parent), "--worker", str(os.getpid())],
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             if watcher.stdout.readline().strip() != b"READY":
                 raise ValueError("watcher")
         convert(args.source, args.extension, args.output)
