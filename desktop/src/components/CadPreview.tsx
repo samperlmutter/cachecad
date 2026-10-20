@@ -7,19 +7,13 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Box, Expand, Grid2X2, RotateCcw, Scan, X } from "lucide-react";
 import { previewable } from "../types";
 import { PREVIEW_BYTE_LIMIT, previewError } from "../preview";
+import { cadMeshCache, cadMeshKey, type ImportedMesh } from "../cadMeshCache";
 
 interface Props {
   path: string;
   load?: () => Promise<ArrayBuffer>;
   sample?: boolean;
   onClose?: () => void;
-}
-interface ImportedMesh {
-  name: string;
-  color?: number[];
-  position: Float32Array;
-  index: Uint32Array;
-  normal: Float32Array | null;
 }
 function sampleBracket(): THREE.Group {
   const shape = new THREE.Shape();
@@ -113,6 +107,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
   const changeWireframe = useRef<(enabled: boolean) => void>(() => {});
   const changeGrid = useRef<(enabled: boolean) => void>(() => {});
   const [status, setStatus] = useState("Preparing preview…");
+  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
   const [wireframe, setWireframe] = useState(false);
   const [grid, setGrid] = useState(true);
@@ -124,8 +119,20 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
     let closed = false;
     let worker: Worker | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let progressTimer: ReturnType<typeof setInterval> | undefined;
+    let phaseStarted = performance.now();
+    const phase = (message: string) => {
+      phaseStarted = performance.now();
+      setElapsed(0);
+      setStatus(message);
+    };
+    const finishProgress = () => {
+      clearInterval(progressTimer);
+      setStatus("");
+    };
     let object: THREE.Object3D | undefined;
     setStatus("Preparing preview…");
+    setElapsed(0);
     setError("");
     setWireframe(false);
     setGrid(true);
@@ -143,6 +150,10 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
       );
       return;
     }
+    progressTimer = setInterval(() => {
+      if (!closed)
+        setElapsed(Math.floor((performance.now() - phaseStarted) / 1000));
+    }, 1000);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0xf3f6f7, 1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -209,7 +220,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
       gridHelper.visible = enabled;
       render();
     };
-    const resize = new ResizeObserver(() => {
+    const resizeViewport = () => {
       const { width, height } = element.getBoundingClientRect();
       if (width && height) {
         renderer.setSize(width, height);
@@ -217,7 +228,11 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
         camera.updateProjectionMatrix();
         render();
       }
-    });
+    };
+    // A reused mesh can mount before ResizeObserver's first callback. Size the
+    // camera now so its initial fit uses the viewport's actual aspect ratio.
+    resizeViewport();
+    const resize = new ResizeObserver(resizeViewport);
     resize.observe(element);
     controls.addEventListener("change", render);
     const onLost = (event: Event) => {
@@ -248,7 +263,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
       setDetails(
         `${parts} ${parts === 1 ? "body" : "bodies"} · ${Math.round(triangles).toLocaleString()} triangles`,
       );
-      setStatus("");
+      finishProgress();
     };
     void (async () => {
       try {
@@ -257,6 +272,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
           return;
         }
         if (!load) throw new Error("Select a local file to preview it.");
+        phase("Loading file…");
         const buffer = await load();
         if (closed) return;
         if (buffer.byteLength > PREVIEW_BYTE_LIMIT)
@@ -265,7 +281,19 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
           );
         const extension = path.split(".").pop()!.toLowerCase();
         if (["step", "stp", "iges", "igs", "brep", "brp"].includes(extension)) {
-          setStatus("Tessellating with OpenCascade…");
+          phase("Preparing model…");
+          // Hash before transferring the source buffer. A revision at the same
+          // path must never reuse stale geometry; hashing failure only skips reuse.
+          const cacheKey = await cadMeshKey(buffer, extension).catch(
+            () => undefined,
+          );
+          if (closed) return;
+          const cached = cacheKey ? cadMeshCache.get(cacheKey) : undefined;
+          if (cached) {
+            mount(fromImported(cached));
+            return;
+          }
+          phase("Starting OpenCascade…");
           worker = new Worker("/occt-worker.js");
           timer = setTimeout(() => {
             worker?.terminate();
@@ -273,21 +301,31 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
               setError(
                 "The model took too long to process. Try a simpler export.",
               );
-              setStatus("");
+              finishProgress();
             }
           }, 60000);
           worker.onmessage = ({ data }) => {
+            if (closed) return;
+            if (data.phase === "import") {
+              phase("Reading and tessellating model…");
+              return;
+            }
+            if (data.phase === "meshes") {
+              phase("Preparing model for display…");
+              return;
+            }
             clearTimeout(timer);
             worker?.terminate();
-            if (closed) return;
             if (data.error) {
               setError(data.error);
-              setStatus("");
+              finishProgress();
             } else {
               try {
                 mount(fromImported(data.meshes));
+                if (cacheKey) cadMeshCache.put(cacheKey, data.meshes);
               } catch (e) {
-                setError(String(e));
+                setError(previewError(e));
+                finishProgress();
               }
             }
           };
@@ -298,7 +336,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
               setError(
                 "The CAD reader could not start. Reopen the preview to try again.",
               );
-              setStatus("");
+              finishProgress();
             }
           };
           worker.postMessage({ buffer, extension }, [buffer]);
@@ -340,13 +378,14 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
       } catch (e) {
         if (!closed) {
           setError(previewError(e));
-          setStatus("");
+          finishProgress();
         }
       }
     })();
     return () => {
       closed = true;
       clearTimeout(timer);
+      clearInterval(progressTimer);
       worker?.terminate();
       resize.disconnect();
       controls.dispose();
@@ -392,7 +431,10 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
       ) : status ? (
         <div className="preview-message">
           <span className="spinner" />
-          <p>{status}</p>
+          <p>
+            {status}
+            {elapsed > 0 ? ` ${elapsed}s elapsed` : ""}
+          </p>
         </div>
       ) : null}
       <div className="preview-corner">
