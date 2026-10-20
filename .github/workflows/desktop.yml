@@ -13,6 +13,10 @@ on:
         type: string
         required: false
         default: ""
+      diagnostic_source_build:
+        description: "Build an instrumented Intel installer on Apple Silicon first"
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -101,9 +105,32 @@ jobs:
             target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
             installer-evidence/
             upgrade-evidence/
+  installer-diagnostics-build:
+    name: Build instrumented Intel installer on Apple Silicon
+    if: github.event_name == 'workflow_dispatch' && inputs.installer_run_id != '' && inputs.diagnostic_source_build
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - run: npm ci
+      - run: npm run tauri -- build --debug --target x86_64-apple-darwin --bundles app,dmg --ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-x86_64-apple-darwin
+          path: target/x86_64-apple-darwin/debug/bundle/dmg/*.dmg
   installer-diagnostics:
     name: Reproduce existing Intel installer
-    if: github.event_name == 'workflow_dispatch' && inputs.installer_run_id != ''
+    needs: installer-diagnostics-build
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.installer_run_id != '' && (needs.installer-diagnostics-build.result == 'success' || needs.installer-diagnostics-build.result == 'skipped')
     runs-on: macos-15-intel
     permissions:
       contents: read
@@ -114,10 +141,16 @@ jobs:
         with:
           python-version: "3.12"
       - uses: actions/download-artifact@v4
+        if: ${{ !inputs.diagnostic_source_build }}
         with:
           name: installer-x86_64-apple-darwin
           run-id: ${{ inputs.installer_run_id }}
           github-token: ${{ github.token }}
+          path: diagnostic-bundle
+      - uses: actions/download-artifact@v4
+        if: inputs.diagnostic_source_build
+        with:
+          name: installer-x86_64-apple-darwin
           path: diagnostic-bundle
       - run: python tooling/tauri/verify_installer.py --bundle diagnostic-bundle --output installer-evidence
       - uses: actions/upload-artifact@v4

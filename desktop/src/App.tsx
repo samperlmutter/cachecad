@@ -385,7 +385,24 @@ export default function App() {
   }, [data?.updaterConfigured]);
   useEffect(() => {
     if (!native || !data || data.projects.length) return;
+    let lastProbe = "";
     const timer = setInterval(() => {
+      // [DEBUG-PERMAFROST-INTEL] Distinguish WebView boot, frames and graphics failure.
+      const anyCanvas = document.querySelector("canvas");
+      const probe = {
+        workspaceVisible: !!document.querySelector(".sidebar .brand"),
+        readyState: document.readyState,
+        visibilityState: document.visibilityState,
+        canvasWidth: anyCanvas?.width ?? 0,
+        canvasHeight: anyCanvas?.height ?? 0,
+        previewMessage:
+          document.querySelector(".preview-message")?.textContent ?? null,
+      };
+      const serialized = JSON.stringify(probe);
+      if (serialized !== lastProbe) {
+        lastProbe = serialized;
+        void invoke("native_probe", { probe }).catch(() => {});
+      }
       const canvas = document.querySelector<HTMLCanvasElement>(
         "canvas[data-preview-ready]",
       );

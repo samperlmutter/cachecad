@@ -321,6 +321,18 @@ struct UiEvidence {
     title: String,
 }
 #[tauri::command]
+fn native_probe(state: State<'_, Backend>, probe: serde_json::Value) -> ApiResult<()> {
+    // [DEBUG-PERMAFROST-INTEL] Isolated installer readiness probe.
+    if let Some(output) = &state.smoke_output {
+        std::fs::write(
+            output.with_extension("probe.json"),
+            serde_json::to_vec_pretty(&probe).map_err(err)?,
+        )
+        .map_err(err)?;
+    }
+    Ok(())
+}
+#[tauri::command]
 fn native_ready(
     state: State<'_, Backend>,
     app: tauri::AppHandle,
@@ -494,7 +506,8 @@ pub fn run() {
             read_preview,
             list_local_files,
             export_diagnostics,
-            native_ready
+            native_ready,
+            native_probe
         ])
         .run(tauri::generate_context!())
         .expect("Permafrost could not start");
