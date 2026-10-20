@@ -10,7 +10,7 @@
     {
       "source": "application/resources_rc.py",
       "destination": "application/resources_rc.py",
-      "sha256": "214591910072339b87fa244fbe38756cbc6c443c1b2e76da2049daf76646afbb"
+      "sha256": "e40b17c85b33d0b7818f9bb8c84f995b759d3f8f930a6b789f8568b84a9b4ba3"
     },
     {
       "source": "application/crash_diagnostics.py",

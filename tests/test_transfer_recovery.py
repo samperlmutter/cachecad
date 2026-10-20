@@ -491,6 +491,20 @@ class SyncBaselineRecoveryTests(unittest.TestCase):
             f'wrong-drive-id,part.sldprt,part.sldprt,{self.md5},123,123,123,upload_new\n')
         self.assertEqual(self.inferred_action(valid_but_unrelated, 'cloud'), 'download_new')
 
+    def test_writable_project_loaded_from_csv_proposes_local_delete_on_drive(self):
+        valid = self.HEADER + (
+            f'file-id,part.sldprt,part.sldprt,{self.md5},123,123,123,download_new\n')
+        self.analyzer.read_only = 'False'
+        self.assertEqual(self.inferred_action(valid, 'cloud'), 'delete_cloud')
+
+    def test_read_only_and_unrecognized_flags_never_propose_remote_delete(self):
+        valid = self.HEADER + (
+            f'file-id,part.sldprt,part.sldprt,{self.md5},123,123,123,download_new\n')
+        for flag in (True, 'True', None, 'unknown'):
+            with self.subTest(flag=flag):
+                self.analyzer.read_only = flag
+                self.assertEqual(self.inferred_action(valid, 'cloud'), 'download_new')
+
     def test_safe_valid_matching_remote_identity_preserves_delete_inference(self):
         valid = self.HEADER + (
             f'file-id,part.sldprt,part.sldprt,{self.md5},123,123,123,upload_new\n')
