@@ -19,6 +19,7 @@ import {
   Check,
   CheckCheck,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleCheck,
   CircleHelp,
@@ -147,6 +148,7 @@ export default function App() {
   selectionRef.current = selected;
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
+  const [filePage, setFilePage] = useState(0);
   const [tab, setTab] = useState<"changes" | "files">("changes");
   const [preview, setPreview] = useState("");
   const [progress, setProgress] = useState<Progress>();
@@ -157,11 +159,24 @@ export default function App() {
   const [update, setUpdate] = useState<Update | null>(null);
   const [updateMessage, setUpdateMessage] = useState("");
   const mounted = useRef(true);
+  const activeProject = useRef(projectId);
+  activeProject.current = projectId;
+  const localRequest = useRef(0);
   const project = data?.projects.find((p) => p.id === projectId);
   const actions = useMemo(
     () => (plan?.projectId === projectId ? groupRenames(plan.actions) : []),
     [plan, projectId],
   );
+  const actionsByPath = useMemo(() => {
+    const grouped = new Map<string, Change[]>();
+    for (const action of actions) {
+      const at = grouped.get(action.path) ?? [];
+      at.push(action);
+      grouped.set(action.path, at);
+    }
+    return grouped;
+  }, [actions]);
+  useEffect(() => setFilePage(0), [projectId, query, filter, tab]);
   const selectedActions = actions.filter((a) => selected.has(a.id));
   const run = useCallback(
     async <T,>(
@@ -245,6 +260,27 @@ export default function App() {
     },
     [run],
   );
+  const refreshLocal = useCallback(async (id: string) => {
+    const request = ++localRequest.current;
+    try {
+      const files = await api.localFiles(id);
+      if (
+        mounted.current &&
+        activeProject.current === id &&
+        request === localRequest.current
+      ) {
+        setLocalFiles(files);
+      }
+    } catch (error) {
+      if (
+        mounted.current &&
+        activeProject.current === id &&
+        request === localRequest.current
+      ) {
+        setError(String(error));
+      }
+    }
+  }, []);
   useEffect(() => {
     setPreview("");
     setFilter("all");
@@ -254,13 +290,15 @@ export default function App() {
     setSelected(new Set());
     setFreshness("changed");
     if (projectId) {
-      if (data?.account) void scan(projectId);
-      else {
+      if (data?.account) {
+        void refreshLocal(projectId);
+        void scan(projectId);
+      } else {
         setTab("files");
         void browse(projectId);
       }
     }
-  }, [projectId, data?.account?.subject, scan, browse]);
+  }, [projectId, data?.account?.subject, scan, browse, refreshLocal]);
   const currentRef = useRef({
     projectId,
     hasAccount: !!data?.account,
@@ -292,6 +330,7 @@ export default function App() {
           if (event.payload.includes(currentRef.current.projectId)) {
             setFreshness("changed");
             setModal((m) => (m === "review" ? null : m));
+            void refreshLocal(currentRef.current.projectId);
             refresh();
           }
         }),
@@ -311,7 +350,7 @@ export default function App() {
       window.removeEventListener("offline", offline);
       window.removeEventListener("focus", focus);
     };
-  }, []);
+  }, [refreshLocal]);
   useEffect(() => {
     if (!refreshQueued || busy || modal || !projectId) return;
     setRefreshQueued(false);
@@ -427,26 +466,26 @@ export default function App() {
     });
     setProgress(undefined);
   };
-  const filePaths = useMemo(
-    () =>
-      [
-        ...new Set([
-          ...Object.keys(localFiles),
-          ...Object.keys(plan?.local ?? {}),
-          ...Object.keys(plan?.remote ?? {}),
-        ]),
-      ]
-        .filter((path) => !actions.some((a) => a.removal?.path === path))
-        .sort(),
-    [plan, localFiles, actions],
-  );
+  const filePaths = useMemo(() => {
+    const renamedPaths = new Set(
+      actions.flatMap((a) => (a.removal ? [a.removal.path] : [])),
+    );
+    return [
+      ...new Set([
+        ...Object.keys(localFiles),
+        ...Object.keys(plan?.remote ?? {}),
+      ]),
+    ]
+      .filter((path) => !renamedPaths.has(path))
+      .sort();
+  }, [plan, localFiles, actions]);
   const rows = useMemo(
     () =>
       (tab === "files"
         ? filePaths
         : [...new Set(actions.map((a) => a.path))]
       ).filter((path) => {
-        const at = actions.filter((a) => a.path === path);
+        const at = actionsByPath.get(path) ?? [];
         if (
           ![path, at[0]?.removal?.path ?? ""].some((name) =>
             name.toLowerCase().includes(query.toLowerCase()),
@@ -463,7 +502,14 @@ export default function App() {
               ))
         );
       }),
-    [tab, filePaths, actions, query, filter],
+    [tab, filePaths, actions, actionsByPath, query, filter],
+  );
+  const pageSize = 100;
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(filePage, pageCount - 1);
+  const visibleRows = rows.slice(
+    currentPage * pageSize,
+    (currentPage + 1) * pageSize,
   );
   const uploadCount = actions.filter(
     (a) => uploads(a.kind) && !conflict(a.kind),
@@ -971,7 +1017,7 @@ export default function App() {
                   <div>
                     <span className="small-label">TO GOOGLE DRIVE</span>
                     <strong>
-                      {uploadCount}
+                      {plan ? uploadCount : "—"}
                       <small>
                         {" "}
                         {uploadCount === 1 ? "change" : "changes"} to upload
@@ -994,7 +1040,7 @@ export default function App() {
                   <div>
                     <span className="small-label">TO THIS COMPUTER</span>
                     <strong>
-                      {downloadCount}
+                      {plan ? downloadCount : "—"}
                       <small>
                         {" "}
                         {downloadCount === 1 ? "change" : "changes"} to download
@@ -1023,7 +1069,7 @@ export default function App() {
                   <div>
                     <span className="small-label">NEEDS YOUR ATTENTION</span>
                     <strong>
-                      {conflictCount}
+                      {plan ? conflictCount : "—"}
                       <small>
                         {" "}
                         {conflictCount === 1 ? "conflict" : "conflicts"} to
@@ -1031,9 +1077,11 @@ export default function App() {
                       </small>
                     </strong>
                     <span>
-                      {conflictCount
-                        ? "Choose the copy you want to keep"
-                        : "Everything has a clear direction"}
+                      {!plan
+                        ? "Waiting for a complete Drive scan"
+                        : conflictCount
+                          ? "Choose the copy you want to keep"
+                          : "Everything has a clear direction"}
                     </span>
                   </div>
                   <ChevronRight size={16} />
@@ -1048,7 +1096,9 @@ export default function App() {
                     onClick={() => setTab("changes")}
                   >
                     Changes
-                    <span>{new Set(actions.map((a) => a.path)).size}</span>
+                    <span>
+                      {plan ? new Set(actions.map((a) => a.path)).size : "—"}
+                    </span>
                   </button>
                   <button
                     role="tab"
@@ -1136,15 +1186,12 @@ export default function App() {
                       <span>SIZE</span>
                     </div>
                     {rows.length ? (
-                      rows.map((path) => {
-                        const at = actions.filter((a) => a.path === path);
+                      visibleRows.map((path) => {
+                        const at = actionsByPath.get(path) ?? [];
                         const hasConflict = at.some((a) => conflict(a.kind));
                         const chosen = at.find((a) => selected.has(a.id));
                         const first = at[0];
-                        const entry =
-                          plan?.local[path] ??
-                          plan?.remote[path] ??
-                          localFiles[path];
+                        const entry = localFiles[path] ?? plan?.remote[path];
                         return (
                           <div
                             key={path}
@@ -1298,9 +1345,34 @@ export default function App() {
                   </div>
                   <div className="table-footer">
                     <span>
+                      {pageCount > 1 &&
+                        `${currentPage * pageSize + 1}–${Math.min((currentPage + 1) * pageSize, rows.length)} of `}
                       {rows.length} {rows.length === 1 ? "file" : "files"}
                       {selected.size > 0 ? ` · ${selected.size} selected` : ""}
                     </span>
+                    {pageCount > 1 && (
+                      <nav className="file-pagination" aria-label="File pages">
+                        <button
+                          className="icon-button"
+                          aria-label="Previous file page"
+                          disabled={currentPage === 0}
+                          onClick={() => setFilePage(currentPage - 1)}
+                        >
+                          <ChevronLeft size={15} />
+                        </button>
+                        <span>
+                          {currentPage + 1} / {pageCount}
+                        </span>
+                        <button
+                          className="icon-button"
+                          aria-label="Next file page"
+                          disabled={currentPage + 1 === pageCount}
+                          onClick={() => setFilePage(currentPage + 1)}
+                        >
+                          <ChevronRight size={15} />
+                        </button>
+                      </nav>
+                    )}
                     <span>
                       <ShieldCheck size={12} />
                       You choose what syncs

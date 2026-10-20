@@ -11,7 +11,8 @@ permissions:
   contents: read
 concurrency:
   group: desktop-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  # Let native compiles finish and populate caches; keep only the latest queued run.
+  cancel-in-progress: false
 jobs:
   web:
     name: Interface and CAD previews
@@ -79,6 +80,8 @@ jobs:
       - run: npm run tauri -- build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - name: Install, render native workspace and Three.js, exit, uninstall
         run: python tooling/tauri/verify_installer.py --bundle target/${{ matrix.target }}/release/bundle --output installer-evidence
+      - name: Reject tampering and upgrade an installed app between two signed versions
+        run: python tooling/tauri/verify_upgrade.py --debug --output upgrade-evidence
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -87,6 +90,7 @@ jobs:
             target/${{ matrix.target }}/release/bundle/dmg/*.dmg
             target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
             installer-evidence/
+            upgrade-evidence/
   release:
     name: Signed update artifacts
     needs: [web, native]

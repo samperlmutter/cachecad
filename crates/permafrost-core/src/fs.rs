@@ -72,12 +72,35 @@ pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
 }
 
 fn timestamp(meta: &std::fs::Metadata) -> Result<String> {
-    Ok(meta
+    let modified = meta
         .modified()?
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|_| Error::Stale)?
-        .as_nanos()
-        .to_string())
+        .as_nanos();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        Ok(format!(
+            "{modified}:{}:{}:{}:{}",
+            meta.dev(),
+            meta.ino(),
+            meta.ctime(),
+            meta.ctime_nsec()
+        ))
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        Ok(format!(
+            "{modified}:{}:{}",
+            meta.creation_time(),
+            meta.file_attributes()
+        ))
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        Ok(modified.to_string())
+    }
 }
 
 pub fn inspect(root: &Path, relative: &str, cancel: &CancellationToken) -> Result<Option<Entry>> {
@@ -135,12 +158,22 @@ pub fn ignored(name: &str) -> bool {
 }
 
 pub fn scan(root: &Path, cancel: &CancellationToken) -> Result<Tree> {
-    scan_inner(root, cancel, true)
+    scan_inner(root, cancel, true, &Tree::new())
 }
 pub fn browse(root: &Path, cancel: &CancellationToken) -> Result<Tree> {
-    scan_inner(root, cancel, false)
+    scan_inner(root, cancel, false, &Tree::new())
 }
-fn scan_inner(root: &Path, cancel: &CancellationToken, hash_content: bool) -> Result<Tree> {
+/// Metadata hints only accelerate scans. Execution always rehashes selected
+/// files; the native coordinator also forces a full hash pass every 15 minutes.
+pub fn scan_cached(root: &Path, cancel: &CancellationToken, previous: &Tree) -> Result<Tree> {
+    scan_inner(root, cancel, true, previous)
+}
+fn scan_inner(
+    root: &Path,
+    cancel: &CancellationToken,
+    hash_content: bool,
+    previous: &Tree,
+) -> Result<Tree> {
     if !root.is_dir() {
         return Err(Error::Invalid(
             "The local project folder is unavailable. Reconnect it before scanning.".into(),
@@ -183,7 +216,16 @@ fn scan_inner(root: &Path, cancel: &CancellationToken, hash_content: bool) -> Re
         }
         if entry.file_type().is_file() {
             let file = if hash_content {
-                inspect(root, &path, cancel)?.ok_or(Error::Stale)?
+                let meta = std::fs::metadata(safe_path(root, &path)?)?;
+                if let Some(cached) = previous.get(&path).filter(|e| {
+                    e.md5.len() == 32
+                        && e.size == meta.len()
+                        && timestamp(&meta).is_ok_and(|stamp| stamp == e.modified)
+                }) {
+                    cached.clone()
+                } else {
+                    inspect(root, &path, cancel)?.ok_or(Error::Stale)?
+                }
             } else {
                 let meta = std::fs::metadata(safe_path(root, &path)?)?;
                 Entry {
@@ -224,6 +266,25 @@ mod tests {
         }
         assert!(validate_relative("Assembly/Bracket v2.step").is_ok());
         assert_eq!(identity("BÄR.step"), identity("ba\u{308}r.STEP"));
+    }
+    #[test]
+    fn cached_scans_reuse_unchanged_hashes_and_find_actual_edits() {
+        let root = tempfile::tempdir().unwrap();
+        let cancel = CancellationToken::new();
+        std::fs::write(root.path().join("part.step"), b"first").unwrap();
+        let original = scan(root.path(), &cancel).unwrap();
+        assert_eq!(
+            scan_cached(root.path(), &cancel, &original).unwrap(),
+            original
+        );
+        std::fs::write(root.path().join("part.step"), b"second revision").unwrap();
+        let changed = scan_cached(root.path(), &cancel, &original).unwrap();
+        assert_ne!(changed["part.step"].md5, original["part.step"].md5);
+        assert_eq!(changed["part.step"].size, 15);
+        std::fs::remove_file(root.path().join("part.step")).unwrap();
+        assert!(scan_cached(root.path(), &cancel, &changed)
+            .unwrap()
+            .is_empty());
     }
     #[test]
     fn offline_browsing_lists_real_models_without_hashing_their_contents() {

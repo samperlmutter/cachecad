@@ -31,8 +31,8 @@ Each row is an acceptance requirement, not a claim of completion.
 snapshots, three-way plans, journaled transfers, Google OAuth/Drive and preview
 preparation. SQLite transactions persist state before external writes. UI requests
 reference opaque plan/action identifiers; the backend owns observed versions and
-rechecks conditions. Incomplete scans never produce a plan. One active operation
-per project, cancellation checkpoints, bounded streams and off-UI-thread hashing.
+rechecks conditions. Incomplete scans never produce a plan. One active scan/transfer
+at a time, cancellation checkpoints, bounded streams and off-UI-thread hashing.
 
 `src-tauri` owns the native shell, narrow IPC commands, OS credential store, folder
 pickers, tray, single instance, signed updates and installer smoke hooks.
@@ -41,7 +41,12 @@ credentials or bearer tokens cross into the WebView. CAD processing stays local.
 
 ## External integration gates
 
-The repository has no approved distributor Google Desktop OAuth client or Apple Developer ID, or native SolidWorks reader license (native parsing is deferred by user direction).
+The owner supplied an approved Google Desktop OAuth client in the ignored
+`google-client-desktop.json`. Native development builds load it without logging
+its contents; CI receives distributor configuration through repository variables
+and secrets. Live consent and disposable Drive testing remain outstanding.
+Apple Developer ID/notarization credentials remain unconfigured. Native SolidWorks
+parsing is deferred by user direction.
 These are genuine configuration/validation requirements. Never embed recovered
 credentials, generate a pretend login, or describe companion STEP/STL exports as
 native SolidWorks parsing. Development and installer smoke checks must be explicit
@@ -71,6 +76,25 @@ Stable `v2.*` version-tag pushes build and verify native installers, create sign
 update artifacts and `latest.json`, then publish only after all platform gates pass.
 No release tag has been created as part of initial branch development.
 
+`tooling/tauri/verify_upgrade.py` builds two isolated application versions with a
+throwaway signing key and distinct application identifier. It launches the older
+installed app, serves a modified package followed by the valid package, requires
+signature rejection before installation, and verifies the newer installed app
+restarts and renders its native workspace/Three.js canvas. The updater also requires
+the signed version to match the feed version. This harness passed locally on Apple
+Silicon (0.0.1 → 0.0.2); Windows/Intel execution is a CI gate. Its loopback transport
+and automation hook are restricted to the `updater-qa` feature and disposable build
+configuration; release jobs do not enable that feature.
+
+The HTTP integration suite exercises all eight sync actions through the real
+scanner, planner, transfer executor, SQLite journal and baseline tracking, including
+native CAD binary preservation, stale-plan rejection, corrupted-download retention,
+uncertain-write replay blocking and backend read-only enforcement.
+An upload larger than 8 MiB verifies continuation after Google's resumable chunk
+acknowledgement and byte-for-byte completion. File rows are grouped by path once
+per plan and rendered in pages of 100; a 350-file interface check verifies search
+and selections across pages.
+
 
 ## Live freshness and native UI checks
 
@@ -81,6 +105,10 @@ works while signed out; selected model previews reload when local metadata chang
 A native 60-second timer requests a Drive refresh while the application is open,
 including in the tray. Reconnection and returning to the app request an earlier
 refresh. Operations never overlap; changes arriving mid-operation queue a refresh.
+Read-only local metadata browsing runs independently of remote comparisons and
+transfers, so a stalled Drive request does not delay local file-list updates.
+An interface test holds the Drive request indefinitely while verifying local
+notifications replace and remove file rows.
 Failed refreshes retain the last successful results and disable sync until fresh.
 Only unchanged conflict selections survive a successful refreshed plan.
 
@@ -90,3 +118,26 @@ branding, model controls, saving/restoring a tray preference, sanitized diagnost
 export, native folder selection, offline project creation, actual STEP import
 (1 body, 12 triangles), and automatic UI updates for creating, editing, renaming,
 and removing a disposable local file. This does not validate live Google grants.
+
+
+The first Windows CI installer evidence (commit `4630a59`, run `39367328407`)
+proves installation, a rendered native workspace/Three.js canvas, clean exit and
+uninstallation. Its Mac gate correctly rejected an incomplete linker-only bundle
+signature. Explicit ad-hoc bundle signing fixes that packaging defect; the local
+Mac debug DMG then passed disk-image checksum, strict bundle signature, installation,
+native render, clean exit, and removal checks. Ad-hoc signing does not establish
+Developer ID/notarization or Gatekeeper acceptance for downloaded releases.
+Production version-tag releases fail before publication if Mac Developer ID or
+notarization credentials are missing; development installer gates use ad-hoc signing.
+
+Local comparisons cache hashes using size and a file metadata fingerprint. Unix
+fingerprints include device, inode and change time; Windows includes creation time
+and attributes in addition to modification time. Scans rehash changed files,
+execution independently rehashes every selected file, and a complete hash pass is
+forced at least every 15 minutes of remote refreshes. Watcher errors discard cached
+hashes and plans. Native watcher maintenance runs every 10 seconds to reconnect
+removed, replaced or unavailable project roots without restarting the application.
+Content events evict affected cached paths and directory descendants even if a
+writer preserves timestamps. Coarse root events evict the whole project cache.
+Generation, cache and plan invalidation share scan completion's lock order, so a
+concurrent scan cannot reinsert hashes after an event invalidates them.

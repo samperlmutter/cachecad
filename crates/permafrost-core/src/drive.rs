@@ -125,6 +125,10 @@ impl Drive {
                 .build()?,
         })
     }
+    #[cfg(test)]
+    pub(crate) fn fixture(endpoint: String) -> Self {
+        Self::with_endpoints("synthetic".into(), endpoint.clone(), endpoint).unwrap()
+    }
     fn url(&self, id: &str) -> Result<String> {
         if id.is_empty()
             || !id
@@ -364,7 +368,8 @@ impl Drive {
             .ok_or_else(incomplete)?
             .to_string();
         let url = url::Url::parse(&location).map_err(|_| incomplete())?;
-        if url.scheme() != "https" || url.host_str() != Some("www.googleapis.com") {
+        let origin = url::Url::parse(&self.upload_base).map_err(|_| incomplete())?;
+        if url.origin() != origin.origin() {
             return Err(incomplete());
         }
         let mut file = File::open(source).await?;

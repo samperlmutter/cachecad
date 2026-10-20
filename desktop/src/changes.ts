@@ -93,18 +93,20 @@ export function completedChanges(changes: Change[], completed: number): number {
   return count;
 }
 
-function unchanged(
-  before: Action | undefined,
-  after: Action | undefined,
-): boolean {
-  if (!before || !after) return before === after;
+function fingerprint(action: Action | undefined): unknown {
   return (
-    before.path === after.path &&
-    before.kind === after.kind &&
-    before.size === after.size &&
-    JSON.stringify(before.local) === JSON.stringify(after.local) &&
-    JSON.stringify(before.remote) === JSON.stringify(after.remote)
+    action && [
+      action.path,
+      action.kind,
+      action.size,
+      action.local,
+      action.remote,
+    ]
   );
+}
+
+function selectionKey(change: Change): string {
+  return JSON.stringify([fingerprint(change), fingerprint(change.removal)]);
 }
 
 export function retainSelection(
@@ -112,16 +114,14 @@ export function retainSelection(
   after: Action[],
   selected: Set<string>,
 ): Set<string> {
-  const chosen = groupRenames(before).filter((change) =>
-    selected.has(change.id),
+  const chosen = new Set(
+    groupRenames(before)
+      .filter((change) => selected.has(change.id))
+      .map(selectionKey),
   );
   return new Set(
     groupRenames(after)
-      .filter((next) =>
-        chosen.some(
-          (old) => unchanged(old, next) && unchanged(old.removal, next.removal),
-        ),
-      )
+      .filter((next) => chosen.has(selectionKey(next)))
       .map((change) => change.id),
   );
 }

@@ -1,4 +1,6 @@
 mod preview;
+#[cfg(feature = "updater-qa")]
+mod update_qa;
 mod watch;
 use permafrost_core::{
     auth::{Account, Auth, OAuthConfig},
@@ -38,11 +40,16 @@ impl Drop for Operation {
         }
     }
 }
+struct CachedScan {
+    files: Tree,
+    verified_at: std::time::Instant,
+}
 struct Backend {
     store: Arc<Mutex<Store>>,
     auth: AsyncMutex<Auth>,
     restored: AsyncMutex<bool>,
     plans: Mutex<HashMap<String, Plan>>,
+    scan_cache: Mutex<HashMap<String, CachedScan>>,
     generations: Mutex<HashMap<String, u64>>,
     watchers: Mutex<watch::WatchSet>,
     gate: Arc<Semaphore>,
@@ -167,10 +174,15 @@ async fn scan_project(state: State<'_, Backend>, project_id: String) -> ApiResul
     let baseline = lock(&state.store)?.baseline(&project_id).map_err(err)?;
     let generation = *lock(&state.generations)?.get(&project_id).unwrap_or(&0);
     let drive = state.drive().await?;
+    let (cached, verified_at) = lock(&state.scan_cache)?
+        .get(&project_id)
+        .filter(|cached| cached.verified_at.elapsed() < std::time::Duration::from_secs(900))
+        .map(|cached| (cached.files.clone(), cached.verified_at))
+        .unwrap_or_else(|| (Tree::new(), std::time::Instant::now()));
     let root = project.local_root.clone();
     let local_cancel = cancel.clone();
     let local = tauri::async_runtime::spawn_blocking(move || {
-        permafrost_core::fs::scan(&root, &local_cancel)
+        permafrost_core::fs::scan_cached(&root, &local_cancel, &cached)
     });
     let (local, remote) = tokio::join!(local, drive.scan(&project.drive_folder_id, &cancel));
     let local = local.map_err(err)?.map_err(err)?;
@@ -186,6 +198,13 @@ async fn scan_project(state: State<'_, Backend>, project_id: String) -> ApiResul
     if *current.get(&project_id).unwrap_or(&0) != generation {
         return Err(Error::Stale.to_string());
     }
+    lock(&state.scan_cache)?.insert(
+        project_id.clone(),
+        CachedScan {
+            files: plan.local.clone(),
+            verified_at,
+        },
+    );
     lock(&state.plans)?.insert(project_id, plan.clone());
     Ok(plan)
 }
@@ -256,7 +275,9 @@ fn open_drive(state: State<'_, Backend>, project_id: String) -> ApiResult<()> {
 }
 #[tauri::command]
 async fn list_local_files(state: State<'_, Backend>, project_id: String) -> ApiResult<Tree> {
-    let (_operation, cancel) = state.begin()?;
+    // Metadata browsing is independent of remote operations so a slow/offline
+    // Drive request cannot prevent local notifications from updating the UI.
+    let cancel = CancellationToken::new();
     let root = lock(&state.store)?
         .project(&project_id)
         .map_err(err)?
@@ -318,7 +339,11 @@ fn native_ready(
             "The installed WebView did not render the expected workspace and 3D model.".into(),
         );
     }
-    let report = serde_json::json!({"schema":1,"version":app.package_info().version.to_string(),"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"installedExecutable":std::env::current_exe().map_err(err)?.display().to_string(),"isolatedProfile":true,"networkServicesDisabled":true,"ui":evidence});
+    #[cfg(feature = "updater-qa")]
+    if update_qa::start(&app)? {
+        return Ok(());
+    }
+    let report = serde_json::json!({"schema":1,"version":app.package_info().version.to_string(),"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"installedExecutable":std::env::current_exe().map_err(err)?.display().to_string(),"isolatedProfile":true,"networkServicesDisabled":!cfg!(feature = "updater-qa"),"driveServicesDisabled":true,"updaterTestOnly":cfg!(feature = "updater-qa"),"ui":evidence});
     std::fs::write(output, serde_json::to_vec_pretty(&report).map_err(err)?).map_err(err)?;
     let handle = app.clone();
     std::thread::spawn(move || {
@@ -345,7 +370,7 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }));
-    if updater_configured {
+    if updater_configured || cfg!(feature = "updater-qa") {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
     builder
@@ -369,6 +394,7 @@ pub fn run() {
                 })?),
                 restored: AsyncMutex::new(false),
                 plans: Mutex::new(HashMap::new()),
+                scan_cache: Mutex::new(HashMap::new()),
                 generations: Mutex::new(HashMap::new()),
                 watchers: Mutex::new(watch::WatchSet::default()),
                 gate: Arc::new(Semaphore::new(1)),

@@ -931,6 +931,13 @@ select {
   align-items: center;
   gap: 4px;
 }
+.file-pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-secondary, #657179);
+}
 .preview-panel {
   background: #f4f4f4;
   border: 1px solid #e5e5e5;

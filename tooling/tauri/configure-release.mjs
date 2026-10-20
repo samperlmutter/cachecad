@@ -9,17 +9,39 @@ if (release && !process.env.TAURI_SIGNING_PRIVATE_KEY)
   throw new Error(
     "A signed update release requires TAURI_SIGNING_PRIVATE_KEY.",
   );
+if (release && process.platform === "darwin") {
+  if (!process.env.APPLE_CERTIFICATE && !process.env.APPLE_SIGNING_IDENTITY)
+    throw new Error(
+      "Production Mac releases require a Developer ID signing identity.",
+    );
+  if (
+    !process.env.APPLE_ID ||
+    !process.env.APPLE_PASSWORD ||
+    !process.env.APPLE_TEAM_ID
+  )
+    throw new Error(
+      "Production Mac releases require Apple notarization credentials.",
+    );
+}
 const config = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
 config.bundle.createUpdaterArtifacts = release;
 if (key) {
   config.plugins ??= {};
   config.plugins.updater = {
     pubkey: key,
+    requireSignedVersion: true,
     endpoints: [
       "https://github.com/samperlmutter/cachecad/releases/latest/download/latest.json",
     ],
     windows: { installMode: "passive" },
   };
+}
+// A distributor identity must replace the ad-hoc development identity.
+if (process.env.APPLE_SIGNING_IDENTITY?.trim()) {
+  config.bundle.macOS.signingIdentity =
+    process.env.APPLE_SIGNING_IDENTITY.trim();
+} else if (process.env.APPLE_CERTIFICATE) {
+  delete config.bundle.macOS.signingIdentity;
 }
 if (release) {
   const version = JSON.parse(readFileSync("package.json", "utf8")).version;
