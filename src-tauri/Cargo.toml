@@ -1,0 +1,28 @@
+[package]
+name = "permafrost"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+permafrost-core = { path = "../crates/permafrost-core" }
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tauri-plugin-single-instance = "2"
+tokio = { version = "1", features = ["sync"] }
+tokio-util = "0.7"
+open = "5"
+base64 = "0.22"
+tempfile = "3"
+
+[lib]
+name = "permafrost"
+crate-type = ["staticlib", "cdylib", "rlib"]

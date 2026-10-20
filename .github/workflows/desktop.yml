@@ -1,0 +1,165 @@
+name: Tauri desktop
+on:
+  push:
+    branches: [main, "codex/**"]
+    tags: ["v2.*"]
+    paths-ignore: ["recovered/**", "maintained/**", "src/**", "requirements/**"]
+  pull_request:
+    paths-ignore: ["recovered/**", "maintained/**", "src/**", "requirements/**"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+jobs:
+  web:
+    name: Interface and CAD previews
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interface-evidence
+          path: |
+            test-results/
+            playwright-report/
+  native:
+    name: Installer · ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macOS Apple Silicon
+            os: macos-14
+            target: aarch64-apple-darwin
+            bundles: app,dmg
+          - platform: macOS Intel
+            os: macos-15-intel
+            target: x86_64-apple-darwin
+            bundles: app,dmg
+          - platform: Windows x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+    runs-on: ${{ matrix.os }}
+    env:
+      PERMAFROST_GOOGLE_CLIENT_ID: ${{ vars.PERMAFROST_GOOGLE_CLIENT_ID }}
+      PERMAFROST_GOOGLE_CLIENT_SECRET: ${{ secrets.PERMAFROST_GOOGLE_CLIENT_SECRET }}
+      PERMAFROST_UPDATER_PUBLIC_KEY: ${{ vars.PERMAFROST_UPDATER_PUBLIC_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: rustfmt,clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - run: cargo fmt --all -- --check
+      - run: cargo test -p permafrost-core --locked
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: node tooling/tauri/configure-release.mjs
+      - run: npm run tauri -- build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Install, render native workspace and Three.js, exit, uninstall
+        run: python tooling/tauri/verify_installer.py --bundle target/${{ matrix.target }}/release/bundle --output installer-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
+            installer-evidence/
+  release:
+    name: Signed update artifacts
+    needs: [web, native]
+    if: startsWith(github.ref, 'refs/tags/v2.')
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            bundles: app,dmg
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            bundles: app,dmg
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+    runs-on: ${{ matrix.os }}
+    env:
+      PERMAFROST_GOOGLE_CLIENT_ID: ${{ vars.PERMAFROST_GOOGLE_CLIENT_ID }}
+      PERMAFROST_GOOGLE_CLIENT_SECRET: ${{ secrets.PERMAFROST_GOOGLE_CLIENT_SECRET }}
+      PERMAFROST_UPDATER_PUBLIC_KEY: ${{ vars.PERMAFROST_UPDATER_PUBLIC_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - run: npm ci
+      - run: node tooling/tauri/configure-release.mjs --release
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Permafrost ${{ github.ref_name }}"
+          releaseBody: "Permafrost desktop update. See the versioned release notes in the repository."
+          releaseDraft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify the signed release installer before publication
+        run: python tooling/tauri/verify_installer.py --bundle target/${{ matrix.target }}/release/bundle --output installer-evidence
+  publish:
+    name: Publish verified update
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/v2.')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish after every installer gate passes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ github.ref_name }}" --draft=false

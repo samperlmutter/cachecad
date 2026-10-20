@@ -1,3 +1,35 @@
+# Permafrost desktop rewrite
+
+The Tauri 2 rewrite lives in `desktop/`, `src-tauri/`, and
+`crates/permafrost-core/` on `codex/tauri-rewrite`. It replaces the Python runtime
+with Rust, React/TypeScript, SQLite, and a local Three.js/OpenCascade viewer.
+The Python recovery below remains reference material and is not shipped in the
+Tauri application.
+
+```sh
+# Node 22 and stable Rust; native Tauri prerequisites are required.
+npm ci
+npm run tauri dev
+# Browser-only sample workspace: npm run dev, then http://127.0.0.1:1420/?demo=1
+npm run check
+npm run test:e2e
+# macOS: npm run tauri build -- --bundles app,dmg
+# Windows: npm run tauri build -- --bundles nsis
+```
+
+The desktop workflow builds, installs, launches, verifies native WebView/Three.js
+rendering, and uninstalls Windows and macOS installers. Signed updates use version
+tags and the repository's release configuration. Google sign-in requires the
+owner's Desktop OAuth client at build time; no recovered credentials are used.
+The feature/validation inventory and remaining release gates are tracked in
+[the rewrite document](docs/tauri/REWRITE.md).
+
+Previews support STEP/STP, IGES/IGS, BREP/BRP, STL, OBJ, and embedded GLB.
+Native SolidWorks files sync normally; per the user's scope decision, previewing
+them requires a supported export for now.
+
+---
+
 # CacheCAD source recovery and maintenance
 
 The `recovered/` directory contains source reconstructed from the original

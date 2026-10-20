@@ -1,0 +1,29 @@
+[package]
+name = "permafrost-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+rusqlite = { version = "0.37", features = ["bundled"] }
+md-5 = "0.10"
+sha2 = "0.10"
+walkdir = "2"
+unicode-normalization = "0.1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream", "multipart"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net", "io-util", "sync", "fs"] }
+tokio-util = { version = "0.7", features = ["io", "rt"] }
+futures-util = "0.3"
+url = "2"
+base64 = "0.22"
+rand = "0.9"
+keyring = { version = "3", features = ["apple-native", "windows-native"] }
+open = "5"
+tempfile = "3"
+
+[dev-dependencies]
+wiremock = "0.6"

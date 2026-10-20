@@ -1,0 +1,16 @@
+Permafrost CAD previews use Three.js (MIT) and occt-import-js (LGPL-2.1),
+which includes Open CASCADE Technology (LGPL-2.1 with the Open CASCADE exception).
+
+The reader is distributed as separate, unmodified JavaScript/WASM files under
+occt/. Reader source, build instructions and replacement binaries:
+https://github.com/kovacsv/occt-import-js/tree/main
+https://github.com/Open-Cascade-SAS/OCCT
+
+You may replace the local reader files with a compatible version. Permafrost does
+not restrict reverse engineering needed to debug modifications to LGPL parts.
+See the included LGPL license and Open CASCADE exception.
+
+Three.js: https://github.com/mrdoob/three.js/blob/dev/LICENSE
+React: https://github.com/facebook/react/blob/main/LICENSE
+Lucide: https://github.com/lucide-icons/lucide/blob/main/LICENSE
+Tauri: https://github.com/tauri-apps/tauri
