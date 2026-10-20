@@ -370,7 +370,8 @@ The optimized GLB rendered through the production Three.js viewer in Chromium in
 conversion and rendering evidence, not an end-to-end Permafrost STEP improvement.
 The desktop now integrates this route for STEP/STP, IGES/IGS, and BREP/BRP.
 `tooling/cad/build.mjs` builds a self-contained PyInstaller directory from
-hash-pinned Python 3.12 wheels, including native OpenCascade 7.9.3.1 without VTK.
+hash-pinned Python 3.12 wheels, including native OpenCascade 8.0.1 (OCP
+8.0.1.1.0) without VTK.
 It adds about 240 MB before installer compression on Apple Silicon. Native builds
 must run on their target architecture. The browser-only harness retains its WASM
 reader. STL/OBJ continue through their existing mesh worker.
@@ -412,3 +413,27 @@ The reviewed download then produced a local STEP with the same inode and SHA-256
 as the original preview cache entry, and removed that cache entry: direct evidence
 of promotion rather than a second body download. Reopening after a full app restart
 rendered the same assembly and retained the GLB inode and modification timestamp.
+
+The bundled converter now uses OpenCascade 8.0.1 with the same linear/angular
+deflection, repair defaults, name/color import, and merged GLB output. A controlled
+comparison on that M2, using the same local source, Python 3.12.7, fresh processes
+and warm filesystem caches, measured five interleaved conversions per kernel:
+
+| Kernel | Median process duration | Range | GLB bytes |
+| --- | ---: | ---: | ---: |
+| 7.9.3 | 19.023 s | 18.633–19.478 s | 11,446,020 |
+| 8.0.1 | 15.662 s | 15.388–15.842 s | 11,443,824 |
+
+This is a 17.7% reduction in conversion time, including process startup and exit;
+it excludes Drive, source-cache verification, Rust snapshotting and display.
+Both outputs preserve the same 409 assembly nodes, 392 mesh groups, and identical
+per-mesh bounds. The newer mesher produces 1,860,732 triangles; both outputs render
+in the production Three.js component. Separately measured initial Chromium
+software-WebGL display took 2.134 s and 2.225 s respectively. Three runs each with
+coarser linear deflection or reduced repair settings on 7.9.3 saved only about
+0.4 s, so those experimental settings are not used. No commercial SDK was measured.
+
+The OCCT 8 migration updates collection bindings, bounding-box access and face
+casts. The converter protocol and source-content cache key also change, so
+existing 7.9.3 GLBs cannot conceal the upgrade. Verified original STEP downloads
+remain reusable through their independent source cache.

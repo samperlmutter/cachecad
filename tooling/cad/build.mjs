@@ -115,7 +115,7 @@ run(python, args);
 const protocol = spawnSync(executable, ["--protocol"], { encoding: "utf8" });
 if (
   protocol.status !== 0 ||
-  protocol.stdout.trim() !== "permafrost-occt-7.9.3-merged-v1"
+  protocol.stdout.trim() !== "permafrost-occt-8.0.1-merged-v1"
 )
   throw Error("The bundled CAD runtime did not start correctly.");
 // Retain redistribution notices alongside the dynamically linked runtime.
@@ -132,7 +132,7 @@ for name in ('cadquery-ocp-novtk','cadquery-ocp-proxy','pyinstaller'):
   if any(s in p.name.lower() for s in ('license','copying','notice')):
    source=d.locate_file(p)
    if source.is_file():shutil.copyfile(source,out/(name+'-'+p.name))
-(out/'sources.json').write_text(json.dumps({'OpenCascade':'https://github.com/Open-Cascade-SAS/OCCT/tree/V7_9_3','OCP':'https://github.com/CadQuery/OCP','build':'https://github.com/CadQuery/ocp-build-system','PyInstaller':'https://github.com/pyinstaller/pyinstaller'},indent=2))
+(out/'sources.json').write_text(json.dumps({'OpenCascade':'https://github.com/Open-Cascade-SAS/OCCT/tree/V8_0_1','OCP':'https://github.com/CadQuery/OCP','build':'https://github.com/CadQuery/ocp-build-system','PyInstaller':'https://github.com/pyinstaller/pyinstaller'},indent=2))
 `,
 ]);
 writeFileSync(

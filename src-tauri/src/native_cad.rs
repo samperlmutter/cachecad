@@ -16,7 +16,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-const PROTOCOL: &str = "permafrost-occt-7.9.3-merged-v1";
+const PROTOCOL: &str = "permafrost-occt-8.0.1-merged-v1";
 const MAX_OUTPUT: u64 = 192 * 1024 * 1024;
 const CACHE_BUDGET: u64 = 1024 * 1024 * 1024;
 const DEADLINE: Duration = Duration::from_secs(120);
@@ -481,6 +481,36 @@ mod tests {
         assert!(second.cached);
         assert_eq!(first.data, second.data);
         assert_eq!(fs::read(&source).unwrap(), original);
+        // An otherwise valid GLB from the previous kernel must not mask the
+        // upgrade. Its source bytes are identical, but its converter key differs.
+        let legacy = tempfile::tempdir().unwrap();
+        let mut digest = Sha256::new();
+        digest.update("permafrost-occt-7.9.3-merged-v1");
+        digest.update([0]);
+        digest.update("step");
+        digest.update([0]);
+        digest.update(&original);
+        let legacy_key = format!("{:x}", digest.finalize());
+        fs::write(legacy.path().join(format!("{legacy_key}.glb")), &first.data).unwrap();
+        let record = Record {
+            size: first.data.len() as u64,
+            sha256: hash(&first.data),
+            used_at: now(),
+        };
+        fs::write(
+            legacy.path().join(format!("{legacy_key}.json")),
+            serde_json::to_vec(&record).unwrap(),
+        )
+        .unwrap();
+        assert!(convert(
+            legacy.path(),
+            &source,
+            "step",
+            &missing,
+            &cancel,
+            progress.clone()
+        )
+        .is_err());
         // Changed bytes must miss, even when the path and file size are equal.
         let changed = root.path().join("changed.step");
         let mut edit = original.clone();

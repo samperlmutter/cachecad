@@ -8,7 +8,7 @@ import sys
 import subprocess
 import signal
 
-PROTOCOL = "permafrost-occt-7.9.3-merged-v1"
+PROTOCOL = "permafrost-occt-8.0.1-merged-v1"
 MAX_SOURCE = 512 * 1024 * 1024
 MAX_OUTPUT = 192 * 1024 * 1024
 MAX_TRIANGLES = 5_000_000
@@ -72,13 +72,13 @@ def convert(source, extension, output):
     from OCP.TDocStd import TDocStd_Document
     from OCP.TCollection import TCollection_ExtendedString, TCollection_AsciiString
     from OCP.XCAFDoc import XCAFDoc_DocumentTool
-    from OCP.TDF import TDF_LabelSequence
+    from OCP.collections import Sequence_TDF_Label
     from OCP.IFSelect import IFSelect_RetDone
     from OCP.Bnd import Bnd_Box
     from OCP.BRepBndLib import BRepBndLib
     from OCP.BRepMesh import BRepMesh_IncrementalMesh
     from OCP.RWGltf import RWGltf_CafWriter
-    from OCP.TColStd import TColStd_IndexedDataMapOfStringString
+    from OCP.collections import IndexedDataMap_TCollection_AsciiString_TCollection_AsciiString
     from OCP.Message import Message_ProgressRange
     from OCP.TopExp import TopExp_Explorer
     from OCP.TopAbs import TopAbs_FACE
@@ -110,7 +110,7 @@ def convert(source, extension, output):
         tool.AddShape(shape, False)
     else:
         raise ValueError("format")
-    labels = TDF_LabelSequence()
+    labels = Sequence_TDF_Label()
     tool.GetFreeShapes(labels)
     if labels.IsEmpty():
         raise ValueError("empty")
@@ -122,7 +122,8 @@ def convert(source, extension, output):
         BRepBndLib.Add_s(shape, bounds, False)
         if bounds.IsVoid():
             raise ValueError("empty")
-        x0, y0, z0, x1, y1, z1 = bounds.Get()
+        low, high = bounds.CornerMin(), bounds.CornerMax()
+        x0, y0, z0, x1, y1, z1 = low.X(), low.Y(), low.Z(), high.X(), high.Y(), high.Z()
         deviation = max(((x1 - x0) + (y1 - y0) + (z1 - z0)) / 3 * .002, 1e-7)
         if not math.isfinite(deviation):
             raise ValueError("bounds")
@@ -131,7 +132,7 @@ def convert(source, extension, output):
             raise ValueError("mesh")
         faces = TopExp_Explorer(shape, TopAbs_FACE)
         while faces.More():
-            face = TopoDS.Face_s(faces.Current())
+            face = TopoDS.Face(faces.Current())
             tessellation = BRep_Tool.Triangulation_s(face, TopLoc_Location())
             if tessellation is not None:
                 triangles += tessellation.NbTriangles()
@@ -143,7 +144,7 @@ def convert(source, extension, output):
     progress("writing")
     writer = RWGltf_CafWriter(TCollection_AsciiString(str(output)), True)
     writer.SetMergeFaces(True)
-    if not writer.Perform(doc, TColStd_IndexedDataMapOfStringString(), Message_ProgressRange()):
+    if not writer.Perform(doc, IndexedDataMap_TCollection_AsciiString_TCollection_AsciiString(), Message_ProgressRange()):
         raise ValueError("export")
     if not 20 <= output.stat().st_size <= MAX_OUTPUT:
         raise ValueError("size")
