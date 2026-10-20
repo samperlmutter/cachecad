@@ -2875,6 +2875,7 @@ dependencies = [
  "base64 0.22.1",
  "futures-util",
  "keyring",
+ "libc",
  "md-5",
  "open",
  "rand 0.9.5",

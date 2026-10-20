@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import WorkspaceBoundary from "./components/WorkspaceBoundary";
 import "./style.css";
 const Harness =
   import.meta.env.DEV &&
@@ -9,12 +10,14 @@ const Harness =
     : null;
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    {Harness ? (
-      <Suspense>
-        <Harness />
-      </Suspense>
-    ) : (
-      <App />
-    )}
+    <WorkspaceBoundary>
+      {Harness ? (
+        <Suspense>
+          <Harness />
+        </Suspense>
+      ) : (
+        <App />
+      )}
+    </WorkspaceBoundary>
   </React.StrictMode>,
 );

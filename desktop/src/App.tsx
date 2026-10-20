@@ -157,7 +157,7 @@ export default function App() {
   const [preview, setPreview] = useState("");
   const [progress, setProgress] = useState<Progress>();
   const [modal, setModal] = useState<
-    "project" | "review" | "remove" | "disconnect" | null
+    "project" | "edit-project" | "review" | "remove" | "disconnect" | null
   >(null);
   const [activity, setActivity] = useState<Activity[]>([]);
   const [update, setUpdate] = useState<Update | null>(null);
@@ -166,7 +166,11 @@ export default function App() {
   const activeProject = useRef(projectId);
   activeProject.current = projectId;
   const localRequest = useRef(0);
+  const scanPending = useRef(false);
   const project = data?.projects.find((p) => p.id === projectId);
+  useEffect(() => {
+    if (modal === "project" || modal === "edit-project") setError("");
+  }, [modal]);
   useEffect(() => {
     if (data) return;
     const timer = setTimeout(() => setOpeningSlowly(true), 5000);
@@ -191,6 +195,7 @@ export default function App() {
     async <T,>(
       label: string,
       task: () => Promise<T>,
+      onCancelled?: () => void,
     ): Promise<T | undefined> => {
       setBusy(label);
       setError("");
@@ -198,7 +203,11 @@ export default function App() {
       try {
         return await task();
       } catch (e) {
-        setError(String(e instanceof Error ? e.message : e));
+        const message = String(e instanceof Error ? e.message : e);
+        if (message === "The operation was cancelled.") {
+          setMessage("Operation cancelled.");
+          onCancelled?.();
+        } else setError(message);
         return undefined;
       } finally {
         if (mounted.current) setBusy("");
@@ -254,21 +263,49 @@ export default function App() {
   }, []);
   const scan = useCallback(
     async (id: string) => {
-      setFreshness("refreshing");
-      setProgress(undefined);
-      const previous = planRef.current;
-      const chosen = selectionRef.current;
-      const result = await run("Refreshing folders", () => api.scan(id));
-      if (result) {
-        setSelected(
-          retainSelection(previous?.actions ?? [], result.actions, chosen),
+      if (scanPending.current) {
+        setRefreshQueued(true);
+        return;
+      }
+      scanPending.current = true;
+      try {
+        setFreshness("refreshing");
+        setProgress(undefined);
+        const previous = planRef.current;
+        const chosen = selectionRef.current;
+        let cancelled = false;
+        const result = await run(
+          "Refreshing folders",
+          () => api.scan(id),
+          () => {
+            cancelled = true;
+          },
         );
-        setPlan(result);
-        setLocalFiles(result.local);
-        setFreshness("fresh");
-        if (demo) setPreview("02 Parts/Mounting bracket.stl");
-      } else {
-        setFreshness("offline");
+        if (activeProject.current !== id) {
+          setRefreshQueued(true);
+          return;
+        }
+        if (result) {
+          setSelected(
+            retainSelection(previous?.actions ?? [], result.actions, chosen),
+          );
+          setPlan(result);
+          setLocalFiles(result.local);
+          setFreshness("fresh");
+          if (demo) setPreview("02 Parts/Mounting bracket.stl");
+        } else {
+          setFreshness(cancelled ? "changed" : "offline");
+          if (cancelled) {
+            setRefreshQueued(false);
+            setMessage(
+              previous
+                ? "Refresh cancelled. Your last complete results are still shown."
+                : "Refresh cancelled. You can still browse local files.",
+            );
+          }
+        }
+      } finally {
+        scanPending.current = false;
       }
     },
     [run],
@@ -462,7 +499,8 @@ export default function App() {
   };
   const navigate = (next: Screen) => {
     setScreen(next);
-    if (next === "activity") void run("Loading activity", refreshActivity);
+    if (next === "activity")
+      void refreshActivity().catch((error) => setError(String(error)));
   };
   const doSync = async () => {
     if (!project || !plan) return;
@@ -971,7 +1009,7 @@ export default function App() {
                     className="icon-button more-button"
                     aria-label="Project options"
                     disabled={!!busy}
-                    onClick={() => setModal("remove")}
+                    onClick={() => setModal("edit-project")}
                   >
                     <MoreHorizontal size={20} />
                   </button>
@@ -1076,7 +1114,7 @@ export default function App() {
                       {plan ? uploadCount : "—"}
                       <small>
                         {" "}
-                        {uploadCount === 1 ? "change" : "changes"} to upload
+                        {uploadCount === 1 ? "change" : "changes"} to apply
                       </small>
                     </strong>
                     <span>Bring your latest work along</span>
@@ -1099,7 +1137,7 @@ export default function App() {
                       {plan ? downloadCount : "—"}
                       <small>
                         {" "}
-                        {downloadCount === 1 ? "change" : "changes"} to download
+                        {downloadCount === 1 ? "change" : "changes"} to apply
                       </small>
                     </strong>
                     <span>Pick up where your team left off</span>
@@ -1171,7 +1209,11 @@ export default function App() {
                   ) : freshness === "offline" ? (
                     "Refresh failed · last known results"
                   ) : freshness === "changed" ? (
-                    "Changes detected · refreshing…"
+                    refreshQueued ? (
+                      "Changes detected · refresh pending"
+                    ) : (
+                      "Scan again to review current changes"
+                    )
                   ) : plan ? (
                     <>
                       <CircleCheck size={13} />
@@ -1506,19 +1548,40 @@ export default function App() {
           )}
         </div>
       </main>
-      {modal === "project" && (
+      {(modal === "project" || modal === "edit-project") && (
         <ProjectDialog
+          initial={modal === "edit-project" ? project : undefined}
           defaultFolder={data?.settings.defaultDriveFolder ?? ""}
           busy={busy}
+          saveError={error}
           onClose={() => setModal(null)}
+          onRemove={() => setModal("remove")}
           onCreate={async (p) => {
-            await run("Connecting project", async () => {
-              await api.saveProject(p);
-              setData((d) => (d ? { ...d, projects: [...d.projects, p] } : d));
-              setProjectId(p.id);
-              setScreen("workspace");
-              setModal(null);
-            });
+            await run(
+              modal === "edit-project"
+                ? "Saving project"
+                : "Connecting project",
+              async () => {
+                await api.saveProject(p);
+                setData((d) =>
+                  d
+                    ? {
+                        ...d,
+                        projects: d.projects.some((at) => at.id === p.id)
+                          ? d.projects.map((at) => (at.id === p.id ? p : at))
+                          : [...d.projects, p],
+                      }
+                    : d,
+                );
+                setProjectId(p.id);
+                setPlan(undefined);
+                setSelected(new Set());
+                setFreshness("changed");
+                setRefreshQueued(p.id === projectId);
+                setScreen("workspace");
+                setModal(null);
+              },
+            );
           }}
         />
       )}
@@ -1594,20 +1657,30 @@ export default function App() {
 }
 
 function ProjectDialog({
+  initial,
   defaultFolder,
   busy,
+  saveError,
   onClose,
+  onRemove,
   onCreate,
 }: {
+  initial?: Project;
   defaultFolder: string;
   busy: string;
+  saveError: string;
   onClose: () => void;
+  onRemove: () => void;
   onCreate: (p: Project) => Promise<void>;
 }) {
-  const [name, setName] = useState("");
-  const [root, setRoot] = useState("");
-  const [drive, setDrive] = useState(defaultFolder);
-  const [readonly, setReadonly] = useState(false);
+  const [name, setName] = useState(initial?.name ?? "");
+  const [root, setRoot] = useState(initial?.localRoot ?? "");
+  const [drive, setDrive] = useState(
+    initial
+      ? `https://drive.google.com/drive/folders/${initial.driveFolderId}`
+      : defaultFolder,
+  );
+  const [readonly, setReadonly] = useState(initial?.readOnly ?? false);
   const [error, setError] = useState("");
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -1618,8 +1691,9 @@ function ProjectDialog({
       );
       return;
     }
+    setError("");
     void onCreate({
-      id: crypto.randomUUID(),
+      id: initial?.id ?? crypto.randomUUID(),
       name: name.trim(),
       localRoot: root,
       driveFolderId: id,
@@ -1627,10 +1701,14 @@ function ProjectDialog({
     });
   };
   return (
-    <Dialog title="Connect a project" onClose={onClose}>
+    <Dialog
+      title={initial ? "Project settings" : "Connect a project"}
+      onClose={onClose}
+    >
       <p className="dialog-description">
-        One local folder. One Google Drive folder. A shared place for your next
-        great build.
+        {initial
+          ? "Rename this project or make it read-only. Your connected folders and sync history stay in place."
+          : "One local folder. One Google Drive folder. A shared place for your next great build."}
       </p>
       <form onSubmit={submit}>
         <label className="field">
@@ -1656,6 +1734,7 @@ function ProjectDialog({
             <button
               type="button"
               className="secondary"
+              disabled={!!initial || !!busy}
               onClick={() =>
                 void api
                   .chooseDirectory()
@@ -1674,11 +1753,16 @@ function ProjectDialog({
           Google Drive folder link
           <input
             value={drive}
+            readOnly={!!initial}
             onChange={(e) => setDrive(e.target.value)}
             placeholder="https://drive.google.com/drive/folders/…"
             required
           />
-          <small>Use an existing folder you have permission to access.</small>
+          <small>
+            {initial
+              ? "To connect different folders, create a new project. This keeps your sync history intact."
+              : "Use an existing folder you have permission to access."}
+          </small>
         </label>
         <label className="checkbox-field">
           <input
@@ -1693,18 +1777,28 @@ function ProjectDialog({
             </small>
           </div>
         </label>
-        {error && (
+        {(error || saveError) && (
           <p className="form-error" role="alert">
-            {error}
+            {error || saveError}
           </p>
         )}
-        <div className="dialog-actions">
+        <div className="dialog-actions project-actions">
+          {initial && (
+            <button
+              type="button"
+              className="remove-project"
+              disabled={!!busy}
+              onClick={onRemove}
+            >
+              Remove project
+            </button>
+          )}
           <button type="button" className="secondary" onClick={onClose}>
             Cancel
           </button>
           <button className="primary" disabled={!!busy}>
-            <Plus size={16} />
-            Connect project
+            {!initial && <Plus size={16} />}
+            {busy ? "Saving…" : initial ? "Save project" : "Connect project"}
           </button>
         </div>
       </form>

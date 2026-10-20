@@ -129,18 +129,77 @@ and removing a disposable local file. The owner subsequently completed Google
 consent. Actual uploads of a STEP file and text file, a byte-verified download,
 automatic remote discovery without pressing Scan, and automatic local revision
 detection passed in the disposable project.
+The native journal confirms 11 completed live operations covering all eight
+action kinds: new uploads/downloads, upload/download revisions, both conflict
+directions, Drive trash, and local removal as part of a remote folder move.
+Replacement backups and downloaded CAD bytes were independently checked. A
+Drive-only STEP preview rendered before the reviewed download promoted its cache.
 
 Ad-hoc rebuilds changed the app's designated requirement and repeatedly requested
 Keychain access. Local development helpers now use a persistent per-machine
-certificate stored in the login Keychain, with only codesign authorized for its
-non-extractable private key. `desktop:setup-signing` creates it once, outside the
-checkout. No trusted root is added and credentials never allow access by arbitrary
+certificate stored in a dedicated development Keychain, with only codesign and
+Apple's signing tools authorized for its non-extractable private key.
+`desktop:setup-signing` creates it once, outside the checkout. Builds unlock that
+Keychain using a random password in a mode-0600 local file and lock it afterward;
+the login Keychain and production credentials are untouched. No trusted root is
+added and Google credentials never allow access by arbitrary
 applications; the owner approves the new specific app identity during migration.
 Both bundled debug builds and Cargo's dev runner sign before launch with the same
 certificate and application identifier. After the owner approved migration of
 the existing credential with Always Allow, restarting the unchanged signed build
-restored the account without another prompt. Production distribution still uses
+restored the account without another prompt. The initial login-Keychain signing
+key still prompted on subsequent signing, so it was replaced by the isolated
+development Keychain. Two different executable fixtures now sign and verify
+without prompts and retain an identical designated requirement. The existing
+Google session's migration to that corrected identity is awaiting owner approval.
+Production distribution still uses
 the separately gated Developer ID identity.
+
+## Hardening follow-up
+
+The owner accepted the rewrite phase and requested chaos testing and a UX audit.
+The complete installer workflow passed on Windows, Apple Silicon, and Intel in
+run `39373561854`, including tampered-update rejection and actual two-version
+signed replacement, restart, native rendering, and removal.
+
+The first follow-up browser run reproduced four issues before fixes: Project
+options had no edit flow; empty meshes and non-finite coordinates were accepted;
+and an unexpected preview setup exception could blank the interface. Regression
+tests now verify editing name/read-only without changing the connection or
+duplicating projects, clear invalid-model errors followed by successful preview,
+and workspace recovery after an injected graphics-resource failure. All 18
+browser tests passed after those fixes.
+
+Filesystem probes also reproduced an indefinitely blocked named-pipe reader and
+an unrelated disconnected project preventing project settings changes. File reads
+now reject special files and final symlinks without blocking; stored project roots
+are canonical and reserve their paths while disconnected. The 31-test core suite
+passes with both regressions. Further stress and native restart checks continue.
+
+Targeted stress checks now pass: 60 seeded navigation actions with injected Drive
+failures and offline events; 20 rapid STL and OBJ replacements with no remaining
+workers; 400 atomic native CAD replacements observed through 800 hash inspections;
+and 128 seeded journal shutdown/reopen cycles preserving completed baselines and
+requiring explicit review of every uncertain operation. STL/OBJ parsing and normal
+generation now run in disposable workers alongside the existing OpenCascade
+worker. Preview setup failures also release already-created renderer resources
+before the recovery screen appears.
+
+Additional failing probes caught a GLB texture leak, cancellation waiting for a
+stalled root-folder metadata request, a duplicate initial scan when connecting a
+project, and Activity navigation replacing the active operation's Cancel state.
+All now have passing targeted regressions. Textures and ImageBitmaps are released
+when a model closes; scans and token refresh waits honor cancellation; refresh
+starts are serialized; and reading Activity no longer owns the operation status.
+Cancelling also clears queued automatic retries and displays a neutral status
+instead of an offline error. Direction cards say changes “to apply” because their
+counts include renames and removals as well as transfers.
+
+The integrated local pass completed 40 Rust tests, 21 frontend unit tests, and all
+23 browser interaction/stress tests, plus the production frontend build and
+Clippy with warnings denied. Settings and recovery screenshots were visually
+reviewed. Native crash/restart and the corrected signing identity's credential
+migration remain waiting for the owner to unlock the Mac and approve its prompt.
 
 
 The first Windows CI installer evidence (commit `4630a59`, run `39367328407`)

@@ -66,14 +66,20 @@ impl Store {
             if other.id == project.id {
                 continue;
             }
-            let root = other.local_root.canonicalize()?;
+            let root = match other.local_root.canonicalize() {
+                Ok(root) => root,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    other.local_root.clone()
+                }
+                Err(error) => return Err(error.into()),
+            };
             if canonical.starts_with(&root) || root.starts_with(&canonical) {
                 return Err(Error::Invalid("Project folders must not overlap.".into()));
             }
         }
         // Editing roots would invalidate every observed version and baseline.
         if let Ok(previous) = self.project(&project.id) {
-            if previous.local_root != project.local_root
+            if previous.local_root != canonical
                 || previous.drive_folder_id != project.drive_folder_id
             {
                 return Err(Error::Invalid(
@@ -81,7 +87,9 @@ impl Store {
                 ));
             }
         }
-        let data = serde_json::to_string(project)?;
+        let mut stored = project.clone();
+        stored.local_root = canonical;
+        let data = serde_json::to_string(&stored)?;
         self.db.execute("INSERT INTO projects(id,position,data) VALUES(?1,(SELECT COALESCE(MAX(position),-1)+1 FROM projects),?2) ON CONFLICT(id) DO UPDATE SET data=excluded.data", params![project.id,data])?;
         Ok(())
     }
@@ -296,10 +304,34 @@ mod tests {
         Project {
             id: "one".into(),
             name: "Assembly".into(),
-            local_root: root.into(),
+            local_root: root.canonicalize().unwrap(),
             drive_folder_id: "folder".into(),
             read_only: false,
         }
+    }
+    #[test]
+    fn a_disconnected_project_does_not_block_other_project_settings() {
+        let directory = tempfile::tempdir().unwrap();
+        let missing = directory.path().join("disconnected");
+        let available = directory.path().join("available");
+        std::fs::create_dir_all(&missing).unwrap();
+        std::fs::create_dir_all(&available).unwrap();
+        let mut store = Store::memory().unwrap();
+        store.save_project(&project(&missing)).unwrap();
+        std::fs::remove_dir(&missing).unwrap();
+        let mut other = project(&available);
+        other.id = "two".into();
+        store.save_project(&other).unwrap();
+        other.name = "Still available".into();
+        other.read_only = true;
+        store.save_project(&other).unwrap();
+        assert_eq!(store.project("two").unwrap(), other);
+        store.remove_project("two").unwrap();
+        // A disconnected child still reserves its path: reconnecting later must
+        // never turn two projects into overlapping roots.
+        other.id = "parent".into();
+        other.local_root = directory.path().into();
+        assert!(store.save_project(&other).is_err());
     }
     #[test]
     fn persistence_and_crash_recovery() {
@@ -351,5 +383,61 @@ mod tests {
             .finish(&op, "completed", "verified", Some("correct"))
             .unwrap();
         assert_eq!(store.baseline("one").unwrap()["part.stl"], "correct");
+    }
+    #[test]
+    fn seeded_shutdowns_preserve_baselines_and_never_replay_uncertain_writes() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("journal.sqlite");
+        let project = project(root.path());
+        Store::open(&path).unwrap().save_project(&project).unwrap();
+        let mut expected = None;
+        let mut seed = 0x5045_524du32;
+        for cycle in 0..128 {
+            seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+            let action = Action {
+                id: format!("action-{cycle}"),
+                path: "assembly.step".into(),
+                kind: ActionKind::UploadRevision,
+                reason: "QA".into(),
+                size: 1,
+                local: None,
+                remote: None,
+            };
+            let mut store = Store::open(&path).unwrap();
+            let operation = store.begin(&project.id, &action).unwrap();
+            let state = seed % 3;
+            let hash = format!("verified-{cycle}");
+            match state {
+                0 => {} // Simulate process loss before recording a result.
+                1 => store
+                    .finish(&operation, "failed", "Injected interrupted transfer", None)
+                    .unwrap(),
+                _ => {
+                    store
+                        .finish(&operation, "completed", "Verified", Some(&hash))
+                        .unwrap();
+                    expected = Some(hash);
+                }
+            }
+            drop(store);
+            let mut store = Store::open(&path).unwrap();
+            assert_eq!(
+                store.baseline(&project.id).unwrap().get("assembly.step"),
+                expected.as_ref()
+            );
+            let activity = store.activity().unwrap();
+            let restored = activity.iter().find(|item| item.id == operation).unwrap();
+            if state == 0 {
+                assert_eq!(restored.state, "uncertain");
+                assert!(store.has_unresolved(&project.id).unwrap());
+                store.resolve(&operation).unwrap();
+            } else {
+                assert_eq!(
+                    restored.state,
+                    if state == 1 { "failed" } else { "completed" }
+                );
+            }
+            assert!(!store.has_unresolved(&project.id).unwrap());
+        }
     }
 }

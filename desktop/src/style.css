@@ -2295,3 +2295,27 @@ dialog::backdrop {
   border-color: #d4e8ee;
   border-top-color: #2abada;
 }
+.workspace-recovery {
+  max-width: 620px;
+  margin: 15vh auto;
+  padding: 36px;
+  border-top: 3px solid #21bde3;
+  background: white;
+  border-radius: 12px;
+}
+.workspace-recovery p {
+  line-height: 1.6;
+  margin: 20px 0 28px;
+}
+.project-actions .remove-project {
+  margin-right: auto;
+  padding-inline: 0;
+  background: transparent;
+  border-color: transparent;
+  color: #52616b;
+  box-shadow: none;
+}
+.project-actions .remove-project:hover {
+  text-decoration: underline;
+  background: transparent;
+}

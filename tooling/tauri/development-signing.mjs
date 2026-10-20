@@ -23,28 +23,53 @@ export function developmentIdentity() {
   return identity;
 }
 export function signDevelopment(target) {
-  const result = spawnSync(
-    "/usr/bin/codesign",
-    [
-      "--force",
-      "--deep",
-      "--sign",
-      developmentIdentity(),
-      "--identifier",
-      "com.permafrost.desktop",
-      "--timestamp=none",
-      "--preserve-metadata=entitlements,flags",
-      target,
-    ],
-    { stdio: "inherit" },
-  );
-  if (result.error || result.status !== 0)
-    throw new Error("Local development signing failed.");
-  const verified = spawnSync(
-    "/usr/bin/codesign",
-    ["--verify", "--deep", "--strict", target],
-    { stdio: "inherit" },
-  );
-  if (verified.error || verified.status !== 0)
-    throw new Error("Local development signature verification failed.");
+  const file = join(signingDirectory, "identity.json");
+  const config = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {};
+  const keychain =
+    !process.env.PERMAFROST_DEV_SIGNING_IDENTITY && config.keychain;
+  if (keychain) {
+    const password = readFileSync(config.passwordFile, "utf8");
+    const unlocked = spawnSync(
+      "/usr/bin/security",
+      ["unlock-keychain", "-p", password, keychain],
+      { stdio: "pipe", timeout: 15000 },
+    );
+    if (unlocked.error || unlocked.status !== 0)
+      throw new Error(
+        "Could not unlock the dedicated development signing Keychain.",
+      );
+  }
+  try {
+    const result = spawnSync(
+      "/usr/bin/codesign",
+      [
+        "--force",
+        "--deep",
+        "--sign",
+        developmentIdentity(),
+        "--identifier",
+        "com.permafrost.desktop",
+        "--timestamp=none",
+        "--preserve-metadata=entitlements,flags",
+        ...(keychain ? ["--keychain", keychain] : []),
+        target,
+      ],
+      { stdio: "inherit", timeout: 30000 },
+    );
+    if (result.error || result.status !== 0)
+      throw new Error("Local development signing failed.");
+    const verified = spawnSync(
+      "/usr/bin/codesign",
+      ["--verify", "--deep", "--strict", target],
+      { stdio: "inherit" },
+    );
+    if (verified.error || verified.status !== 0)
+      throw new Error("Local development signature verification failed.");
+  } finally {
+    if (keychain)
+      spawnSync("/usr/bin/security", ["lock-keychain", keychain], {
+        stdio: "pipe",
+        timeout: 15000,
+      });
+  }
 }

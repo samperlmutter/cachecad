@@ -28,8 +28,9 @@ ignored `google-client-desktop.json` path (or set `PERMAFROST_GOOGLE_CLIENT_FILE
 The desktop helpers load it into the native build without logging its contents.
 On macOS, run `npm run desktop:setup-signing` once. Local debug bundles and dev
 reloads reuse that machine's signing certificate, avoiding new Keychain prompts
-for every rebuild. Approve the initial signing-key request and the one-time saved
-session migration with Always Allow. This local identity stays outside the repo;
+for every rebuild. Its private key lives in a dedicated development Keychain,
+unlocked only while signing. Its random password is held in a mode-0600 local file.
+Approve the one-time saved session migration with Always Allow. This local identity stays outside the repo;
 it does not replace Developer ID signing and notarization for distribution.
 The feature/validation inventory and remaining release gates are tracked in
 [the rewrite document](docs/tauri/REWRITE.md).

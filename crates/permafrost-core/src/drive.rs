@@ -202,6 +202,17 @@ impl Drive {
         root: &str,
         cancel: &CancellationToken,
     ) -> Result<(Tree, BTreeMap<String, String>)> {
+        tokio::select! {
+            biased;
+            _ = cancel.cancelled() => Err(Error::Cancelled),
+            result = self.scan_inner(root, cancel) => result,
+        }
+    }
+    async fn scan_inner(
+        &self,
+        root: &str,
+        cancel: &CancellationToken,
+    ) -> Result<(Tree, BTreeMap<String, String>)> {
         let root_file = self.metadata(root).await?.ok_or_else(incomplete)?;
         if root_file.trashed || root_file.mime_type != FOLDER {
             return Err(Error::Invalid(
@@ -425,6 +436,34 @@ mod tests {
         matchers::{method, path, query_param},
         Mock, MockServer, ResponseTemplate,
     };
+    #[tokio::test]
+    async fn cancellation_interrupts_a_stalled_root_metadata_request() {
+        let server = MockServer::start().await;
+        let drive = Drive::fixture(server.uri());
+        Mock::given(method("GET"))
+            .and(path("/files/root"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_delay(Duration::from_secs(5))
+                    .set_body_json(
+                        serde_json::json!({"id":"root","name":"Root","mimeType":FOLDER}),
+                    ),
+            )
+            .mount(&server)
+            .await;
+        let cancel = CancellationToken::new();
+        let token = cancel.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+            token.cancel();
+        });
+        let result =
+            tokio::time::timeout(Duration::from_millis(250), drive.scan("root", &cancel)).await;
+        assert!(
+            matches!(result, Ok(Err(Error::Cancelled))),
+            "Cancellation waited for the remote metadata timeout: {result:?}"
+        );
+    }
     #[tokio::test]
     async fn failed_or_incomplete_pages_never_publish_partial_listing() {
         let server = MockServer::start().await;

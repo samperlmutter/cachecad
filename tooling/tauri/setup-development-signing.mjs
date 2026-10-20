@@ -5,8 +5,9 @@ import {
   readFileSync,
   existsSync,
   rmSync,
+  renameSync,
 } from "node:fs";
-import { tmpdir, homedir } from "node:os";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -18,8 +19,36 @@ import {
 if (process.platform !== "darwin")
   throw new Error("Local certificate setup is only needed on macOS.");
 const identityFile = join(signingDirectory, "identity.json");
-if (existsSync(identityFile)) {
+if (
+  existsSync(identityFile) &&
+  JSON.parse(readFileSync(identityFile, "utf8")).keychain
+) {
   developmentIdentity();
+  const config = JSON.parse(readFileSync(identityFile, "utf8"));
+  const listed = spawnSync(
+    "/usr/bin/security",
+    ["list-keychains", "-d", "user"],
+    { encoding: "utf8" },
+  );
+  if (listed.status !== 0)
+    throw new Error("Could not read the local Keychain search list.");
+  const paths = listed.stdout
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line.trim()));
+  if (!paths.includes(config.keychain)) {
+    const result = spawnSync("/usr/bin/security", [
+      "list-keychains",
+      "-d",
+      "user",
+      "-s",
+      ...paths,
+      config.keychain,
+    ]);
+    if (result.status !== 0)
+      throw new Error("Could not register the dedicated development Keychain.");
+  }
   console.log(
     "Reusing the existing Permafrost local development signing identity.",
   );
@@ -29,6 +58,11 @@ if (existsSync(identityFile)) {
     join(tmpdir(), "permafrost-development-signing-"),
   );
   const password = randomBytes(32).toString("hex");
+  const unique = randomBytes(8).toString("hex");
+  const keychain = join(signingDirectory, `development-${unique}.keychain-db`);
+  const passwordFile = join(signingDirectory, `keychain-password-${unique}`);
+  let created = false;
+  let saved = false;
   const env = { ...process.env, PERMAFROST_TEMP_IMPORT_PASSWORD: password };
   function run(program, args) {
     const result = spawnSync(program, args, {
@@ -42,6 +76,15 @@ if (existsSync(identityFile)) {
       );
     return result.stdout;
   }
+  const originalSearchList = run("/usr/bin/security", [
+    "list-keychains",
+    "-d",
+    "user",
+  ])
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line.trim()));
   try {
     const key = join(temporary, "key.pem");
     const certificate = join(temporary, "certificate.pem");
@@ -88,18 +131,33 @@ if (existsSync(identityFile)) {
       "-out",
       archive,
     ]);
-    // Restrict this new signing key to Apple's codesign tool. Never broaden the
-    // Google credential ACL, modify other keys, or add a trusted root certificate.
+    // This Keychain contains only this local signing identity. Its random
+    // password stays mode 0600 beside it; builds unlock it only while signing.
+    run("/usr/bin/security", ["create-keychain", "-p", password, keychain]);
+    created = true;
+    run("/usr/bin/security", ["set-keychain-settings", "-lut", "60", keychain]);
+    run("/usr/bin/security", ["unlock-keychain", "-p", password, keychain]);
     run("/usr/bin/security", [
       "import",
       archive,
       "-k",
-      join(homedir(), "Library/Keychains/login.keychain-db"),
+      keychain,
       "-P",
       password,
       "-x",
       "-T",
       "/usr/bin/codesign",
+    ]);
+    // Only this new key is affected. Never modify the login Keychain or the
+    // Google session's access policy, and never add a trusted root certificate.
+    run("/usr/bin/security", [
+      "set-key-partition-list",
+      "-S",
+      "apple-tool:,apple:,codesign:",
+      "-s",
+      "-k",
+      password,
+      keychain,
     ]);
     const fingerprint = run("openssl", [
       "x509",
@@ -117,19 +175,44 @@ if (existsSync(identityFile)) {
       readFileSync(certificate),
       { mode: 0o600 },
     );
+    writeFileSync(passwordFile, password, { mode: 0o600, flag: "wx" });
+    const pending = join(signingDirectory, `identity-${unique}.json`);
     writeFileSync(
-      identityFile,
+      pending,
       JSON.stringify(
-        { identity: fingerprint, name: "Permafrost Local Development" },
+        {
+          identity: fingerprint,
+          name: "Permafrost Local Development",
+          keychain,
+          passwordFile,
+        },
         null,
         2,
       ) + "\n",
       { mode: 0o600, flag: "wx" },
     );
+    renameSync(pending, identityFile);
+    saved = true;
     console.log(
-      "Created the persistent local signing identity. On first signing, approve codesign's request for this key with Always Allow. The private key stays non-extractable in your login Keychain.",
+      "Created a persistent identity in a dedicated local development Keychain. Builds unlock only this signing key. Its private key is non-extractable; production signing and Google credentials are unchanged.",
     );
   } finally {
-    rmSync(temporary, { recursive: true, force: true });
+    try {
+      run("/usr/bin/security", [
+        "list-keychains",
+        "-d",
+        "user",
+        "-s",
+        ...originalSearchList,
+        ...(saved ? [keychain] : []),
+      ]);
+      if (created) run("/usr/bin/security", ["lock-keychain", keychain]);
+      if (created && !saved) {
+        run("/usr/bin/security", ["delete-keychain", keychain]);
+        rmSync(passwordFile, { force: true });
+      }
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
   }
 }

@@ -28,7 +28,7 @@ pub fn read(root: &Path, path: &str) -> Result<Vec<u8>, String> {
 }
 
 pub fn read_file(target: &Path) -> Result<Vec<u8>, String> {
-    let file = std::fs::File::open(target).map_err(|error| {
+    let file = permafrost_core::fs::open_regular(target).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
             "This file is not on your computer yet. Download it before previewing.".to_string()
         } else {

@@ -25,5 +25,8 @@ keyring = { version = "3", features = ["apple-native", "windows-native"] }
 open = "5"
 tempfile = "3"
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 wiremock = "0.6"

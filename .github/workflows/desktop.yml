@@ -90,6 +90,11 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo test --workspace --locked
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Verify stable local signing across rebuilds and the development runner
+        if: runner.os == 'macOS'
+        run: |
+          npm run desktop:setup-signing
+          npm run desktop:verify-signing
       - run: node tooling/tauri/configure-release.mjs
       - run: npm run tauri -- build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - name: Install, render native workspace and Three.js, exit, uninstall

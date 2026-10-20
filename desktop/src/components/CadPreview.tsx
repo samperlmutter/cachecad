@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
-import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Box, Expand, Grid2X2, RotateCcw, Scan, X } from "lucide-react";
 import { previewable } from "../types";
@@ -69,7 +67,8 @@ function fromImported(meshes: ImportedMesh[]): THREE.Group {
   for (const m of meshes) {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(m.position, 3));
-    geometry.setIndex(new THREE.BufferAttribute(m.index, 1));
+    if (m.index.length)
+      geometry.setIndex(new THREE.BufferAttribute(m.index, 1));
     if (m.normal)
       geometry.setAttribute("normal", new THREE.BufferAttribute(m.normal, 3));
     else geometry.computeVertexNormals();
@@ -91,15 +90,35 @@ function fromImported(meshes: ImportedMesh[]): THREE.Group {
   return group;
 }
 function dispose(object: THREE.Object3D) {
+  const geometries = new Set<THREE.BufferGeometry>();
+  const materials = new Set<THREE.Material>();
+  const textures = new Set<THREE.Texture>();
+  const bitmaps = new Set<ImageBitmap>();
   object.traverse((child) => {
     if (child instanceof THREE.Mesh || child instanceof THREE.LineSegments) {
-      child.geometry.dispose();
-      const materials = Array.isArray(child.material)
+      geometries.add(child.geometry);
+      const at = Array.isArray(child.material)
         ? child.material
         : [child.material];
-      materials.forEach((m) => m.dispose());
+      for (const material of at) {
+        materials.add(material);
+        for (const value of Object.values(material)) {
+          if (value instanceof THREE.Texture) {
+            textures.add(value);
+            if (
+              typeof ImageBitmap !== "undefined" &&
+              value.source.data instanceof ImageBitmap
+            )
+              bitmaps.add(value.source.data);
+          }
+        }
+      }
     }
   });
+  geometries.forEach((geometry) => geometry.dispose());
+  materials.forEach((material) => material.dispose());
+  textures.forEach((texture) => texture.dispose());
+  bitmaps.forEach((bitmap) => bitmap.close());
 }
 
 export default function CadPreview({ path, load, sample, onClose }: Props) {
@@ -138,258 +157,329 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
     setWireframe(false);
     setGrid(true);
     setDetails("");
-    const renderer = createPreviewRenderer();
-    progressTimer = setInterval(() => {
-      if (!closed)
-        setElapsed(Math.floor((performance.now() - phaseStarted) / 1000));
-    }, 1000);
-    element.appendChild(renderer.domElement);
-    renderer.domElement.setAttribute("data-preview-renderer", renderer.mode);
-    renderer.domElement.setAttribute("aria-label", `3D preview of ${path}`);
-    renderer.domElement.setAttribute("role", "img");
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100000);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7880, 2.6));
-    const key = new THREE.DirectionalLight(0xffffff, 3.2);
-    key.position.set(100, 180, 120);
-    scene.add(key);
-    const fill = new THREE.DirectionalLight(0xb7d5df, 1.5);
-    fill.position.set(-100, 30, -80);
-    scene.add(fill);
-    const controls = new OrbitControls(
-      camera,
-      renderer.domElement as HTMLElement,
-    );
-    controls.enableDamping = false;
-    const gridHelper = new THREE.GridHelper(320, 16, 0xc5d3d9, 0xe0e8ec);
-    scene.add(gridHelper);
-    const render = () => {
-      if (!closed) renderer.render(scene, camera);
-    };
-    const fit = () => {
-      if (!object) return;
-      const bounds = new THREE.Box3().setFromObject(object);
-      const size = bounds.getSize(new THREE.Vector3());
-      const center = bounds.getCenter(new THREE.Vector3());
-      const radius = Math.max(size.x, size.y, size.z, 0.01);
-      const sphereRadius = size.length() / 2;
-      const verticalFov = THREE.MathUtils.degToRad(camera.fov);
-      const horizontalFov =
-        2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
-      const distance =
-        (sphereRadius * 1.2) /
-        Math.sin(Math.min(verticalFov, horizontalFov) / 2);
-      camera.near = Math.max(radius / 1000, 0.0001);
-      camera.far = radius * 100;
-      camera.position
-        .copy(center)
-        .add(
-          new THREE.Vector3(1, 0.8, 1.25).normalize().multiplyScalar(distance),
-        );
-      camera.updateProjectionMatrix();
-      controls.target.copy(center);
-      controls.minDistance = radius / 20;
-      controls.maxDistance = radius * 12;
-      controls.update();
-      gridHelper.position.y = bounds.min.y - radius * 0.04;
-      gridHelper.scale.setScalar(radius / 120);
-      render();
-    };
-    reset.current = fit;
-    changeWireframe.current = (enabled) => {
-      object?.traverse((child) => {
-        if (child instanceof THREE.Mesh)
-          for (const material of Array.isArray(child.material)
-            ? child.material
-            : [child.material])
-            if ("wireframe" in material) material.wireframe = enabled;
-      });
-      render();
-    };
-    changeGrid.current = (enabled) => {
-      gridHelper.visible = enabled;
-      render();
-    };
-    const resizeViewport = () => {
-      const { width, height } = element.getBoundingClientRect();
-      if (width && height) {
-        renderer.setSize(width, height);
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        render();
-      }
-    };
-    // A reused mesh can mount before ResizeObserver's first callback. Size the
-    // camera now so its initial fit uses the viewport's actual aspect ratio.
-    resizeViewport();
-    const resize = new ResizeObserver(resizeViewport);
-    resize.observe(element);
-    controls.addEventListener("change", render);
-    const onLost = (event: Event) => {
-      event.preventDefault();
-      setError("The graphics context was lost. Close and reopen this preview.");
-    };
-    renderer.domElement.addEventListener("webglcontextlost", onLost);
-    const mount = (model: THREE.Object3D) => {
-      if (closed) {
-        dispose(model);
-        return;
-      }
-      let triangles = 0;
-      let parts = 0;
-      model.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          const positions = child.geometry.getAttribute("position");
-          if (!positions || positions.count > 15000000)
-            throw new Error("The model is too large to preview.");
-          triangles += (child.geometry.index?.count ?? positions.count) / 3;
-          parts++;
-        }
-      });
-      if (triangles > renderer.maxTriangles) {
-        dispose(model);
-        throw new Error(
-          "Software preview supports up to 50,000 triangles. Enable graphics acceleration or export a simpler model.",
-        );
-      }
-      object = model;
-      scene.add(model);
-      fit();
-      renderer.domElement.setAttribute("data-preview-ready", "true");
-      setDetails(
-        `${renderer.mode === "software-svg" ? "Software preview · " : ""}${parts} ${parts === 1 ? "body" : "bodies"} · ${Math.round(triangles).toLocaleString()} triangles`,
-      );
-      finishProgress();
-    };
-    void (async () => {
-      try {
-        if (sample) {
-          mount(sampleBracket());
-          return;
-        }
-        if (!load) throw new Error("Select a local file to preview it.");
-        phase("Loading file…");
-        const buffer = await load();
-        if (closed) return;
-        if (buffer.byteLength > PREVIEW_BYTE_LIMIT)
-          throw new Error(
-            "This file exceeds the 512 MiB preview limit. Export a lighter model.",
-          );
-        const extension = path.split(".").pop()!.toLowerCase();
-        if (["step", "stp", "iges", "igs", "brep", "brp"].includes(extension)) {
-          phase("Preparing model…");
-          // Hash before transferring the source buffer. A revision at the same
-          // path must never reuse stale geometry; hashing failure only skips reuse.
-          const cacheKey = await cadMeshKey(buffer, extension).catch(
-            () => undefined,
-          );
-          if (closed) return;
-          const cached = cacheKey ? cadMeshCache.get(cacheKey) : undefined;
-          if (cached) {
-            mount(fromImported(cached));
-            return;
-          }
-          phase("Starting OpenCascade…");
-          worker = new Worker("/occt-worker.js");
-          timer = setTimeout(() => {
-            worker?.terminate();
-            if (!closed) {
-              setError(
-                "The model took too long to process. Try a simpler export.",
-              );
-              finishProgress();
-            }
-          }, 60000);
-          worker.onmessage = ({ data }) => {
-            if (closed) return;
-            if (data.phase === "import") {
-              phase("Reading and tessellating model…");
-              return;
-            }
-            if (data.phase === "meshes") {
-              phase("Preparing model for display…");
-              return;
-            }
-            clearTimeout(timer);
-            worker?.terminate();
-            if (data.error) {
-              setError(data.error);
-              finishProgress();
-            } else {
-              try {
-                mount(fromImported(data.meshes));
-                if (cacheKey) cadMeshCache.put(cacheKey, data.meshes);
-              } catch (e) {
-                setError(previewError(e));
-                finishProgress();
-              }
-            }
-          };
-          worker.onerror = () => {
-            clearTimeout(timer);
-            worker?.terminate();
-            if (!closed) {
-              setError(
-                "The CAD reader could not start. Reopen the preview to try again.",
-              );
-              finishProgress();
-            }
-          };
-          worker.postMessage({ buffer, extension }, [buffer]);
-        } else if (extension === "stl") {
-          const geometry = new STLLoader().parse(buffer);
-          geometry.computeVertexNormals();
-          mount(
-            new THREE.Mesh(
-              geometry,
-              new THREE.MeshStandardMaterial({
-                color: 0x72c5dc,
-                metalness: 0.18,
-                roughness: 0.4,
-                side: THREE.DoubleSide,
-              }),
-            ),
-          );
-        } else if (extension === "obj") {
-          const model = new OBJLoader().parse(new TextDecoder().decode(buffer));
-          model.traverse((child) => {
-            if (child instanceof THREE.Mesh)
-              child.material = new THREE.MeshStandardMaterial({
-                color: 0x72c5dc,
-                side: THREE.DoubleSide,
-              });
-          });
-          mount(model);
-        } else {
-          const manager = new THREE.LoadingManager();
-          manager.setURLModifier((url) => {
-            if (url.startsWith("data:") || url.startsWith("blob:")) return url;
-            throw new Error(
-              "Preview models must embed their resources. External URLs are disabled.",
-            );
-          });
-          const model = await new GLTFLoader(manager).parseAsync(buffer, "");
-          mount(model.scene);
-        }
-      } catch (e) {
-        if (!closed) {
-          setError(previewError(e));
-          finishProgress();
-        }
-      }
-    })();
-    return () => {
+    const releases: (() => void)[] = [];
+    const cleanup = () => {
       closed = true;
       clearTimeout(timer);
       clearInterval(progressTimer);
       worker?.terminate();
-      resize.disconnect();
-      controls.dispose();
-      renderer.domElement.removeEventListener("webglcontextlost", onLost);
-      dispose(scene);
-      renderer.dispose();
-      renderer.domElement.remove();
+      for (const release of releases.splice(0).reverse()) {
+        try {
+          release();
+        } catch {
+          /* Release every remaining resource. */
+        }
+      }
     };
+    try {
+      const renderer = createPreviewRenderer();
+      releases.push(() => {
+        renderer.dispose();
+        renderer.domElement.remove();
+      });
+      progressTimer = setInterval(() => {
+        if (!closed)
+          setElapsed(Math.floor((performance.now() - phaseStarted) / 1000));
+      }, 1000);
+      element.appendChild(renderer.domElement);
+      renderer.domElement.setAttribute("data-preview-renderer", renderer.mode);
+      renderer.domElement.setAttribute("aria-label", `3D preview of ${path}`);
+      renderer.domElement.setAttribute("role", "img");
+      const scene = new THREE.Scene();
+      releases.push(() => dispose(scene));
+      const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100000);
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x6a7880, 2.6));
+      const key = new THREE.DirectionalLight(0xffffff, 3.2);
+      key.position.set(100, 180, 120);
+      scene.add(key);
+      const fill = new THREE.DirectionalLight(0xb7d5df, 1.5);
+      fill.position.set(-100, 30, -80);
+      scene.add(fill);
+      const controls = new OrbitControls(
+        camera,
+        renderer.domElement as HTMLElement,
+      );
+      controls.enableDamping = false;
+      releases.push(() => controls.dispose());
+      const gridHelper = new THREE.GridHelper(320, 16, 0xc5d3d9, 0xe0e8ec);
+      scene.add(gridHelper);
+      const render = () => {
+        if (!closed) renderer.render(scene, camera);
+      };
+      const fit = () => {
+        if (!object) return;
+        const bounds = new THREE.Box3().setFromObject(object);
+        const size = bounds.getSize(new THREE.Vector3());
+        const center = bounds.getCenter(new THREE.Vector3());
+        const radius = Math.max(size.x, size.y, size.z, 0.01);
+        const sphereRadius = Math.max(size.length() / 2, 0.005);
+        const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+        const horizontalFov =
+          2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
+        const distance =
+          (sphereRadius * 1.2) /
+          Math.sin(Math.min(verticalFov, horizontalFov) / 2);
+        camera.near = Math.max(radius / 1000, 0.0001);
+        camera.far = radius * 100;
+        camera.position
+          .copy(center)
+          .add(
+            new THREE.Vector3(1, 0.8, 1.25)
+              .normalize()
+              .multiplyScalar(distance),
+          );
+        camera.updateProjectionMatrix();
+        controls.target.copy(center);
+        controls.minDistance = radius / 20;
+        controls.maxDistance = radius * 12;
+        controls.update();
+        gridHelper.position.y = bounds.min.y - radius * 0.04;
+        gridHelper.scale.setScalar(radius / 120);
+        render();
+      };
+      reset.current = fit;
+      changeWireframe.current = (enabled) => {
+        object?.traverse((child) => {
+          if (child instanceof THREE.Mesh)
+            for (const material of Array.isArray(child.material)
+              ? child.material
+              : [child.material])
+              if ("wireframe" in material) material.wireframe = enabled;
+        });
+        render();
+      };
+      changeGrid.current = (enabled) => {
+        gridHelper.visible = enabled;
+        render();
+      };
+      const resizeViewport = () => {
+        if (closed) return;
+        const { width, height } = element.getBoundingClientRect();
+        if (width && height) {
+          renderer.setSize(width, height);
+          camera.aspect = width / height;
+          camera.updateProjectionMatrix();
+          render();
+        }
+      };
+      // A reused mesh can mount before ResizeObserver's first callback. Size the
+      // camera now so its initial fit uses the viewport's actual aspect ratio.
+      resizeViewport();
+      const resize = new ResizeObserver(resizeViewport);
+      releases.push(() => resize.disconnect());
+      resize.observe(element);
+      controls.addEventListener("change", render);
+      const onLost = (event: Event) => {
+        event.preventDefault();
+        setError(
+          "The graphics context was lost. Close and reopen this preview.",
+        );
+      };
+      renderer.domElement.addEventListener("webglcontextlost", onLost);
+      releases.push(() =>
+        renderer.domElement.removeEventListener("webglcontextlost", onLost),
+      );
+      const mount = (model: THREE.Object3D) => {
+        if (closed) {
+          dispose(model);
+          return;
+        }
+        let triangles = 0;
+        let parts = 0;
+        try {
+          model.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              const positions = child.geometry.getAttribute("position");
+              if (!positions || positions.count > 15000000)
+                throw new Error("The model is too large to preview.");
+              for (let i = 0; i < positions.count; i++) {
+                if (
+                  !Number.isFinite(positions.getX(i)) ||
+                  !Number.isFinite(positions.getY(i)) ||
+                  !Number.isFinite(positions.getZ(i))
+                )
+                  throw new Error(
+                    "This model contains invalid coordinates. Export a fresh copy.",
+                  );
+              }
+              const indices = child.geometry.index;
+              if (indices)
+                for (let i = 0; i < indices.count; i++) {
+                  const index = indices.getX(i);
+                  if (
+                    !Number.isInteger(index) ||
+                    index < 0 ||
+                    index >= positions.count
+                  )
+                    throw new Error(
+                      "This model contains invalid triangle indices. Export a fresh copy.",
+                    );
+                }
+              const count = indices?.count ?? positions.count;
+              if (count % 3 !== 0)
+                throw new Error(
+                  "This model contains incomplete triangles. Export a fresh copy.",
+                );
+              triangles +=
+                (count / 3) *
+                (child instanceof THREE.InstancedMesh ? child.count : 1);
+              if (count) parts++;
+            }
+          });
+          if (!triangles)
+            throw new Error(
+              "This model contains no renderable triangles. Export a mesh or solid.",
+            );
+          model.updateWorldMatrix(true, true);
+          const bounds = new THREE.Box3().setFromObject(model);
+          if (
+            ![
+              ...bounds.min.toArray(),
+              ...bounds.max.toArray(),
+              bounds.getSize(new THREE.Vector3()).length(),
+            ].every(Number.isFinite)
+          )
+            throw new Error(
+              "This model contains invalid coordinates. Export a fresh copy.",
+            );
+        } catch (error) {
+          dispose(model);
+          throw error;
+        }
+        if (triangles > renderer.maxTriangles) {
+          dispose(model);
+          throw new Error(
+            "Software preview supports up to 50,000 triangles. Enable graphics acceleration or export a simpler model.",
+          );
+        }
+        object = model;
+        scene.add(model);
+        fit();
+        renderer.domElement.setAttribute("data-preview-ready", "true");
+        setDetails(
+          `${renderer.mode === "software-svg" ? "Software preview · " : ""}${parts} ${parts === 1 ? "body" : "bodies"} · ${Math.round(triangles).toLocaleString()} ${triangles === 1 ? "triangle" : "triangles"}`,
+        );
+        finishProgress();
+      };
+      void (async () => {
+        try {
+          if (sample) {
+            mount(sampleBracket());
+            return;
+          }
+          if (!load) throw new Error("Select a local file to preview it.");
+          phase("Loading file…");
+          const buffer = await load();
+          if (closed) return;
+          if (buffer.byteLength > PREVIEW_BYTE_LIMIT)
+            throw new Error(
+              "This file exceeds the 512 MiB preview limit. Export a lighter model.",
+            );
+          const extension = path.split(".").pop()!.toLowerCase();
+          const useOpenCascade = [
+            "step",
+            "stp",
+            "iges",
+            "igs",
+            "brep",
+            "brp",
+          ].includes(extension);
+          if (useOpenCascade || extension === "stl" || extension === "obj") {
+            phase("Preparing model…");
+            // Hash before transferring the source buffer. A revision at the same
+            // path must never reuse stale geometry; hashing failure only skips reuse.
+            const cacheKey = await cadMeshKey(buffer, extension).catch(
+              () => undefined,
+            );
+            if (closed) return;
+            const cached = cacheKey ? cadMeshCache.get(cacheKey) : undefined;
+            if (cached) {
+              mount(fromImported(cached));
+              return;
+            }
+            phase(
+              useOpenCascade
+                ? "Starting OpenCascade…"
+                : "Starting mesh reader…",
+            );
+            worker = useOpenCascade
+              ? new Worker("/occt-worker.js")
+              : new Worker(new URL("../mesh-worker.ts", import.meta.url), {
+                  type: "module",
+                });
+            timer = setTimeout(() => {
+              worker?.terminate();
+              if (!closed) {
+                setError(
+                  "The model took too long to process. Try a simpler export.",
+                );
+                finishProgress();
+              }
+            }, 60000);
+            worker.onmessage = ({ data }) => {
+              if (closed) return;
+              if (data.phase === "import") {
+                phase(
+                  useOpenCascade
+                    ? "Reading and tessellating model…"
+                    : "Reading mesh…",
+                );
+                return;
+              }
+              if (data.phase === "meshes") {
+                phase("Preparing model for display…");
+                return;
+              }
+              clearTimeout(timer);
+              worker?.terminate();
+              if (data.error) {
+                setError(data.error);
+                finishProgress();
+              } else {
+                try {
+                  mount(fromImported(data.meshes));
+                  if (cacheKey) cadMeshCache.put(cacheKey, data.meshes);
+                } catch (e) {
+                  setError(previewError(e));
+                  finishProgress();
+                }
+              }
+            };
+            worker.onerror = () => {
+              clearTimeout(timer);
+              worker?.terminate();
+              if (!closed) {
+                setError(
+                  "The CAD reader could not start. Reopen the preview to try again.",
+                );
+                finishProgress();
+              }
+            };
+            worker.postMessage({ buffer, extension }, [buffer]);
+          } else {
+            const manager = new THREE.LoadingManager();
+            manager.setURLModifier((url) => {
+              if (url.startsWith("data:") || url.startsWith("blob:"))
+                return url;
+              throw new Error(
+                "Preview models must embed their resources. External URLs are disabled.",
+              );
+            });
+            const model = await new GLTFLoader(manager).parseAsync(buffer, "");
+            mount(model.scene);
+          }
+        } catch (e) {
+          if (!closed) {
+            setError(previewError(e));
+            finishProgress();
+          }
+        }
+      })();
+      return cleanup;
+    } catch (error) {
+      cleanup();
+      throw error;
+    }
   }, [path, load, sample, supported]);
   return (
     <section className="preview-panel" aria-label="CAD preview">

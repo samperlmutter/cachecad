@@ -75,8 +75,13 @@ impl Backend {
             token,
         ))
     }
-    async fn drive(&self) -> ApiResult<Drive> {
-        Drive::new(self.auth.lock().await.access_token().await.map_err(err)?).map_err(err)
+    async fn drive(&self, cancel: &CancellationToken) -> ApiResult<Drive> {
+        let token = tokio::select! {
+            biased;
+            _ = cancel.cancelled() => return Err(Error::Cancelled.to_string()),
+            token = async { self.auth.lock().await.access_token().await } => token.map_err(err)?,
+        };
+        Drive::new(token).map_err(err)
     }
 }
 #[derive(Serialize)]
@@ -176,7 +181,7 @@ async fn scan_project(state: State<'_, Backend>, project_id: String) -> ApiResul
     let project = lock(&state.store)?.project(&project_id).map_err(err)?;
     let baseline = lock(&state.store)?.baseline(&project_id).map_err(err)?;
     let generation = *lock(&state.generations)?.get(&project_id).unwrap_or(&0);
-    let drive = state.drive().await?;
+    let drive = state.drive(&cancel).await?;
     let (cached, verified_at) = lock(&state.scan_cache)?
         .get(&project_id)
         .filter(|cached| cached.verified_at.elapsed() < std::time::Duration::from_secs(900))
@@ -226,7 +231,7 @@ async fn execute_sync(
         .remove(&project_id)
         .filter(|p| p.id == plan_id)
         .ok_or_else(|| Error::Stale.to_string())?;
-    let drive = state.drive().await?;
+    let drive = state.drive(&cancel).await?;
     transfer::execute(
         &state.store,
         &drive,
@@ -326,7 +331,7 @@ async fn read_preview(
             .ok_or_else(|| Error::Stale.to_string())?;
         (entry, parent)
     };
-    let drive = state.drive().await?;
+    let drive = state.drive(&cancel).await?;
     let cached =
         permafrost_core::preview_cache::fetch(&drive, &project, &expected, &parent, &cancel)
             .await

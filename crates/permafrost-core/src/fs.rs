@@ -127,9 +127,36 @@ fn timestamp(meta: &std::fs::Metadata) -> Result<String> {
     }
 }
 
+/// Open a regular file without waiting for a pipe producer or following a
+/// replaced final symlink. Callers still validate the project path separately.
+pub fn open_regular(path: &Path) -> std::io::Result<File> {
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        // FILE_FLAG_OPEN_REPARSE_POINT: inspect the link itself rather than its target.
+        options.custom_flags(0x0020_0000);
+    }
+    let file = options.open(path)?;
+    let metadata = file.metadata()?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Choose a regular file; links and special files cannot be read.",
+        ));
+    }
+    Ok(file)
+}
+
 pub fn inspect(root: &Path, relative: &str, cancel: &CancellationToken) -> Result<Option<Entry>> {
     let path = safe_path(root, relative)?;
-    let mut file = match File::open(&path) {
+    let mut file = match open_regular(&path) {
         Ok(f) => f,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(e) => return Err(e.into()),
@@ -271,6 +298,98 @@ fn scan_inner(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn atomic_cad_save_storm_never_returns_mixed_file_contents() {
+        use std::sync::{Arc, Barrier};
+        let root = tempfile::tempdir().unwrap();
+        let first = vec![0x31; 8192];
+        let second = vec![0x82; 16384];
+        let hashes = [
+            format!("{:x}", Md5::digest(&first)),
+            format!("{:x}", Md5::digest(&second)),
+        ];
+        std::fs::write(root.path().join("assembly.sldprt"), &first).unwrap();
+        let directory = root.path().to_path_buf();
+        let barrier = Arc::new(Barrier::new(2));
+        let writer_barrier = barrier.clone();
+        let writer = std::thread::spawn(move || {
+            writer_barrier.wait();
+            for cycle in 0..400 {
+                std::fs::write(
+                    directory.join("save.tmp"),
+                    if cycle % 2 == 0 { &first } else { &second },
+                )
+                .unwrap();
+                std::fs::rename(
+                    directory.join("save.tmp"),
+                    directory.join("assembly.sldprt"),
+                )
+                .unwrap();
+                std::thread::yield_now();
+            }
+        });
+        barrier.wait();
+        for _ in 0..800 {
+            match inspect(root.path(), "assembly.sldprt", &CancellationToken::new()) {
+                Ok(Some(entry)) => assert!(
+                    (entry.size == 8192 && entry.md5 == hashes[0])
+                        || (entry.size == 16384 && entry.md5 == hashes[1]),
+                    "A reported snapshot mixed different CAD save generations: {entry:?}"
+                ),
+                Err(Error::Stale | Error::Io(_)) | Ok(None) => {}
+                other => panic!("Unexpected scanner outcome: {other:?}"),
+            }
+        }
+        writer.join().unwrap();
+        let final_entry = inspect(root.path(), "assembly.sldprt", &CancellationToken::new())
+            .unwrap()
+            .unwrap();
+        assert_eq!(final_entry.md5, hashes[1]);
+        let cancel = CancellationToken::new();
+        cancel.cancel();
+        assert!(matches!(
+            inspect(root.path(), "assembly.sldprt", &cancel),
+            Err(Error::Cancelled)
+        ));
+    }
+    #[cfg(unix)]
+    #[test]
+    fn a_named_pipe_cannot_hang_file_inspection() {
+        use std::{os::unix::fs::OpenOptionsExt, sync::mpsc, time::Duration};
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("pipe.step");
+        assert!(std::process::Command::new("mkfifo")
+            .arg(&path)
+            .status()
+            .unwrap()
+            .success());
+        let directory = root.path().to_path_buf();
+        let (sender, receiver) = mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            sender
+                .send(inspect(&directory, "pipe.step", &CancellationToken::new()))
+                .unwrap();
+        });
+        let first = receiver.recv_timeout(Duration::from_millis(250));
+        if first.is_err() {
+            // Release the old blocking open so the regression fails cleanly.
+            let _writer = std::fs::OpenOptions::new()
+                .write(true)
+                .custom_flags(libc::O_NONBLOCK)
+                .open(&path)
+                .unwrap();
+            assert!(receiver
+                .recv_timeout(Duration::from_secs(2))
+                .unwrap()
+                .is_err());
+        }
+        thread.join().unwrap();
+        assert!(
+            first.is_ok(),
+            "A special file blocked the reader before cancellation could be checked"
+        );
+        assert!(first.unwrap().is_err());
+    }
     #[test]
     fn rejects_nonportable_paths() {
         for path in [
