@@ -212,7 +212,7 @@
       "baseline": "recovered/core/sync_analyzer.py",
       "maintained": "maintained/core/sync_analyzer.py",
       "baseline_sha256": "625e5604cbe7510e9741c24faf675a3177f1d584e31b1fe7e12e188f8ed6430b",
-      "maintained_sha256": "4d7a53d4d4b6de3867c0622e5a94470bd4b64b46b8375a9c6af7a2f870cb02c2",
+      "maintained_sha256": "f73955d9b7d9826f2ed76a37bb0d6af3eca6d7c3c7c771288535d7f4bfecc084",
       "changed_functions": [
         "SyncAnalyzer.__init__",
         "SyncAnalyzer._check_ready",
@@ -259,7 +259,7 @@
       "baseline": "recovered/core/sync_executor.py",
       "maintained": "maintained/core/sync_executor.py",
       "baseline_sha256": "f56c886c5d950511163412d30c660efe17a2d0710b8fc7600bc942b5267f0d83",
-      "maintained_sha256": "1102ae3464a4afdc22328bbeffd554f36b5eeb98f5fa8ae011b54038335bc6fd",
+      "maintained_sha256": "01f6587673f530cce07af16b286d5810a7a738255749d0bce8dc5eb35142ec8f",
       "changed_functions": [
         "SyncExecutor.__init__",
         "SyncExecutor._delete_cloud",
@@ -385,7 +385,7 @@
       "origin": "Immutable observed-version consent and fresh pre-write validation; residual check/write race",
       "regression_tests": "tests/test_maintained_sync_consent.py; tests/test_destructive_review.py",
       "status": "new_reviewed_helper",
-      "maintained_sha256": "dea8bcb54c1e71f6cbe25681f721ad9cff4a698f7edb2bb17b84f6ad1a2467ba"
+      "maintained_sha256": "9b517bd7e1dec4bacf85c1368d74dbd8b4f9f9af6100e43b11ed712ab96a0106"
     },
     {
       "module": "core.sync_history",
@@ -446,7 +446,7 @@
     {
       "module": "gui.transfer_results",
       "maintained": "maintained/gui/transfer_results.py",
-      "maintained_sha256": "d8b6295cfb65db9a91654851068e9863ad60f14cb798e638c42b9a63fb183042",
+      "maintained_sha256": "1dc8c830906e7287d6ffdb605a4d414d4f0c5f3617c320ee613df6dad0b0d310",
       "origin": "Plain-text per-action mutation outcomes and local recovery evidence",
       "regression_tests": "tests/test_transfer_results_ui.py",
       "status": "new_reviewed_helper"

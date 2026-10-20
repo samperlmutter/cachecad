@@ -11,6 +11,32 @@ RUNTIME = os.environ.get('CACHECAD_RUNTIME_PYTHON')
 
 @unittest.skipUnless((ROOT / 'maintained/gui/transfer_results.py').is_file(), 'Maintained sources absent')
 class TransferResultsTests(unittest.TestCase):
+    def test_successful_batch_is_presented_as_success(self):
+        python = RUNTIME or sys.executable
+        script = r"""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd() / 'maintained'))
+from PySide6.QtWidgets import QApplication, QLabel, QPlainTextEdit
+from gui.transfer_results import TransferResultsDialog
+app = QApplication([])
+dialog = TransferResultsDialog([dict(path='part.step', action='download_new',
+    outcome='committed', warnings=(), error_type=None)])
+assert dialog.windowTitle() == 'Sync complete', dialog.windowTitle()
+assert dialog.findChild(QLabel).text() == '1 file synchronized successfully.'
+text = dialog.findChild(QPlainTextEdit, 'transferOutcomeDetails').toPlainText()
+assert 'SUCCESS' in text and 'Warning:' not in text and 'Failure category:' not in text
+print('clean-transfer-dialog-pass')
+"""
+        probe = subprocess.run([python, '-c', 'import PySide6'], capture_output=True)
+        if probe.returncode:
+            self.skipTest('Reviewed Qt runtime unavailable')
+        result = subprocess.run([python, '-c', script], cwd=ROOT,
+            env=dict(os.environ, QT_QPA_PLATFORM='offscreen'),
+            text=True, capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('clean-transfer-dialog-pass', result.stdout)
+
     def test_actual_dialog_preserves_warnings_and_cancellation_uncertainty(self):
         python = RUNTIME or sys.executable
         script = r'''

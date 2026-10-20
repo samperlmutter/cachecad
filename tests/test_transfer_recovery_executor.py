@@ -225,6 +225,41 @@ class CommittedTransferRecoveryTests(unittest.TestCase):
         self.assertTrue(result['warnings'])
         self.copies(fixture, result)
 
+    def test_uploads_accept_system_temporary_directory_alias(self):
+        # macOS commonly returns /var/... while /var points to /private/var.
+        # Reproduce that system-temp spelling with disposable fixture paths.
+        real_directory = tempfile.TemporaryDirectory
+        for kind in ('upload_new', 'upload_revision'):
+            with self.subTest(kind=kind):
+                fixture = self.fixture(kind)
+                canonical = fixture.folder / 'canonical-temp'
+                canonical.mkdir()
+                alias = fixture.folder / 'system-temp-alias'
+                try:
+                    alias.symlink_to(canonical, target_is_directory=True)
+                except (OSError, NotImplementedError):
+                    self.skipTest('OS does not permit fixture directory aliases')
+
+                def temporary_directory(*args, **kwargs):
+                    kwargs['dir'] = str(alias)
+                    return real_directory(*args, **kwargs)
+
+                def uploaded(path, parent, index, existing_id):
+                    staged = Path(path)
+                    self.assertEqual(staged, staged.resolve(strict=True))
+                    self.assertEqual(staged.read_bytes(), fixture.local_bytes)
+                    self.assertEqual((parent, index), ('project-id', 3))
+                    return existing_id or 'new-file-id', fixtures.digest(fixture.local_bytes)
+
+                fixture.drive.upload_file.side_effect = uploaded
+                with patch.object(tempfile, 'TemporaryDirectory', temporary_directory):
+                    fixture.run_action(kind)
+                result = self.result(fixture, 'committed')
+                fixture.drive.upload_file.assert_called_once()
+                self.assertEqual(fixture.path.read_bytes(), fixture.local_bytes)
+                self.assertEqual((Path(result['recovery_dir']) / 'incoming.bin').read_bytes(),
+                                 fixture.local_bytes)
+
     def test_lost_upload_response_is_unknown_and_not_retried(self):
         fixture = self.fixture('upload_revision')
         fixture.drive.upload_file.return_value = (None, None)

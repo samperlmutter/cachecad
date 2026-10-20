@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "kind": "offline scanner and explicit identity-only sign-in development; placeholder assets; no vendor assets",
+  "kind": "offline scanner and explicit identity-only sign-in development; authored icon assets; no vendor assets",
   "files": [
     {
       "source": "development/README.md",
       "destination": "development/README.md",
-      "sha256": "3b396a9b2c12cee8e4b95cafd0bad6b2287a52cc554cef6ab332284e11d0c17f"
+      "sha256": "d3ac95f77d59b7d46f9631d0d8ba64a36a9d9a791577649aff451e457275c552"
     },
     {
       "source": "development/launch.py",
@@ -15,12 +15,12 @@
     {
       "source": "development/build_resources.py",
       "destination": "development/build_resources.py",
-      "sha256": "f0c303331fe06a92ac8f73f94b8a67dcc6572f4e59334cdd43d5be7271e64d0f"
+      "sha256": "2b7b5b459d15d1a1a7f6ba7f8ef8479676d40f42285568f6434f3f663c8e0a97"
     },
     {
       "source": "development/resources_rc.py",
       "destination": "development/resources_rc.py",
-      "sha256": "214591910072339b87fa244fbe38756cbc6c443c1b2e76da2049daf76646afbb"
+      "sha256": "e40b17c85b33d0b7818f9bb8c84f995b759d3f8f930a6b789f8568b84a9b4ba3"
     },
     {
       "source": "requirements/runtime-linux.in",

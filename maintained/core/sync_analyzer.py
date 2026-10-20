@@ -237,7 +237,7 @@ class SyncAnalyzer(QObject):
             modified_by = cloud_item.modified_by
             modified_time = cloud_item.modified_time
             if log_entry:
-                if log_entry.get('md5') == md5 and not self.read_only:
+                if log_entry.get('md5') == md5 and self.read_only in (False, 'False'):
                     actions.append(SyncAction(path=path, action=SyncActionType.DELETE_CLOUD, reason='missing_local', size=size, md5_checksum=md5, parent_id=parent_id, modified_by=modified_by, modified_time='', drive_id=drive_id))
                 else:
                     actions.append(SyncAction(path=path, action=SyncActionType.DOWNLOAD_NEW, reason='cloud_only_changed', size=size, md5_checksum=md5, parent_id=parent_id, modified_by=modified_by, modified_time=modified_time, drive_id=drive_id))

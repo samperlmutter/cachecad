@@ -66,14 +66,18 @@ Do not run unreviewed code, plug-ins, real credentials or user projects through 
 The teardown removes the disposable profile only after both application pools
 finish; a timeout preserves it instead of racing active workers.
 
-## Placeholder resources
+## Authored icon resources
 
-`build_resources.py` authors a neutral checkerboard PNG and a one-frame GIF from
-scratch, then uses official pinned Qt 6.9.2 `pyside6-rcc` to map the resource aliases
+`build_resources.py` draws simple, distinct 24px icons with Qt's image painter
+and authors two eight-frame loading GIFs. The familiar gear, folder, refresh,
+cloud, computer and transfer-status symbols replace the earlier shared
+checkerboard placeholder. Drawing uses no fonts, SVG plug-ins or display server.
+It then uses official pinned Qt 6.9.2 `pyside6-rcc` to preserve all resource aliases
 used by the GUI. Fixed source timestamps make the generated `resources_rc.py`
-byte-reproducible. No vendor image, sponsor artwork, animation or font bytes are
-included. The original font-loading code uses its existing system-font fallback.
-The development window title makes the offline mode explicit.
+byte-reproducible with the pinned Qt runtime. Both development and application
+payloads use the same resources. No vendor image, sponsor artwork, animation or
+font bytes are included. The original font-loading code uses its existing
+system-font fallback.
 
 The original recovered entrypoint and production branding remain separate.
 This is a runnable development source workflow, not a rebuilt Windows installer.

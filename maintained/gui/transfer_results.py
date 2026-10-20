@@ -6,7 +6,7 @@ from gui.destructive_confirmation import display_value
 LABELS = {
     'not_started': 'NOT COMMITTED: no destination mutation was entered',
     'unknown': 'OUTCOME UNKNOWN: do not repeat the write until reviewed',
-    'committed': 'COMMITTED: destination mutation confirmed; review any warnings below',
+    'committed': 'SUCCESS: destination change confirmed',
     'committed_recording_failed': 'COMMITTED, RECORDING INCOMPLETE: do not repeat the write',
 }
 
@@ -14,13 +14,25 @@ LABELS = {
 class TransferResultsDialog(QDialog):
     def __init__(self, results, parent=None, *, context=None):
         super().__init__(parent)
-        self.setWindowTitle('Transfer results and recovery')
+        results = tuple(results)
+        clean_success = bool(results) and all(
+            result.get('outcome') == 'committed' and not result.get('warnings')
+            and not result.get('error_type') and not result.get('cancelled')
+            for result in results)
+        self.setWindowTitle('Sync complete' if clean_success else 'Transfer results and recovery')
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.resize(760, 480)
         layout = QVBoxLayout(self)
-        label = QLabel('Some files may have changed even if another action failed. '
+        if clean_success:
+            count = len(results)
+            summary = f'{count} file{"s" if count != 1 else ""} synchronized successfully.'
+        elif results:
+            summary = ('Some files may have changed even if another action failed. '
                        'Keep recovery files until you have checked the result. '
-                       'No automatic retry or recovery overwrites are performed.', self)
+                       'No automatic retry or recovery overwrites are performed.')
+        else:
+            summary = 'No transfer result has been recorded in this session.'
+        label = QLabel(summary, self)
         label.setTextFormat(Qt.PlainText)
         label.setWordWrap(True)
         layout.addWidget(label)
