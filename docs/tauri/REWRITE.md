@@ -44,14 +44,15 @@ credentials or bearer tokens cross into the WebView. CAD processing stays local.
 The owner supplied an approved Google Desktop OAuth client in the ignored
 `google-client-desktop.json`. Native development builds load it without logging
 its contents; CI receives distributor configuration through repository variables
-and secrets. Live consent and disposable Drive testing remain outstanding.
+and secrets. Live consent, upload, download, and automatic local/remote refresh
+have passed against a generated disposable Drive project; extended tests continue.
 Apple Developer ID/notarization credentials remain unconfigured. Native SolidWorks
 parsing is deferred by user direction.
 The owner chose development ad-hoc signing for now; production signing is deferred.
 Google's current consent flow shows an unverified-app notice for the supplied
 Desktop client. The owner approved continuing that notice, granting identity and
 Drive access, and testing generated files in a disposable QA folder. The remaining
-live test requires an unlocked Mac for the browser consent flow.
+live test uses only generated files in the QA project.
 Browser consent has a ten-minute deadline and a visible, cancellable waiting status.
 These are genuine configuration/validation requirements. Never embed recovered
 credentials, generate a pretend login, or describe companion STEP/STL exports as
@@ -124,7 +125,22 @@ and controlled with native computer use. Verified: Permafrost black/white/cyan
 branding, model controls, saving/restoring a tray preference, sanitized diagnostic
 export, native folder selection, offline project creation, actual STEP import
 (1 body, 12 triangles), and automatic UI updates for creating, editing, renaming,
-and removing a disposable local file. This does not validate live Google grants.
+and removing a disposable local file. The owner subsequently completed Google
+consent. Actual uploads of a STEP file and text file, a byte-verified download,
+automatic remote discovery without pressing Scan, and automatic local revision
+detection passed in the disposable project.
+
+Ad-hoc rebuilds changed the app's designated requirement and repeatedly requested
+Keychain access. Local development helpers now use a persistent per-machine
+certificate stored in the login Keychain, with only codesign authorized for its
+non-extractable private key. `desktop:setup-signing` creates it once, outside the
+checkout. No trusted root is added and credentials never allow access by arbitrary
+applications; the owner approves the new specific app identity during migration.
+Both bundled debug builds and Cargo's dev runner sign before launch with the same
+certificate and application identifier. After the owner approved migration of
+the existing credential with Always Allow, restarting the unchanged signed build
+restored the account without another prompt. Production distribution still uses
+the separately gated Developer ID identity.
 
 
 The first Windows CI installer evidence (commit `4630a59`, run `39367328407`)

@@ -132,6 +132,7 @@ function statusOf(actions: Action[]) {
 
 export default function App() {
   const [data, setData] = useState<Bootstrap>();
+  const [openingSlowly, setOpeningSlowly] = useState(false);
   const [projectId, setProjectId] = useState("");
   const [screen, setScreen] = useState<Screen>("workspace");
   const [plan, setPlan] = useState<Plan>();
@@ -166,6 +167,11 @@ export default function App() {
   activeProject.current = projectId;
   const localRequest = useRef(0);
   const project = data?.projects.find((p) => p.id === projectId);
+  useEffect(() => {
+    if (data) return;
+    const timer = setTimeout(() => setOpeningSlowly(true), 5000);
+    return () => clearTimeout(timer);
+  }, [data]);
   const actions = useMemo(
     () => (plan?.projectId === projectId ? groupRenames(plan.actions) : []),
     [plan, projectId],
@@ -817,7 +823,11 @@ export default function App() {
               ) : (
                 <>
                   <LoaderCircle className="spin" />
-                  <p>Opening your workspace…</p>
+                  <p>
+                    {openingSlowly
+                      ? "Waiting for your saved session. If your system asks, allow Permafrost to access its credentials."
+                      : "Opening your workspace…"}
+                  </p>
                 </>
               )}
             </div>
