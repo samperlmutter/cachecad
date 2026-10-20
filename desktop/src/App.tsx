@@ -67,6 +67,7 @@ import {
   type Progress,
   type Project,
   type Settings,
+  type Entry,
 } from "./types";
 import Dialog from "./components/Dialog";
 const CadPreview = lazy(() => import("./components/CadPreview"));
@@ -124,10 +125,19 @@ export default function App() {
   const [projectId, setProjectId] = useState("");
   const [screen, setScreen] = useState<Screen>("workspace");
   const [plan, setPlan] = useState<Plan>();
+  const [localFiles, setLocalFiles] = useState<Record<string, Entry>>({});
+  const [freshness, setFreshness] = useState<
+    "fresh" | "changed" | "refreshing" | "offline"
+  >("changed");
+  const [refreshQueued, setRefreshQueued] = useState(false);
+  const planRef = useRef(plan);
+  planRef.current = plan;
+  const selectionRef = useRef(new Set<string>());
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [selected, setSelected] = useState(new Set<string>());
+  selectionRef.current = selected;
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"changes" | "files">("changes");
@@ -196,14 +206,45 @@ export default function App() {
   }, []);
   const scan = useCallback(
     async (id: string) => {
-      setPlan(undefined);
-      setSelected(new Set());
+      setFreshness("refreshing");
       setProgress(undefined);
-      await run("Scanning folders", async () => {
-        const result = await api.scan(id);
+      const previous = planRef.current;
+      const chosen = selectionRef.current;
+      const result = await run("Refreshing folders", () => api.scan(id));
+      if (result) {
+        setSelected(
+          new Set(
+            result.actions
+              .filter((next) =>
+                previous?.actions.some(
+                  (old) =>
+                    chosen.has(old.id) &&
+                    old.path === next.path &&
+                    old.kind === next.kind &&
+                    JSON.stringify(old.local) === JSON.stringify(next.local) &&
+                    JSON.stringify(old.remote) === JSON.stringify(next.remote),
+                ),
+              )
+              .map((a) => a.id),
+          ),
+        );
         setPlan(result);
+        setLocalFiles(result.local);
+        setFreshness("fresh");
         if (demo) setPreview("02 Parts/Mounting bracket.stl");
-      });
+      } else {
+        setFreshness("offline");
+      }
+    },
+    [run],
+  );
+  const browse = useCallback(
+    async (id: string) => {
+      const files = await run("Reading local files", () => api.localFiles(id));
+      if (files) {
+        setLocalFiles(files);
+        setFreshness("fresh");
+      }
     },
     [run],
   );
@@ -211,9 +252,77 @@ export default function App() {
     setPreview("");
     setFilter("all");
     setQuery("");
-    if (projectId && data?.account) void scan(projectId);
-    else setPlan(undefined);
-  }, [projectId, data?.account?.subject, scan]);
+    setPlan(undefined);
+    setLocalFiles({});
+    setSelected(new Set());
+    setFreshness("changed");
+    if (projectId) {
+      if (data?.account) void scan(projectId);
+      else {
+        setTab("files");
+        void browse(projectId);
+      }
+    }
+  }, [projectId, data?.account?.subject, scan, browse]);
+  const currentRef = useRef({
+    projectId,
+    hasAccount: !!data?.account,
+    createdAt: plan?.createdAt ?? 0,
+  });
+  currentRef.current = {
+    projectId,
+    hasAccount: !!data?.account,
+    createdAt: plan?.createdAt ?? 0,
+  };
+  useEffect(() => {
+    const refresh = () => {
+      if (currentRef.current.projectId) setRefreshQueued(true);
+    };
+    const due = () => {
+      if (currentRef.current.hasAccount && navigator.onLine) refresh();
+    };
+    const focus = () => {
+      if (Date.now() / 1000 - currentRef.current.createdAt > 30) due();
+    };
+    const offline = () => setFreshness("offline");
+    window.addEventListener("online", refresh);
+    window.addEventListener("offline", offline);
+    window.addEventListener("focus", focus);
+    const removers: Promise<() => void>[] = [];
+    if (native) {
+      removers.push(
+        listen<string[]>("local-change", (event) => {
+          if (event.payload.includes(currentRef.current.projectId)) {
+            setFreshness("changed");
+            setModal((m) => (m === "review" ? null : m));
+            refresh();
+          }
+        }),
+      );
+      removers.push(listen("remote-refresh-due", due));
+      removers.push(
+        listen<string>("watcher-warning", (event) => setError(event.payload)),
+      );
+    }
+    // The native timer continues while the app is in the tray. This fallback
+    // also makes the browser's explicit sample workspace refresh predictably.
+    const timer = !native ? setInterval(due, 60000) : undefined;
+    return () => {
+      clearInterval(timer);
+      removers.forEach((p) => void p.then((stop) => stop()));
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("offline", offline);
+      window.removeEventListener("focus", focus);
+    };
+  }, []);
+  useEffect(() => {
+    if (!refreshQueued || busy || modal || !projectId) return;
+    setRefreshQueued(false);
+    if (data?.account) {
+      if (navigator.onLine) void scan(projectId);
+      else setFreshness("offline");
+    } else void browse(projectId);
+  }, [refreshQueued, busy, modal, projectId, data?.account, scan, browse]);
   const checkUpdates = useCallback(async () => {
     if (!data?.updaterConfigured) {
       setUpdateMessage(
@@ -319,11 +428,12 @@ export default function App() {
     () =>
       [
         ...new Set([
+          ...Object.keys(localFiles),
           ...Object.keys(plan?.local ?? {}),
           ...Object.keys(plan?.remote ?? {}),
         ]),
       ].sort(),
-    [plan],
+    [plan, localFiles],
   );
   const rows = useMemo(
     () =>
@@ -357,7 +467,12 @@ export default function App() {
   const loadPreview = useMemo(
     () =>
       project && preview ? () => api.preview(project.id, preview) : undefined,
-    [project?.id, preview],
+    [
+      project?.id,
+      preview,
+      (localFiles[preview] ?? plan?.local[preview])?.modified,
+      (localFiles[preview] ?? plan?.local[preview])?.size,
+    ],
   );
   const allSelectable = actions.filter((a) => !conflict(a.kind));
   const selectAll = () =>
@@ -734,9 +849,9 @@ export default function App() {
                   >
                     <RefreshCw
                       size={16}
-                      className={busy === "Scanning folders" ? "spin" : ""}
+                      className={busy === "Refreshing folders" ? "spin" : ""}
                     />
-                    {busy === "Scanning folders"
+                    {busy === "Refreshing folders"
                       ? "Scanning…"
                       : "Scan for changes"}
                   </button>
@@ -923,7 +1038,13 @@ export default function App() {
                   </button>
                 </div>
                 <span className="scan-time">
-                  {plan ? (
+                  {freshness === "refreshing" ? (
+                    "Refreshing local + Drive…"
+                  ) : freshness === "offline" ? (
+                    "Refresh failed · last known results"
+                  ) : freshness === "changed" ? (
+                    "Changes detected · refreshing…"
+                  ) : plan ? (
                     <>
                       <CircleCheck size={13} />
                       Scanned{" "}
@@ -932,10 +1053,12 @@ export default function App() {
                         minute: "2-digit",
                       })}
                     </>
-                  ) : busy === "Scanning folders" ? (
+                  ) : busy === "Refreshing folders" ? (
                     "Comparing both folders…"
+                  ) : data.account ? (
+                    "Live local watching · Drive refreshes every minute"
                   ) : (
-                    "Scan to see the latest files"
+                    "Live local watching · Sign in to refresh Drive"
                   )}
                 </span>
               </div>
@@ -996,7 +1119,10 @@ export default function App() {
                         const hasConflict = at.some((a) => conflict(a.kind));
                         const chosen = at.find((a) => selected.has(a.id));
                         const first = at[0];
-                        const entry = plan?.local[path] ?? plan?.remote[path];
+                        const entry =
+                          plan?.local[path] ??
+                          plan?.remote[path] ??
+                          localFiles[path];
                         return (
                           <div
                             key={path}
@@ -1053,7 +1179,7 @@ export default function App() {
                                 ) : (
                                   <>
                                     <Check size={12} />
-                                    Synced
+                                    {plan ? "Synced" : "Local"}
                                   </>
                                 )}
                               </span>
@@ -1093,7 +1219,7 @@ export default function App() {
                       })
                     ) : (
                       <div className="files-empty">
-                        {busy === "Scanning folders" ? (
+                        {busy === "Refreshing folders" ? (
                           <>
                             <LoaderCircle size={28} className="spin" />
                             <strong>Getting the full picture</strong>
@@ -1192,7 +1318,7 @@ export default function App() {
                 ) : (
                   <button
                     className="primary"
-                    disabled={!selected.size || !plan}
+                    disabled={!selected.size || !plan || freshness !== "fresh"}
                     onClick={() => setModal("review")}
                   >
                     Review & sync

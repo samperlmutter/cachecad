@@ -70,3 +70,23 @@ installed applications depend on the corresponding public key for future updates
 Stable `v2.*` version-tag pushes build and verify native installers, create signed
 update artifacts and `latest.json`, then publish only after all platform gates pass.
 No release tag has been created as part of initial branch development.
+
+
+## Live freshness and native UI checks
+
+Native recursive folder watchers debounce CAD saves (350 ms quiet period,
+2 second maximum batch). Content events invalidate cached sync plans immediately.
+Lock files and Permafrost staging/backups are excluded. Hash-free local browsing
+works while signed out; selected model previews reload when local metadata changes.
+A native 60-second timer requests a Drive refresh while the application is open,
+including in the tray. Reconnection and returning to the app request an earlier
+refresh. Operations never overlap; changes arriving mid-operation queue a refresh.
+Failed refreshes retain the last successful results and disable sync until fresh.
+Only unchanged conflict selections survive a successful refreshed plan.
+
+On the local Mac, the actual `tauri build --debug --bundles app` bundle was opened
+and controlled with native computer use. Verified: Permafrost black/white/cyan
+branding, model controls, saving/restoring a tray preference, sanitized diagnostic
+export, native folder selection, offline project creation, actual STEP import
+(1 body, 12 triangles), and automatic UI updates for creating, editing, renaming,
+and removing a disposable local file. This does not validate live Google grants.

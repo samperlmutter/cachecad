@@ -1,3 +1,4 @@
+mod watch;
 use permafrost_core::{
     auth::{Account, Auth, OAuthConfig},
     drive::Drive,
@@ -42,6 +43,8 @@ struct Backend {
     auth: AsyncMutex<Auth>,
     restored: AsyncMutex<bool>,
     plans: Mutex<HashMap<String, Plan>>,
+    generations: Mutex<HashMap<String, u64>>,
+    watchers: Mutex<watch::WatchSet>,
     gate: Arc<Semaphore>,
     cancel: Arc<Mutex<Option<CancellationToken>>>,
     profile: PathBuf,
@@ -120,20 +123,30 @@ async fn sign_out(state: State<'_, Backend>, revoke: bool) -> ApiResult<()> {
     }
 }
 #[tauri::command]
-fn save_project(state: State<'_, Backend>, mut project: Project) -> ApiResult<()> {
+fn save_project(
+    state: State<'_, Backend>,
+    app: tauri::AppHandle,
+    mut project: Project,
+) -> ApiResult<()> {
     let (_operation, _) = state.begin()?;
     project.local_root = project.local_root.canonicalize().map_err(err)?;
     lock(&state.store)?.save_project(&project).map_err(err)?;
     lock(&state.plans)?.clear();
+    watch::refresh(&app);
     Ok(())
 }
 #[tauri::command]
-fn remove_project(state: State<'_, Backend>, project_id: String) -> ApiResult<()> {
+fn remove_project(
+    state: State<'_, Backend>,
+    app: tauri::AppHandle,
+    project_id: String,
+) -> ApiResult<()> {
     let (_operation, _) = state.begin()?;
     lock(&state.store)?
         .remove_project(&project_id)
         .map_err(err)?;
     lock(&state.plans)?.clear();
+    watch::refresh(&app);
     Ok(())
 }
 #[tauri::command]
@@ -152,6 +165,7 @@ async fn scan_project(state: State<'_, Backend>, project_id: String) -> ApiResul
     lock(&state.plans)?.clear();
     let project = lock(&state.store)?.project(&project_id).map_err(err)?;
     let baseline = lock(&state.store)?.baseline(&project_id).map_err(err)?;
+    let generation = *lock(&state.generations)?.get(&project_id).unwrap_or(&0);
     let drive = state.drive().await?;
     let root = project.local_root.clone();
     let local_cancel = cancel.clone();
@@ -168,6 +182,10 @@ async fn scan_project(state: State<'_, Backend>, project_id: String) -> ApiResul
         .record_equal(&project.id, &local, &remote)
         .map_err(err)?;
     let plan = planner::plan(&project, local, remote, &baseline, folders);
+    let current = lock(&state.generations)?;
+    if *current.get(&project_id).unwrap_or(&0) != generation {
+        return Err(Error::Stale.to_string());
+    }
     lock(&state.plans)?.insert(project_id, plan.clone());
     Ok(plan)
 }
@@ -235,6 +253,18 @@ fn open_drive(state: State<'_, Backend>, project_id: String) -> ApiResult<()> {
         p.drive_folder_id
     ))
     .map_err(err)
+}
+#[tauri::command]
+async fn list_local_files(state: State<'_, Backend>, project_id: String) -> ApiResult<Tree> {
+    let (_operation, cancel) = state.begin()?;
+    let root = lock(&state.store)?
+        .project(&project_id)
+        .map_err(err)?
+        .local_root;
+    tauri::async_runtime::spawn_blocking(move || permafrost_core::fs::browse(&root, &cancel))
+        .await
+        .map_err(err)?
+        .map_err(err)
 }
 #[tauri::command]
 async fn read_preview(
@@ -367,6 +397,8 @@ pub fn run() {
                 })?),
                 restored: AsyncMutex::new(false),
                 plans: Mutex::new(HashMap::new()),
+                generations: Mutex::new(HashMap::new()),
+                watchers: Mutex::new(watch::WatchSet::default()),
                 gate: Arc::new(Semaphore::new(1)),
                 cancel: Arc::new(Mutex::new(None)),
                 profile,
@@ -375,6 +407,9 @@ pub fn run() {
                 updater_configured,
             };
             app.manage(backend);
+            if !smoke {
+                watch::start(app.handle().clone());
+            }
             let show =
                 tauri::menu::MenuItem::with_id(app, "show", "Open Permafrost", true, None::<&str>)?;
             let quit =
@@ -459,6 +494,7 @@ pub fn run() {
             reveal_project,
             open_drive,
             read_preview,
+            list_local_files,
             export_diagnostics,
             native_ready
         ])

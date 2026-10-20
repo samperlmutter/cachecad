@@ -8,6 +8,7 @@ import type {
   Account,
   Report,
   Activity,
+  Entry,
 } from "./types";
 import { demoBootstrap, demoPlan } from "./demo";
 export const demo =
@@ -26,6 +27,8 @@ async function command<T>(
   switch (name) {
     case "bootstrap":
       return structuredClone(sample) as T;
+    case "list_local_files":
+      return demoPlan(String(args?.projectId)).local as T;
     case "scan_project":
       return demoPlan(String(args?.projectId)) as T;
     case "save_project": {
@@ -61,6 +64,8 @@ async function command<T>(
 }
 export const api = {
   bootstrap: () => command<Bootstrap>("bootstrap"),
+  localFiles: (projectId: string) =>
+    command<Record<string, Entry>>("list_local_files", { projectId }),
   scan: (projectId: string) => command<Plan>("scan_project", { projectId }),
   saveProject: (project: Project) => command<void>("save_project", { project }),
   removeProject: (projectId: string) =>

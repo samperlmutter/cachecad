@@ -135,6 +135,12 @@ pub fn ignored(name: &str) -> bool {
 }
 
 pub fn scan(root: &Path, cancel: &CancellationToken) -> Result<Tree> {
+    scan_inner(root, cancel, true)
+}
+pub fn browse(root: &Path, cancel: &CancellationToken) -> Result<Tree> {
+    scan_inner(root, cancel, false)
+}
+fn scan_inner(root: &Path, cancel: &CancellationToken, hash_content: bool) -> Result<Tree> {
     if !root.is_dir() {
         return Err(Error::Invalid(
             "The local project folder is unavailable. Reconnect it before scanning.".into(),
@@ -176,7 +182,20 @@ pub fn scan(root: &Path, cancel: &CancellationToken) -> Result<Tree> {
             ));
         }
         if entry.file_type().is_file() {
-            let file = inspect(root, &path, cancel)?.ok_or(Error::Stale)?;
+            let file = if hash_content {
+                inspect(root, &path, cancel)?.ok_or(Error::Stale)?
+            } else {
+                let meta = std::fs::metadata(safe_path(root, &path)?)?;
+                Entry {
+                    path: path.clone(),
+                    size: meta.len(),
+                    md5: String::new(),
+                    modified: timestamp(&meta)?,
+                    remote_id: None,
+                    version: None,
+                    modified_by: None,
+                }
+            };
             result.insert(path, file);
         }
     }
@@ -205,6 +224,14 @@ mod tests {
         }
         assert!(validate_relative("Assembly/Bracket v2.step").is_ok());
         assert_eq!(identity("BÄR.step"), identity("ba\u{308}r.STEP"));
+    }
+    #[test]
+    fn offline_browsing_lists_real_models_without_hashing_their_contents() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("model.step"), b"model content").unwrap();
+        let entries = browse(root.path(), &CancellationToken::new()).unwrap();
+        assert_eq!(entries["model.step"].size, 13);
+        assert!(entries["model.step"].md5.is_empty());
     }
     #[test]
     fn scan_hashes_and_ignores_locks() {
