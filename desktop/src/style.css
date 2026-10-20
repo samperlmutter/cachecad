@@ -938,6 +938,20 @@ select {
   font-size: 10px;
   color: var(--text-secondary, #657179);
 }
+.operation-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 11px;
+  color: #4c6670;
+}
+.operation-status > span {
+  max-width: 220px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .preview-panel {
   background: #f4f4f4;
   border: 1px solid #e5e5e5;

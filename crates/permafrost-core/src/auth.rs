@@ -177,7 +177,7 @@ impl Auth {
         })?;
         let code = tokio::select! {
             _ = cancel.cancelled() => return Err(Error::Cancelled),
-            result = tokio::time::timeout(Duration::from_secs(180), callback(&listener, &state)) => result.map_err(|_| Error::Invalid("Google sign-in timed out. Try again.".into()))??,
+            result = tokio::time::timeout(Duration::from_secs(600), callback(&listener, &state)) => result.map_err(|_| Error::Invalid("Google sign-in timed out. Try again.".into()))??,
         };
         let response = self
             .client
