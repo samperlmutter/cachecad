@@ -131,3 +131,7 @@ execution independently rehashes every selected file, and a complete hash pass i
 forced at least every 15 minutes of remote refreshes. Watcher errors discard cached
 hashes and plans. Native watcher maintenance runs every 10 seconds to reconnect
 removed, replaced or unavailable project roots without restarting the application.
+Content events evict affected cached paths and directory descendants even if a
+writer preserves timestamps. Coarse root events evict the whole project cache.
+Generation, cache and plan invalidation share scan completion's lock order, so a
+concurrent scan cannot reinsert hashes after an event invalidates them.

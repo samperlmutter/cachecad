@@ -48,19 +48,50 @@ fn root_identity(root: &Path) -> Option<String> {
         Some(format!("{:?}", meta.created().ok()?))
     }
 }
-fn invalidate(app: &tauri::AppHandle, id: &str, discard_cache: bool) {
+fn invalidate(app: &tauri::AppHandle, id: &str, changed: Option<(&Event, &Path)>) {
     let state = app.state::<Backend>();
+    // Use the same generation → cache → plan lock order as scan completion, so
+    // an in-flight scan cannot reinsert hashes after the event evicted them.
     if let Ok(mut generations) = state.generations.lock() {
-        *generations.entry(id.into()).or_default() += 1;
-    }
-    if let Ok(mut plans) = state.plans.lock() {
-        plans.remove(id);
-    }
-    if discard_cache {
         if let Ok(mut cache) = state.scan_cache.lock() {
-            cache.remove(id);
+            if let Some((event, root)) = changed {
+                if let Some(cached) = cache.get_mut(id) {
+                    evict_changed(&mut cached.files, event, root);
+                }
+            } else {
+                cache.remove(id);
+            }
         }
+        *generations.entry(id.into()).or_default() += 1;
+        if let Ok(mut plans) = state.plans.lock() {
+            plans.remove(id);
+        }
+    };
+}
+fn evict_changed(files: &mut permafrost_core::Tree, event: &Event, root: &Path) {
+    let mut changed = Vec::new();
+    for path in &event.paths {
+        let Ok(relative) = path.strip_prefix(root) else {
+            files.clear();
+            return;
+        };
+        if relative.as_os_str().is_empty() {
+            files.clear();
+            return;
+        }
+        let relative = relative
+            .iter()
+            .map(|p| p.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join("/");
+        changed.push(permafrost_core::fs::identity(&relative));
     }
+    files.retain(|path, _| {
+        let path = permafrost_core::fs::identity(path);
+        !changed
+            .iter()
+            .any(|p| path == *p || path.starts_with(&format!("{p}/")))
+    });
 }
 impl WatchSet {
     fn replace(&mut self, app: &tauri::AppHandle, projects: Vec<Project>) {
@@ -93,12 +124,12 @@ impl WatchSet {
             let watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
                 match result {
                     Ok(event) if relevant(&event, &root) => {
-                        invalidate(&handle, &id, false);
+                        invalidate(&handle, &id, Some((&event, &root)));
                         let _ = channel.send(id.clone());
                     }
                     Err(_) => {
                         flag.store(true, Ordering::SeqCst);
-                        invalidate(&handle, &id, true);
+                        invalidate(&handle, &id, None);
                         let _ = channel.send(id.clone());
                         let _=handle.emit("watcher-warning","Local watching was interrupted. Permafrost is reconnecting and will verify files again.");
                     }
@@ -110,7 +141,7 @@ impl WatchSet {
                 Ok(w)
             }) {
                 Ok(w) => {
-                    invalidate(app, &project.id, true);
+                    invalidate(app, &project.id, None);
                     let _ = sender.send(project.id.clone());
                     self.handles.insert(project.id, (w, identity, broken));
                 }
@@ -173,6 +204,44 @@ pub fn start(app: tauri::AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn file_and_directory_events_evict_hashes_even_when_timestamps_are_preserved() {
+        let root = Path::new("/project");
+        let mut files = permafrost_core::Tree::new();
+        for path in ["Parts/one.step", "Parts/two.step", "Drawing.pdf"] {
+            files.insert(
+                path.into(),
+                permafrost_core::Entry {
+                    path: path.into(),
+                    size: 1,
+                    md5: "cached".into(),
+                    modified: "unchanged".into(),
+                    remote_id: None,
+                    version: None,
+                    modified_by: None,
+                },
+            );
+        }
+        evict_changed(
+            &mut files,
+            &Event::new(EventKind::Any).add_path(root.join("Parts/one.step")),
+            root,
+        );
+        assert!(!files.contains_key("Parts/one.step"));
+        assert!(files.contains_key("Parts/two.step"));
+        evict_changed(
+            &mut files,
+            &Event::new(EventKind::Any).add_path(root.join("Parts")),
+            root,
+        );
+        assert_eq!(files.keys().collect::<Vec<_>>(), vec!["Drawing.pdf"]);
+        evict_changed(
+            &mut files,
+            &Event::new(EventKind::Any).add_path(root.to_path_buf()),
+            root,
+        );
+        assert!(files.is_empty());
+    }
     #[test]
     fn native_notifications_observe_an_actual_file_save() {
         let root = tempfile::tempdir().unwrap();
