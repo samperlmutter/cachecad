@@ -15,7 +15,7 @@
     {
       "source": "development/build_resources.py",
       "destination": "development/build_resources.py",
-      "sha256": "2b7b5b459d15d1a1a7f6ba7f8ef8479676d40f42285568f6434f3f663c8e0a97"
+      "sha256": "4ed1d443c58a11c2dad83122aef6e7a18ad1910ffaaf4162952b9d6b388628c1"
     },
     {
       "source": "development/resources_rc.py",

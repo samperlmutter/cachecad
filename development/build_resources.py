@@ -161,7 +161,10 @@ def build(rcc, output):
         (root / 'development.qrc').write_text('<RCC><qresource prefix="/assets">' + entries + '</qresource></RCC>')
         for resource in root.iterdir():
             os.utime(resource, (946684800, 946684800))
-        subprocess.run([str(rcc), '-g', 'python', 'development.qrc', '-o', 'resources_rc.py'], cwd=root, check=True)
+        # Qt's Linux build defaults to zstd, while the reviewed Mac resources use
+        # zlib level 9. Pin both so payloads match on both platforms.
+        subprocess.run([str(rcc), '--compress-algo', 'zlib', '--compress', '9', '-g', 'python',
+                        'development.qrc', '-o', 'resources_rc.py'], cwd=root, check=True)
         raw = (root / 'resources_rc.py').read_bytes()
     output.write_bytes(raw)
 
