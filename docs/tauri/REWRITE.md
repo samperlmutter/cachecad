@@ -308,3 +308,64 @@ Content events evict affected cached paths and directory descendants even if a
 writer preserves timestamps. Coarse root events evict the whole project cache.
 Generation, cache and plan invalidation share scan completion's lock order, so a
 concurrent scan cannot reinsert hashes after an event invalidates them.
+
+## Representative STEP performance (October 20)
+
+The original successful native CAD fixtures were an 8,009-byte STEP cube and
+one-triangle meshes. They established functionality, not large-assembly speed.
+An owner-provided STEP assembly from an existing Drive folder supplies the first
+representative benchmark: 73,050,452 source bytes, 720 rendered bodies, 2,034,428
+triangles, and 68,206,560 bytes of cached mesh buffers. The private file and its
+rendered images stay outside the repository and CI artifacts.
+
+On an Apple M2 with 16 GiB RAM, the opt-in Chromium benchmark measured:
+
+| Stage | Duration |
+| --- | ---: |
+| Initial selection to painted preview | 50.753 s |
+| OpenCascade initialization | 0.036 s |
+| STEP import, tessellation, and reader result construction | 48.809 s |
+| Packing/transferring mesh buffers | 0.244 s |
+| Three.js construction, validation, and initial render | 0.756 s |
+| Immediate reopening, same app session | 0.861 s / 0.815 s |
+
+The benchmark uses the production viewer in the development harness, with
+software WebGL. Timings are captured inside the page; they exclude Drive
+download, Playwright polling, and screenshots. Initial scene construction caused
+a measured 758 ms main-thread long task. The source's download through the
+connector is separate from the app's Drive preview path and is not presented as
+an application download benchmark. Memory caching retains only the latest model;
+it is lost on restart and can be evicted by another preview.
+
+The actual Mac app's Drive-only preview reproduced a processing timeout after
+60 seconds while its interface remained responsive. A temporary three-minute
+budget also timed out, so that experiment was reverted. A native process sample
+after termination showed the worker had stopped and its peak physical footprint
+was about 1.4 GiB. The existing bounded worker path protects the interface, but
+does not make this assembly usable in the Mac app. Chromium's successful import
+must not be presented as proof of native WKWebView performance.
+
+Run the private benchmark locally with `PERMAFROST_STEP_FIXTURE` set to an absolute
+STEP path, then `npm run test:e2e -- --grep 'measure a representative private CAD preview'`.
+Without that environment variable, the private benchmark is skipped. No private
+CAD is required for normal CI.
+
+A separate local native OpenCascade 7.9.3 prototype (not integrated or packaged
+with Permafrost) converted the same source to GLB in 18.052 s: 0.551 s library
+startup, 1.873 s file read, 12.706 s STEP transfer, 2.656 s parallel tessellation,
+and 0.265 s GLB writing. Libraries were warm in the OS cache; the first library
+import during setup took 17.109 s, so this is not a cold installer-startup claim.
+
+The writer's default face-per-primitive output produced 76,863 draw calls and
+overwhelmed the software renderer; that display experiment was stopped. Enabling
+OpenCascade's face merging reduced the output to 392 draw calls and 11,446,020
+bytes. Independent checks verified identical scene hierarchy and SHA-256 equality
+of the actual drawn triangle coordinates for every mesh between both exports
+(1,861,296 triangles). The native kernel/tessellation version differs from the
+current WASM reader; counts are not asserted equal between those two readers.
+
+The optimized GLB rendered through the production Three.js viewer in Chromium in
+2.148 s initially and 0.410 / 0.366 s on immediate reopening. This is separate
+conversion and rendering evidence, not an end-to-end Permafrost STEP improvement.
+The native helper, persistent converted-model cache, cross-platform packaging,
+and installed-app validation would be required before shipping this route.
