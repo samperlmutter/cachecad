@@ -885,7 +885,19 @@ export default function App() {
                 </div>
                 <div className="connection-link">
                   <span />
-                  <RefreshCw size={16} />
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Rescan local and Google Drive folders"
+                    title="Rescan local and Google Drive folders"
+                    disabled={!!busy || !data.account}
+                    onClick={() => void scan(project.id)}
+                  >
+                    <RefreshCw
+                      size={16}
+                      className={busy === "Refreshing folders" ? "spin" : ""}
+                    />
+                  </button>
                   <span />
                 </div>
                 <div>
