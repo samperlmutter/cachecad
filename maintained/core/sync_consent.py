@@ -421,7 +421,8 @@ def staged_revision_upload(consent, action):
     observed = approved_action(consent, action)
     path = project_path(_project_root(consent.snapshot), action[1].path)
     with tempfile.TemporaryDirectory(prefix='cachecad-revision-upload-') as folder:
-        target = Path(folder) / path.name
+        # System temporary roots may have a platform-provided alias.
+        target = Path(folder).resolve(strict=True) / path.name
         if capture_local_version(path, copy_to=target) != observed.local:
             raise StaleSyncPlan('the upload source changed before staging')
         staged = capture_local_version(target)

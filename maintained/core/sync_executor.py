@@ -688,7 +688,10 @@ class SyncExecutor(QObject):
                 observed = approved_action(consent, action) if consent is not None else None
                 operation = self._prepare_transfer(action, kind, observed)
                 with tempfile.TemporaryDirectory(prefix='cachecad-upload-') as folder:
-                    staged_path = Path(folder) / local_path.name
+                    # macOS system temp paths use /var -> /private/var.
+                    # Canonicalize only the directory we just created; recovery
+                    # still rejects links in user sources and retained material.
+                    staged_path = Path(folder).resolve(strict=True) / local_path.name
                     digest = hashlib.md5()
                     with local_path.open('rb') as source, staged_path.open('xb') as target:
                         opened = os.fstat(source.fileno())

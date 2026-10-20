@@ -259,7 +259,7 @@
       "baseline": "recovered/core/sync_executor.py",
       "maintained": "maintained/core/sync_executor.py",
       "baseline_sha256": "f56c886c5d950511163412d30c660efe17a2d0710b8fc7600bc942b5267f0d83",
-      "maintained_sha256": "1102ae3464a4afdc22328bbeffd554f36b5eeb98f5fa8ae011b54038335bc6fd",
+      "maintained_sha256": "01f6587673f530cce07af16b286d5810a7a738255749d0bce8dc5eb35142ec8f",
       "changed_functions": [
         "SyncExecutor.__init__",
         "SyncExecutor._delete_cloud",
@@ -385,7 +385,7 @@
       "origin": "Immutable observed-version consent and fresh pre-write validation; residual check/write race",
       "regression_tests": "tests/test_maintained_sync_consent.py; tests/test_destructive_review.py",
       "status": "new_reviewed_helper",
-      "maintained_sha256": "dea8bcb54c1e71f6cbe25681f721ad9cff4a698f7edb2bb17b84f6ad1a2467ba"
+      "maintained_sha256": "9b517bd7e1dec4bacf85c1368d74dbd8b4f9f9af6100e43b11ed712ab96a0106"
     },
     {
       "module": "core.sync_history",
