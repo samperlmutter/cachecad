@@ -34,7 +34,9 @@ test("reopening unchanged CAD reuses the mesh after disposing the first viewer",
     // Reset-camera clicks leave the pointer over its overlay on reopening.
     // Compare the model with the same toolbar hover state on both openings.
     await page.mouse.move(0, 0);
-    const image = await page.locator("canvas").screenshot();
+    const image = await page
+      .locator("canvas")
+      .screenshot({ animations: "disabled" });
     await testInfo.attach(`opening-${opening + 1}`, {
       body: image,
       contentType: "image/png",

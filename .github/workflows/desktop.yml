@@ -8,6 +8,16 @@ on:
     paths-ignore: ["recovered/**", "maintained/**", "src/**", "requirements/**"]
   workflow_dispatch:
     inputs:
+      core_test_filter:
+        description: "Run one core chaos regression without rebuilding installers"
+        type: string
+        required: false
+        default: ""
+      core_test_platform:
+        description: "Native platform for the focused core regression"
+        type: choice
+        options: [windows-latest, macos-14, macos-15-intel, ubuntu-latest]
+        default: windows-latest
       installer_run_id:
         description: "Diagnose the existing Intel Mac installer from this CI run (no rebuild)"
         type: string
@@ -20,12 +30,26 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: desktop-${{ github.ref }}${{ inputs.installer_run_id && '-diagnostics' || '' }}
+  group: desktop-${{ github.ref }}${{ inputs.installer_run_id && '-diagnostics' || inputs.core_test_filter && '-core-diagnostics' || '' }}
   # Let native compiles finish and populate caches; keep only the latest queued run.
   cancel-in-progress: false
 jobs:
+  core-diagnostics:
+    if: github.event_name == 'workflow_dispatch' && inputs.core_test_filter != ''
+    name: Focused core chaos regression
+    runs-on: ${{ inputs.core_test_platform }}
+    env:
+      PERMAFROST_CORE_TEST_FILTER: ${{ inputs.core_test_filter }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - shell: bash
+        run: cargo test -p permafrost-core --locked "$PERMAFROST_CORE_TEST_FILTER" -- --nocapture
   web:
-    if: ${{ !inputs.installer_run_id }}
+    if: ${{ !inputs.installer_run_id && !inputs.core_test_filter }}
     name: Interface and CAD previews
     runs-on: ubuntu-latest
     steps:
@@ -45,9 +69,9 @@ jobs:
           name: interface-evidence
           path: |
             test-results/
-            playwright-report/
+            desktop/playwright-report/
   native:
-    if: ${{ !inputs.installer_run_id }}
+    if: ${{ !inputs.installer_run_id && !inputs.core_test_filter }}
     name: Installer · ${{ matrix.platform }}
     strategy:
       fail-fast: false
