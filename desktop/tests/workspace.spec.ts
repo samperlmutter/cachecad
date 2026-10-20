@@ -17,6 +17,7 @@ test("local notifications update files while a Drive request remains stalled", a
       modifiedBy: null,
     });
     const fixture = {
+      cancelled: false,
       files: { "Original.step": entry("Original.step") },
       change(path: string | null) {
         this.files = path ? { [path]: entry(path) } : {};
@@ -63,6 +64,7 @@ test("local notifications update files while a Drive request remains stalled", a
           };
         if (command === "scan_project") return new Promise(() => {});
         if (command === "list_local_files") return fixture.files;
+        if (command === "cancel_operation") fixture.cancelled = true;
       },
     };
   });
@@ -85,6 +87,14 @@ test("local notifications update files while a Drive request remains stalled", a
   ).toHaveCount(0);
   await page.evaluate(() => (window as any).localFixture.change(null));
   await expect(page.locator(".file-row-wrap")).toHaveCount(0);
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page
+    .locator(".topbar")
+    .getByRole("button", { name: "Cancel", exact: true })
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).localFixture.cancelled))
+    .toBe(true);
 });
 test("large projects keep rows bounded while search and selections span pages", async ({
   page,

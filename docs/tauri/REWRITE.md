@@ -47,6 +47,10 @@ its contents; CI receives distributor configuration through repository variables
 and secrets. Live consent and disposable Drive testing remain outstanding.
 Apple Developer ID/notarization credentials remain unconfigured. Native SolidWorks
 parsing is deferred by user direction.
+The owner chose development ad-hoc signing for now; production signing is deferred.
+Google's current consent flow shows an unverified-app notice for the supplied
+Desktop client. Approval to continue that notice and grant Drive access is pending.
+Browser consent has a ten-minute deadline and a visible, cancellable waiting status.
 These are genuine configuration/validation requirements. Never embed recovered
 credentials, generate a pretend login, or describe companion STEP/STL exports as
 native SolidWorks parsing. Development and installer smoke checks must be explicit

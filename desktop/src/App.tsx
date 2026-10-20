@@ -702,6 +702,23 @@ export default function App() {
             </strong>
           </div>
           <div className="topbar-right">
+            {busy && (
+              <div className="operation-status" role="status">
+                <LoaderCircle className="spin" size={14} />
+                <span title={busy}>{busy}</span>
+                {busy !== "Installing update" && (
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      setRefreshQueued(false);
+                      void api.cancel().catch((e) => setError(String(e)));
+                    }}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            )}
             {demo && <span className="demo-badge">DEMO WORKSPACE</span>}
             <span className="local-badge">
               <ShieldCheck size={13} />
