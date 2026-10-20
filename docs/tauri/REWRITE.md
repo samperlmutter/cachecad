@@ -31,8 +31,8 @@ Each row is an acceptance requirement, not a claim of completion.
 snapshots, three-way plans, journaled transfers, Google OAuth/Drive and preview
 preparation. SQLite transactions persist state before external writes. UI requests
 reference opaque plan/action identifiers; the backend owns observed versions and
-rechecks conditions. Incomplete scans never produce a plan. One active operation
-per project, cancellation checkpoints, bounded streams and off-UI-thread hashing.
+rechecks conditions. Incomplete scans never produce a plan. One active scan/transfer
+at a time, cancellation checkpoints, bounded streams and off-UI-thread hashing.
 
 `src-tauri` owns the native shell, narrow IPC commands, OS credential store, folder
 pickers, tray, single instance, signed updates and installer smoke hooks.
@@ -90,3 +90,12 @@ branding, model controls, saving/restoring a tray preference, sanitized diagnost
 export, native folder selection, offline project creation, actual STEP import
 (1 body, 12 triangles), and automatic UI updates for creating, editing, renaming,
 and removing a disposable local file. This does not validate live Google grants.
+
+
+The first Windows CI installer evidence (commit `4630a59`, run `39367328407`)
+proves installation, a rendered native workspace/Three.js canvas, clean exit and
+uninstallation. Its Mac gate correctly rejected an incomplete linker-only bundle
+signature. Explicit ad-hoc bundle signing fixes that packaging defect; the local
+Mac debug DMG then passed disk-image checksum, strict bundle signature, installation,
+native render, clean exit, and removal checks. Ad-hoc signing does not establish
+Developer ID/notarization or Gatekeeper acceptance for downloaded releases.

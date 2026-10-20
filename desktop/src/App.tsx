@@ -949,7 +949,7 @@ export default function App() {
                   <div>
                     <span className="small-label">TO GOOGLE DRIVE</span>
                     <strong>
-                      {uploadCount}
+                      {plan ? uploadCount : "—"}
                       <small>
                         {" "}
                         {uploadCount === 1 ? "change" : "changes"} to upload
@@ -972,7 +972,7 @@ export default function App() {
                   <div>
                     <span className="small-label">TO THIS COMPUTER</span>
                     <strong>
-                      {downloadCount}
+                      {plan ? downloadCount : "—"}
                       <small>
                         {" "}
                         {downloadCount === 1 ? "change" : "changes"} to download
@@ -1001,7 +1001,7 @@ export default function App() {
                   <div>
                     <span className="small-label">NEEDS YOUR ATTENTION</span>
                     <strong>
-                      {conflictCount}
+                      {plan ? conflictCount : "—"}
                       <small>
                         {" "}
                         {conflictCount === 1 ? "conflict" : "conflicts"} to
@@ -1009,9 +1009,11 @@ export default function App() {
                       </small>
                     </strong>
                     <span>
-                      {conflictCount
-                        ? "Choose the copy you want to keep"
-                        : "Everything has a clear direction"}
+                      {!plan
+                        ? "Waiting for a complete Drive scan"
+                        : conflictCount
+                          ? "Choose the copy you want to keep"
+                          : "Everything has a clear direction"}
                     </span>
                   </div>
                   <ChevronRight size={16} />
@@ -1026,7 +1028,9 @@ export default function App() {
                     onClick={() => setTab("changes")}
                   >
                     Changes
-                    <span>{new Set(actions.map((a) => a.path)).size}</span>
+                    <span>
+                      {plan ? new Set(actions.map((a) => a.path)).size : "—"}
+                    </span>
                   </button>
                   <button
                     role="tab"
