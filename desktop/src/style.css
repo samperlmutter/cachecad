@@ -1739,7 +1739,7 @@ dialog::backdrop {
   }
   .table-head,
   .file-row {
-    grid-template-columns: 13px minmax(0, 1fr) 67px;
+    grid-template-columns: 13px minmax(0, 1fr) 85px;
     gap: 9px;
     padding-left: 12px;
     padding-right: 12px;

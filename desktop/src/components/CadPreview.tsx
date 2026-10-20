@@ -6,6 +6,7 @@ import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Box, Expand, Grid2X2, RotateCcw, Scan, X } from "lucide-react";
 import { previewable } from "../types";
+import { PREVIEW_BYTE_LIMIT, previewError } from "../preview";
 
 interface Props {
   path: string;
@@ -258,9 +259,9 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
         if (!load) throw new Error("Select a local file to preview it.");
         const buffer = await load();
         if (closed) return;
-        if (buffer.byteLength > 64 * 1024 * 1024)
+        if (buffer.byteLength > PREVIEW_BYTE_LIMIT)
           throw new Error(
-            "This file exceeds the 64 MB preview limit. Export a lighter model.",
+            "This file exceeds the 512 MiB preview limit. Export a lighter model.",
           );
         const extension = path.split(".").pop()!.toLowerCase();
         if (["step", "stp", "iges", "igs", "brep", "brp"].includes(extension)) {
@@ -338,9 +339,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
         }
       } catch (e) {
         if (!closed) {
-          setError(
-            e instanceof Error ? e.message : "Could not read this model.",
-          );
+          setError(previewError(e));
           setStatus("");
         }
       }
@@ -385,7 +384,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
           </p>
         </div>
       ) : error ? (
-        <div className="preview-message error">
+        <div className="preview-message error" role="alert">
           <Box size={28} />
           <strong>Preview unavailable</strong>
           <p>{error}</p>

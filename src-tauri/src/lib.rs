@@ -1,3 +1,4 @@
+mod preview;
 mod watch;
 use permafrost_core::{
     auth::{Account, Auth, OAuthConfig},
@@ -10,7 +11,6 @@ use permafrost_core::{
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    io::Read,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -274,35 +274,7 @@ async fn read_preview(
 ) -> ApiResult<tauri::ipc::Response> {
     let project = lock(&state.store)?.project(&project_id).map_err(err)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let ext = std::path::Path::new(&path)
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_ascii_lowercase();
-        if ![
-            "stl", "step", "stp", "iges", "igs", "brep", "brp", "obj", "glb",
-        ]
-        .contains(&ext.as_str())
-        {
-            return Err("Preview a STEP, IGES, BREP, STL, OBJ, or GLB export of this file.".into());
-        }
-        let target = permafrost_core::fs::safe_path(&project.local_root, &path).map_err(err)?;
-        let file = std::fs::File::open(target).map_err(|_| {
-            "This file is not on your computer yet. Download it before previewing.".to_string()
-        })?;
-        if !file.metadata().map_err(err)?.is_file() {
-            return Err("Choose a model file to preview.".into());
-        }
-        let mut bytes = Vec::new();
-        file.take(64 * 1024 * 1024 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(err)?;
-        if bytes.len() > 64 * 1024 * 1024 {
-            return Err(
-                "This file exceeds the 64 MB preview limit. Export a lighter model.".into(),
-            );
-        }
-        Ok(tauri::ipc::Response::new(bytes))
+        preview::read(&project.local_root, &path).map(tauri::ipc::Response::new)
     })
     .await
     .map_err(err)?

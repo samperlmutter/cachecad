@@ -101,6 +101,29 @@ export function demoPlan(projectId: string): Plan {
         remote: remote[path] ?? null,
       });
   });
+  const renamed = { ...local["README.txt"], path: "PROJECT.md" };
+  delete local["README.txt"];
+  local[renamed.path] = renamed;
+  actions.push(
+    {
+      id: "readme-new",
+      path: renamed.path,
+      kind: "upload_new",
+      reason: "Available on this computer",
+      size: renamed.size,
+      local: renamed,
+      remote: null,
+    },
+    {
+      id: "readme-old",
+      path: "README.txt",
+      kind: "delete_cloud",
+      reason: "Deleted locally since the last sync",
+      size: renamed.size,
+      local: null,
+      remote: remote["README.txt"],
+    },
+  );
   return {
     id: "demo-plan",
     projectId,

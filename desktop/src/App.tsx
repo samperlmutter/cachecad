@@ -53,6 +53,13 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { api, demo, native } from "./api";
 import {
+  groupRenames,
+  syncActionIds,
+  completedChanges,
+  retainSelection,
+  type Change,
+} from "./changes";
+import {
   actionLabel,
   conflict,
   destructive,
@@ -151,7 +158,10 @@ export default function App() {
   const [updateMessage, setUpdateMessage] = useState("");
   const mounted = useRef(true);
   const project = data?.projects.find((p) => p.id === projectId);
-  const actions = plan?.projectId === projectId ? plan.actions : [];
+  const actions = useMemo(
+    () => (plan?.projectId === projectId ? groupRenames(plan.actions) : []),
+    [plan, projectId],
+  );
   const selectedActions = actions.filter((a) => selected.has(a.id));
   const run = useCallback(
     async <T,>(
@@ -213,20 +223,7 @@ export default function App() {
       const result = await run("Refreshing folders", () => api.scan(id));
       if (result) {
         setSelected(
-          new Set(
-            result.actions
-              .filter((next) =>
-                previous?.actions.some(
-                  (old) =>
-                    chosen.has(old.id) &&
-                    old.path === next.path &&
-                    old.kind === next.kind &&
-                    JSON.stringify(old.local) === JSON.stringify(next.local) &&
-                    JSON.stringify(old.remote) === JSON.stringify(next.remote),
-                ),
-              )
-              .map((a) => a.id),
-          ),
+          retainSelection(previous?.actions ?? [], result.actions, chosen),
         );
         setPlan(result);
         setLocalFiles(result.local);
@@ -412,12 +409,18 @@ export default function App() {
     setModal(null);
     setProgress(undefined);
     await run("Syncing selected changes", async () => {
-      const report = await api.sync(project.id, plan.id, [...selected], true);
+      const report = await api.sync(
+        project.id,
+        plan.id,
+        syncActionIds(selectedActions),
+        true,
+      );
+      const completed = completedChanges(selectedActions, report.completed);
       await refreshActivity();
       setMessage(
         report.cancelled
           ? "Sync cancelled. Completed changes are saved."
-          : `${report.completed} ${report.completed === 1 ? "change" : "changes"} synced${report.failed ? ` · ${report.failed} failed — review Activity before retrying` : ""}.`,
+          : `${completed} ${completed === 1 ? "change" : "changes"} synced${report.failed ? ` · ${report.failed} failed — review Activity before retrying` : ""}.`,
       );
       setPlan(undefined);
       setSelected(new Set());
@@ -432,8 +435,10 @@ export default function App() {
           ...Object.keys(plan?.local ?? {}),
           ...Object.keys(plan?.remote ?? {}),
         ]),
-      ].sort(),
-    [plan, localFiles],
+      ]
+        .filter((path) => !actions.some((a) => a.removal?.path === path))
+        .sort(),
+    [plan, localFiles, actions],
   );
   const rows = useMemo(
     () =>
@@ -441,8 +446,13 @@ export default function App() {
         ? filePaths
         : [...new Set(actions.map((a) => a.path))]
       ).filter((path) => {
-        if (!path.toLowerCase().includes(query.toLowerCase())) return false;
         const at = actions.filter((a) => a.path === path);
+        if (
+          ![path, at[0]?.removal?.path ?? ""].some((name) =>
+            name.toLowerCase().includes(query.toLowerCase()),
+          )
+        )
+          return false;
         return (
           tab === "files" ||
           filter === "all" ||
@@ -1155,11 +1165,20 @@ export default function App() {
                               />
                               <button
                                 className="file-name"
+                                title={
+                                  first?.removal
+                                    ? `${first.removal.path} → ${path}`
+                                    : path
+                                }
                                 onClick={() => setPreview(path)}
                               >
                                 <FileIcon path={path} />
                                 <span>
-                                  <strong>{path.split("/").pop()}</strong>
+                                  <strong>
+                                    {first?.removal
+                                      ? `${first.removal.path} → ${path}`
+                                      : path.split("/").pop()}
+                                  </strong>
                                   <small>
                                     {path.includes("/")
                                       ? path.slice(0, path.lastIndexOf("/"))
@@ -1175,17 +1194,23 @@ export default function App() {
                                   </>
                                 ) : first ? (
                                   <>
-                                    {uploads(first.kind) ? (
+                                    {first.removal ? null : uploads(
+                                        first.kind,
+                                      ) ? (
                                       <ArrowUp size={12} />
                                     ) : (
                                       <ArrowDown size={12} />
                                     )}
                                     <span>
-                                      {first.kind.startsWith("delete")
-                                        ? "Remove"
-                                        : uploads(first.kind)
-                                          ? "Upload"
-                                          : "Download"}
+                                      {first.removal
+                                        ? uploads(first.kind)
+                                          ? "Rename in Drive"
+                                          : "Rename locally"
+                                        : first.kind.startsWith("delete")
+                                          ? "Remove"
+                                          : uploads(first.kind)
+                                            ? "Upload"
+                                            : "Download"}
                                     </span>
                                   </>
                                 ) : (
@@ -1563,13 +1588,13 @@ function ReviewDialog({
   onConfirm,
   keepLocalBackups,
 }: {
-  actions: Action[];
+  actions: Change[];
   onClose: () => void;
   onConfirm: () => void;
   keepLocalBackups: boolean;
 }) {
   const [confirmed, setConfirmed] = useState(false);
-  const changed = actions.filter((a) => destructive(a.kind));
+  const changed = actions.filter((a) => a.removal || destructive(a.kind));
   return (
     <Dialog title="One last look" wide onClose={onClose}>
       <p className="dialog-description">
@@ -1593,13 +1618,19 @@ function ReviewDialog({
           <div key={a.id}>
             <FileIcon path={a.path} />
             <span>
-              <strong>{a.path}</strong>
+              <strong>
+                {a.removal ? `${a.removal.path} → ${a.path}` : a.path}
+              </strong>
               <small>{a.reason}</small>
             </span>
             <span
-              className={`review-action ${destructive(a.kind) ? "destructive" : ""}`}
+              className={`review-action ${a.removal || destructive(a.kind) ? "destructive" : ""}`}
             >
-              {actionLabel[a.kind]}
+              {a.removal
+                ? uploads(a.kind)
+                  ? "Rename in Drive"
+                  : "Rename locally"
+                : actionLabel[a.kind]}
             </span>
           </div>
         ))}
@@ -1614,8 +1645,8 @@ function ReviewDialog({
           <span>
             I reviewed the {changed.length}{" "}
             {changed.length === 1
-              ? "replacement or removal"
-              : "replacements or removals"}{" "}
+              ? "replacement, removal, or rename"
+              : "replacements, removals, or renames"}{" "}
             listed above and want to apply them.
           </span>
         </label>
