@@ -53,6 +53,7 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { api, demo, native } from "./api";
+import { sharePendingPreview } from "./preview";
 import {
   groupRenames,
   syncActionIds,
@@ -145,6 +146,7 @@ export default function App() {
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [backgroundWarning, setBackgroundWarning] = useState("");
   const [selected, setSelected] = useState(new Set<string>());
   selectionRef.current = selected;
   const [filter, setFilter] = useState<Filter>("all");
@@ -200,19 +202,33 @@ export default function App() {
   );
   useEffect(() => {
     mounted.current = true;
-    void api
-      .bootstrap()
+    let closed = false;
+    // Register before bootstrap so cleanup failures are visible whether they
+    // happen before startup (retained by native state) or during it (events).
+    const warningListener = native
+      ? listen<string>("watcher-warning", (event) => {
+          if (!closed) setBackgroundWarning(event.payload);
+        })
+      : Promise.resolve(() => {});
+    void warningListener
+      .then(() => api.bootstrap())
       .then((result) => {
-        if (mounted.current) {
+        if (!closed) {
           setData(result);
           setActivity(result.activity);
           setProjectId(result.projects[0]?.id ?? "");
           if (result.accountError) setError(result.accountError);
+          if (result.previewCacheError)
+            setBackgroundWarning(result.previewCacheError);
         }
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => {
+        if (!closed) setError(String(e));
+      });
     return () => {
+      closed = true;
       mounted.current = false;
+      void warningListener.then((stop) => stop());
     };
   }, []);
   useEffect(() => {
@@ -337,9 +353,6 @@ export default function App() {
         }),
       );
       removers.push(listen("remote-refresh-due", due));
-      removers.push(
-        listen<string>("watcher-warning", (event) => setError(event.payload)),
-      );
     }
     // The native timer continues while the app is in the tray. This fallback
     // also makes the browser's explicit sample workspace refresh predictably.
@@ -514,10 +527,31 @@ export default function App() {
   ).size;
   const loadPreview = useMemo(
     () =>
-      project && preview ? () => api.preview(project.id, preview) : undefined,
+      project && preview
+        ? sharePendingPreview(async () => {
+            const remoteOnly = !localFiles[preview] && !!plan?.remote[preview];
+            if (remoteOnly)
+              setBusy((current) => current || "Downloading preview");
+            try {
+              return await api.preview(project.id, preview);
+            } finally {
+              if (remoteOnly)
+                setBusy((current) =>
+                  current === "Downloading preview" ? "" : current,
+                );
+            }
+          })
+        : undefined,
     [
       project?.id,
       preview,
+      !!localFiles[preview],
+      !!plan?.remote[preview],
+      plan?.remote[preview]?.remoteId,
+      plan?.remote[preview]?.version,
+      plan?.remote[preview]?.md5,
+      plan?.remote[preview]?.modified,
+      plan?.remote[preview]?.size,
       (localFiles[preview] ?? plan?.local[preview])?.modified,
       (localFiles[preview] ?? plan?.local[preview])?.size,
     ],
@@ -530,6 +564,7 @@ export default function App() {
         : new Set(allSelectable.map((a) => a.id)),
     );
   const startupError = !data && error;
+  const noticeError = error || backgroundWarning;
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -726,12 +761,12 @@ export default function App() {
           </div>
         </header>
         <div className="content">
-          {(error || message || update) && (
+          {(noticeError || message || update) && (
             <div
-              className={`notice ${error ? "error" : update ? "update" : "success"}`}
-              role={error ? "alert" : "status"}
+              className={`notice ${noticeError ? "error" : update ? "update" : "success"}`}
+              role={noticeError ? "alert" : "status"}
             >
-              {error ? (
+              {noticeError ? (
                 <TriangleAlert size={17} />
               ) : update ? (
                 <Sparkles size={17} />
@@ -739,11 +774,11 @@ export default function App() {
                 <CircleCheck size={17} />
               )}
               <span>
-                {error ||
+                {noticeError ||
                   message ||
                   `Permafrost ${update?.version} is available.`}
               </span>
-              {update && !error && !message && (
+              {update && !noticeError && !message && (
                 <button
                   className="text-button"
                   onClick={installUpdate}
@@ -758,6 +793,7 @@ export default function App() {
                 aria-label="Dismiss message"
                 onClick={() => {
                   setError("");
+                  setBackgroundWarning("");
                   setMessage("");
                   if (update) setUpdate(null);
                 }}
@@ -1221,6 +1257,7 @@ export default function App() {
                               />
                               <button
                                 className="file-name"
+                                disabled={busy === "Downloading preview"}
                                 title={
                                   first?.removal
                                     ? `${first.removal.path} → ${path}`

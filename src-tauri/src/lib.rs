@@ -54,6 +54,7 @@ struct Backend {
     watchers: Mutex<watch::WatchSet>,
     gate: Arc<Semaphore>,
     cancel: Arc<Mutex<Option<CancellationToken>>>,
+    preview_cache_error: Mutex<Option<String>>,
     profile: PathBuf,
     smoke_output: Option<PathBuf>,
     _temporary_profile: Option<tempfile::TempDir>,
@@ -88,6 +89,7 @@ struct Bootstrap {
     version: String,
     activity: Vec<Activity>,
     account_error: Option<String>,
+    preview_cache_error: Option<String>,
     updater_configured: bool,
 }
 #[tauri::command]
@@ -110,6 +112,7 @@ async fn bootstrap(state: State<'_, Backend>, app: tauri::AppHandle) -> ApiResul
         version: app.package_info().version.to_string(),
         activity: store.activity().map_err(err)?,
         account_error,
+        preview_cache_error: lock(&state.preview_cache_error)?.clone(),
         updater_configured: state.updater_configured,
     })
 }
@@ -293,9 +296,43 @@ async fn read_preview(
     project_id: String,
     path: String,
 ) -> ApiResult<tauri::ipc::Response> {
+    preview::validate(&path)?;
     let project = lock(&state.store)?.project(&project_id).map_err(err)?;
+    let target = permafrost_core::fs::safe_path(&project.local_root, &path).map_err(err)?;
+    if target.try_exists().map_err(err)? {
+        return tauri::async_runtime::spawn_blocking(move || {
+            preview::read(&project.local_root, &path).map(tauri::ipc::Response::new)
+        })
+        .await
+        .map_err(err)?;
+    }
+    let (_operation, cancel) = state.begin()?;
+    let (expected, parent) = {
+        let plans = lock(&state.plans)?;
+        let plan = plans.get(&project_id).ok_or_else(|| {
+            "Scan the connected folders before previewing a Drive file.".to_string()
+        })?;
+        let entry = plan.remote.get(&path).cloned().ok_or_else(|| {
+            "This file is no longer in the scanned Drive folder. Scan again.".to_string()
+        })?;
+        let directory = path
+            .rsplit_once('/')
+            .map(|(parent, _)| parent)
+            .unwrap_or("");
+        let parent = plan
+            .folders
+            .get(directory)
+            .cloned()
+            .ok_or_else(|| Error::Stale.to_string())?;
+        (entry, parent)
+    };
+    let drive = state.drive().await?;
+    let cached =
+        permafrost_core::preview_cache::fetch(&drive, &project, &expected, &parent, &cancel)
+            .await
+            .map_err(err)?;
     tauri::async_runtime::spawn_blocking(move || {
-        preview::read(&project.local_root, &path).map(tauri::ipc::Response::new)
+        preview::read_file(&cached).map(tauri::ipc::Response::new)
     })
     .await
     .map_err(err)?
@@ -399,6 +436,7 @@ pub fn run() {
                 watchers: Mutex::new(watch::WatchSet::default()),
                 gate: Arc::new(Semaphore::new(1)),
                 cancel: Arc::new(Mutex::new(None)),
+                preview_cache_error: Mutex::new(None),
                 profile,
                 smoke_output,
                 _temporary_profile: temporary,
@@ -407,6 +445,7 @@ pub fn run() {
             app.manage(backend);
             if !smoke {
                 watch::start(app.handle().clone());
+                preview::start_cleanup(app.handle().clone());
             }
             let show =
                 tauri::menu::MenuItem::with_id(app, "show", "Open Permafrost", true, None::<&str>)?;

@@ -21,9 +21,9 @@
 
 ## Task 3: Native preview and daily purge
 
-- [ ] Make Drive-only preview read the scanned remote version through the cache, preserving local-first behavior and clear errors.
-- [ ] Start a purge on app startup and every 24 hours, serialized with active operations.
-- [ ] Verify native tests, frontend build/tests and browser regression suite; request independent review and address material findings.
+- [x] Make Drive-only preview read the scanned remote version through the cache, preserving local-first behavior and clear errors.
+- [x] Start a purge on app startup and every 24 hours, serialized with active operations.
+- [x] Verify native tests, frontend build/tests and focused browser regressions; request independent review and address material findings.
 
 ## Review focus
 

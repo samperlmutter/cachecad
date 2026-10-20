@@ -1,9 +1,11 @@
-use std::{io::Read, path::Path};
+use permafrost_core::preview_cache;
+use std::{io::Read, path::Path, time::Duration};
+use tauri::{Emitter, Manager};
 
-const PREVIEW_BYTE_LIMIT: u64 = 512 * 1024 * 1024;
-const LIMIT_ERROR: &str = "This file exceeds the 512 MiB preview limit. Export a lighter model.";
+const PREVIEW_BYTE_LIMIT: u64 = preview_cache::MAX_BYTES;
+const LIMIT_ERROR: &str = preview_cache::LIMIT_ERROR;
 
-pub fn read(root: &Path, path: &str) -> Result<Vec<u8>, String> {
+pub fn validate(path: &str) -> Result<(), String> {
     let ext = Path::new(path)
         .extension()
         .and_then(|e| e.to_str())
@@ -16,7 +18,16 @@ pub fn read(root: &Path, path: &str) -> Result<Vec<u8>, String> {
     {
         return Err("Preview a STEP, IGES, BREP, STL, OBJ, or GLB export of this file.".into());
     }
+    Ok(())
+}
+
+pub fn read(root: &Path, path: &str) -> Result<Vec<u8>, String> {
+    validate(path)?;
     let target = permafrost_core::fs::safe_path(root, path).map_err(|e| e.to_string())?;
+    read_file(&target)
+}
+
+pub fn read_file(target: &Path) -> Result<Vec<u8>, String> {
     let file = std::fs::File::open(target).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
             "This file is not on your computer yet. Download it before previewing.".to_string()
@@ -40,6 +51,51 @@ pub fn read(root: &Path, path: &str) -> Result<Vec<u8>, String> {
         return Err(LIMIT_ERROR.into());
     }
     Ok(bytes)
+}
+
+/// Startup and daily cleanup share the operation gate with preview downloads
+/// and reviewed syncs, so no active cache file can be purged or promoted twice.
+pub fn start_cleanup(app: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let mut timer = tokio::time::interval(Duration::from_secs(preview_cache::DAY));
+        timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            timer.tick().await;
+            let state = app.state::<super::Backend>();
+            let Ok(_permit) = state.gate.clone().acquire_owned().await else {
+                break;
+            };
+            let projects =
+                super::lock(&state.store).and_then(|store| store.projects().map_err(super::err));
+            let errors = match projects {
+                Ok(projects) => tauri::async_runtime::spawn_blocking(move || {
+                    projects
+                        .into_iter()
+                        .filter_map(|project| {
+                            preview_cache::purge(&project.local_root, permafrost_core::now())
+                                .err()
+                                .map(|error| {
+                                    format!(
+                                        "Could not clean preview cache for {}: {error}",
+                                        project.name
+                                    )
+                                })
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .await
+                .unwrap_or_else(|_| vec!["Preview cache cleanup could not finish.".into()]),
+                Err(error) => vec![error],
+            };
+            let warning = (!errors.is_empty()).then(|| errors.join("; "));
+            if let Ok(mut retained) = super::lock(&state.preview_cache_error) {
+                *retained = warning.clone();
+            }
+            if let Some(warning) = warning {
+                let _ = app.emit("watcher-warning", warning);
+            }
+        }
+    });
 }
 
 #[cfg(test)]

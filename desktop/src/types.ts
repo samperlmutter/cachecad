@@ -71,6 +71,7 @@ export interface Bootstrap {
   version: string;
   activity: Activity[];
   accountError: string | null;
+  previewCacheError?: string | null;
   updaterConfigured: boolean;
 }
 export interface Progress {
