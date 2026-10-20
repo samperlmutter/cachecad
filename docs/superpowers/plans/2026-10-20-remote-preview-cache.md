@@ -8,16 +8,16 @@
 
 ## Task 1: Cache storage and verified fetch
 
-- [ ] Add Rust tests for verified preview download, repeat preview reuse, stale version/hash/cancel rejection, ignored cache files, purge scope and symlink handling.
-- [ ] Run the tests against missing/empty behavior and confirm failure.
-- [ ] Implement `preview_cache::{fetch, take, purge}` and shared internal directory validation.
-- [ ] Run the cache tests and core suite.
+- [x] Add Rust tests for verified preview download, repeat preview reuse, stale version/hash/cancel rejection, ignored cache files, purge scope and symlink handling.
+- [x] Run the tests against missing/empty behavior and confirm failure.
+- [x] Implement `preview_cache::{fetch, take, purge}` and shared internal directory validation.
+- [x] Run the cache tests and core suite.
 
 ## Task 2: Reuse cache for normal downloads
 
-- [ ] Test that a normal download uses matching cached content without a second media request, removes it from cache, preserves consent and rejects changed destinations/versions.
-- [ ] Make download transfers take matching cached files before falling back to network downloads.
-- [ ] Run regression tests and core suite.
+- [x] Test that a normal download uses matching cached content without a second media request, removes it from cache, preserves consent and rejects changed destinations/versions.
+- [x] Make download transfers take matching cached files before falling back to network downloads.
+- [x] Run regression tests and core suite.
 
 ## Task 3: Native preview and daily purge
 

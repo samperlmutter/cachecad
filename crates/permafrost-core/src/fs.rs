@@ -71,6 +71,30 @@ pub fn safe_path(root: &Path, relative: &str) -> Result<PathBuf> {
     Ok(cursor)
 }
 
+/// Application-owned directories remain inside the canonical project and may
+/// never traverse a symlink, including a replaced project root.
+pub(crate) fn internal_dir(root: &Path, suffix: &Path) -> Result<PathBuf> {
+    if std::fs::symlink_metadata(root)?.file_type().is_symlink() {
+        return Err(Error::Stale);
+    }
+    let mut cursor = root.canonicalize()?;
+    for component in Path::new(".permafrost").join(suffix).components() {
+        if !matches!(component, Component::Normal(_)) {
+            return Err(Error::Stale);
+        }
+        cursor.push(component);
+        match std::fs::symlink_metadata(&cursor) {
+            Ok(meta) if !meta.is_dir() || meta.file_type().is_symlink() => {
+                return Err(Error::Stale)
+            }
+            Ok(_) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => std::fs::create_dir(&cursor)?,
+            Err(e) => return Err(e.into()),
+        }
+    }
+    Ok(cursor)
+}
+
 fn timestamp(meta: &std::fs::Metadata) -> Result<String> {
     let modified = meta
         .modified()?

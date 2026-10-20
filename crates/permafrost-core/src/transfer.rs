@@ -3,6 +3,7 @@
 use crate::{
     drive::{Drive, DriveFile},
     fs,
+    fs::internal_dir,
     model::*,
     planner,
     store::Store,
@@ -256,24 +257,6 @@ async fn ensure_parent(
     Ok(id)
 }
 
-fn internal_dir(root: &Path, suffix: &Path) -> Result<PathBuf> {
-    let mut cursor = root.canonicalize()?;
-    for component in Path::new(".permafrost").join(suffix).components() {
-        if !matches!(component, std::path::Component::Normal(_)) {
-            return Err(Error::Stale);
-        }
-        cursor.push(component);
-        match std::fs::symlink_metadata(&cursor) {
-            Ok(meta) if !meta.is_dir() || meta.file_type().is_symlink() => {
-                return Err(Error::Stale)
-            }
-            Ok(_) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => std::fs::create_dir(&cursor)?,
-            Err(e) => return Err(e.into()),
-        }
-    }
-    Ok(cursor)
-}
 fn backup(
     project: &Project,
     action: &Action,
@@ -387,11 +370,25 @@ async fn execute_one(
         }
         ActionKind::DownloadNew | ActionKind::DownloadRevision | ActionKind::DownloadConflict => {
             let expected = action.remote.as_ref().ok_or(Error::Stale)?;
-            let stage_dir = internal_dir(&project.local_root, Path::new("staging"))?;
-            let stage = tempfile::NamedTempFile::new_in(stage_dir)?;
-            drive
-                .download(expected, stage.path(), cancel, progress)
-                .await?;
+            let root = project.local_root.clone();
+            let entry = expected.clone();
+            let token = cancel.clone();
+            let cached = tokio::task::spawn_blocking(move || {
+                crate::preview_cache::take(&root, &entry, &token)
+            })
+            .await
+            .map_err(|_| Error::Stale)??;
+            let stage = if let Some(cached) = cached {
+                progress(expected.size, expected.size);
+                cached
+            } else {
+                let stage_dir = internal_dir(&project.local_root, Path::new("staging"))?;
+                let stage = tempfile::NamedTempFile::new_in(stage_dir)?;
+                drive
+                    .download(expected, stage.path(), cancel, progress)
+                    .await?;
+                stage
+            };
             let hashed = inspect_staged(stage.path(), cancel).await?;
             if hashed.md5 != expected.md5 || hashed.size != expected.size {
                 return Err(Error::Stale);

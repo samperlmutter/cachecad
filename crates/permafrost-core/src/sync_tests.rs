@@ -16,6 +16,7 @@ struct Cloud {
     mutations: usize,
     pending: Vec<u8>,
     chunks: usize,
+    downloads: usize,
 }
 impl Cloud {
     fn set(&mut self, bytes: &[u8]) {
@@ -54,6 +55,7 @@ impl Respond for Provider {
                 ResponseTemplate::new(200).set_body_json(json!({"files":files}))
             }
             ("GET", "/files/part") if query.get("alt").is_some_and(|v| v == "media") => {
+                state.downloads += 1;
                 let mut bytes = state.bytes.clone().unwrap();
                 if state.corrupt_download {
                     bytes[0] ^= 1;
@@ -108,6 +110,135 @@ impl Respond for Provider {
             }
             _ => ResponseTemplate::new(404),
         }
+    }
+}
+
+#[tokio::test]
+async fn reviewed_download_moves_verified_preview_without_downloading_again() {
+    for replacing in [false, true] {
+        let f = Fixture::new().await;
+        if replacing {
+            f.local(b"original");
+            f.state.lock().unwrap().set(b"original");
+            f.plan().await;
+        }
+        f.state.lock().unwrap().set(b"remote model");
+        let plan = f.plan().await;
+        let before = f.store.lock().unwrap().baseline("p").unwrap();
+        let expected = plan.remote.get("part.sldprt").unwrap();
+        let cached = crate::preview_cache::fetch(&f.drive, &f.project, expected, "root", &f.cancel)
+            .await
+            .unwrap();
+        assert_eq!(f.store.lock().unwrap().baseline("p").unwrap(), before);
+        let kind = if replacing {
+            ActionKind::DownloadRevision
+        } else {
+            ActionKind::DownloadNew
+        };
+        let result = f.apply(&plan, kind).await.unwrap();
+        assert_eq!((result.completed, result.failed), (1, 0));
+        assert_eq!(
+            std::fs::read(f.root.path().join("part.sldprt")).unwrap(),
+            b"remote model"
+        );
+        assert_eq!(f.state.lock().unwrap().downloads, 1);
+        assert!(!cached.exists());
+        if replacing {
+            let backups = f.root.path().join(".permafrost/backups");
+            let saved = std::fs::read_dir(backups)
+                .unwrap()
+                .next()
+                .unwrap()
+                .unwrap()
+                .path()
+                .join("part.sldprt");
+            assert_eq!(std::fs::read(saved).unwrap(), b"original");
+        }
+    }
+}
+
+#[tokio::test]
+async fn cached_download_cannot_bypass_consent_or_changed_local_files() {
+    let f = Fixture::new().await;
+    f.local(b"original");
+    f.state.lock().unwrap().set(b"original");
+    f.plan().await;
+    f.state.lock().unwrap().set(b"remote model");
+    let plan = f.plan().await;
+    let cached = crate::preview_cache::fetch(
+        &f.drive,
+        &f.project,
+        &plan.remote["part.sldprt"],
+        "root",
+        &f.cancel,
+    )
+    .await
+    .unwrap();
+    let ids = vec![plan
+        .actions
+        .iter()
+        .find(|a| a.kind == ActionKind::DownloadRevision)
+        .unwrap()
+        .id
+        .clone()];
+    let result = transfer::execute(
+        &f.store,
+        &f.drive,
+        &f.project,
+        &plan,
+        transfer::Selection {
+            ids: &ids,
+            consent: false,
+        },
+        &f.cancel,
+        &|_| {},
+    )
+    .await;
+    assert!(result.is_err());
+    assert_eq!(
+        std::fs::read(f.root.path().join("part.sldprt")).unwrap(),
+        b"original"
+    );
+    assert!(cached.exists());
+    f.local(b"new local edit");
+    assert!(f.apply(&plan, ActionKind::DownloadRevision).await.is_err());
+    assert_eq!(
+        std::fs::read(f.root.path().join("part.sldprt")).unwrap(),
+        b"new local edit"
+    );
+    assert!(cached.exists());
+}
+
+#[tokio::test]
+async fn outdated_or_corrupt_previews_are_not_promoted() {
+    for corrupt in [false, true] {
+        let f = Fixture::new().await;
+        f.state.lock().unwrap().set(b"remote model");
+        let plan = f.plan().await;
+        let cached = crate::preview_cache::fetch(
+            &f.drive,
+            &f.project,
+            &plan.remote["part.sldprt"],
+            "root",
+            &f.cancel,
+        )
+        .await
+        .unwrap();
+        let expected = if corrupt {
+            std::fs::write(cached, b"corrupt").unwrap();
+            b"remote model".as_slice()
+        } else {
+            f.state.lock().unwrap().set(b"updated model");
+            b"updated model".as_slice()
+        };
+        let latest = f.plan().await;
+        let report = f.apply(&latest, ActionKind::DownloadNew).await.unwrap();
+        assert_eq!((report.completed, report.failed), (1, 0));
+        assert_eq!(
+            std::fs::read(f.root.path().join("part.sldprt")).unwrap(),
+            expected
+        );
+        assert_eq!(f.state.lock().unwrap().downloads, 2);
     }
 }
 struct Fixture {
