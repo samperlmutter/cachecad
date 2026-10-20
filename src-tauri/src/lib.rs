@@ -38,11 +38,16 @@ impl Drop for Operation {
         }
     }
 }
+struct CachedScan {
+    files: Tree,
+    verified_at: std::time::Instant,
+}
 struct Backend {
     store: Arc<Mutex<Store>>,
     auth: AsyncMutex<Auth>,
     restored: AsyncMutex<bool>,
     plans: Mutex<HashMap<String, Plan>>,
+    scan_cache: Mutex<HashMap<String, CachedScan>>,
     generations: Mutex<HashMap<String, u64>>,
     watchers: Mutex<watch::WatchSet>,
     gate: Arc<Semaphore>,
@@ -167,10 +172,15 @@ async fn scan_project(state: State<'_, Backend>, project_id: String) -> ApiResul
     let baseline = lock(&state.store)?.baseline(&project_id).map_err(err)?;
     let generation = *lock(&state.generations)?.get(&project_id).unwrap_or(&0);
     let drive = state.drive().await?;
+    let (cached, verified_at) = lock(&state.scan_cache)?
+        .get(&project_id)
+        .filter(|cached| cached.verified_at.elapsed() < std::time::Duration::from_secs(900))
+        .map(|cached| (cached.files.clone(), cached.verified_at))
+        .unwrap_or_else(|| (Tree::new(), std::time::Instant::now()));
     let root = project.local_root.clone();
     let local_cancel = cancel.clone();
     let local = tauri::async_runtime::spawn_blocking(move || {
-        permafrost_core::fs::scan(&root, &local_cancel)
+        permafrost_core::fs::scan_cached(&root, &local_cancel, &cached)
     });
     let (local, remote) = tokio::join!(local, drive.scan(&project.drive_folder_id, &cancel));
     let local = local.map_err(err)?.map_err(err)?;
@@ -186,6 +196,13 @@ async fn scan_project(state: State<'_, Backend>, project_id: String) -> ApiResul
     if *current.get(&project_id).unwrap_or(&0) != generation {
         return Err(Error::Stale.to_string());
     }
+    lock(&state.scan_cache)?.insert(
+        project_id.clone(),
+        CachedScan {
+            files: plan.local.clone(),
+            verified_at,
+        },
+    );
     lock(&state.plans)?.insert(project_id, plan.clone());
     Ok(plan)
 }
@@ -397,6 +414,7 @@ pub fn run() {
                 })?),
                 restored: AsyncMutex::new(false),
                 plans: Mutex::new(HashMap::new()),
+                scan_cache: Mutex::new(HashMap::new()),
                 generations: Mutex::new(HashMap::new()),
                 watchers: Mutex::new(watch::WatchSet::default()),
                 gate: Arc::new(Semaphore::new(1)),

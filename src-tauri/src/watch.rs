@@ -1,19 +1,22 @@
-//! Native file notifications work while the window is hidden. They invalidate
-//! scan snapshots immediately; UI notifications are debounced to avoid rescans
-//! for every write in a CAD application's multi-file save.
+//! Native watches invalidate snapshots immediately and debounce UI refreshes.
+//! A separate native timer survives hidden/tray windows and repairs watches
+//! after disconnected/replaced folders return.
 use super::{Backend, Project};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::{
     collections::{BTreeSet, HashMap},
     path::Path,
-    sync::mpsc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc, Arc,
+    },
     time::{Duration, Instant},
 };
 use tauri::{Emitter, Manager};
 
 #[derive(Default)]
 pub struct WatchSet {
-    handles: HashMap<String, RecommendedWatcher>,
+    handles: HashMap<String, (RecommendedWatcher, String, Arc<AtomicBool>)>,
     sender: Option<mpsc::Sender<String>>,
 }
 fn relevant(event: &Event, root: &Path) -> bool {
@@ -30,31 +33,74 @@ fn relevant(event: &Event, root: &Path) -> bool {
                 Err(_) => true,
             })
 }
+fn root_identity(root: &Path) -> Option<String> {
+    let meta = std::fs::symlink_metadata(root).ok()?;
+    if !meta.is_dir() || meta.file_type().is_symlink() {
+        return None;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        Some(format!("{}:{}", meta.dev(), meta.ino()))
+    }
+    #[cfg(not(unix))]
+    {
+        Some(format!("{:?}", meta.created().ok()?))
+    }
+}
+fn invalidate(app: &tauri::AppHandle, id: &str, discard_cache: bool) {
+    let state = app.state::<Backend>();
+    if let Ok(mut generations) = state.generations.lock() {
+        *generations.entry(id.into()).or_default() += 1;
+    }
+    if let Ok(mut plans) = state.plans.lock() {
+        plans.remove(id);
+    }
+    if discard_cache {
+        if let Ok(mut cache) = state.scan_cache.lock() {
+            cache.remove(id);
+        }
+    }
+}
 impl WatchSet {
     fn replace(&mut self, app: &tauri::AppHandle, projects: Vec<Project>) {
-        self.handles.clear();
+        self.handles.retain(|id, (_, identity, broken)| {
+            !broken.load(Ordering::SeqCst)
+                && projects
+                    .iter()
+                    .any(|p| &p.id == id && root_identity(&p.local_root).as_ref() == Some(identity))
+        });
         let Some(sender) = self.sender.clone() else {
             return;
         };
         for project in projects {
+            if self.handles.contains_key(&project.id) {
+                continue;
+            }
+            let Some(identity) = root_identity(&project.local_root) else {
+                let _ = app.emit(
+                    "watcher-warning",
+                    "A local folder is unavailable. Live watching will reconnect when it returns.",
+                );
+                continue;
+            };
             let root = project.local_root.clone();
             let id = project.id.clone();
             let handle = app.clone();
             let channel = sender.clone();
+            let broken = Arc::new(AtomicBool::new(false));
+            let flag = broken.clone();
             let watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
                 match result {
                     Ok(event) if relevant(&event, &root) => {
-                        let state = handle.state::<Backend>();
-                        if let Ok(mut generation) = state.generations.lock() {
-                            *generation.entry(id.clone()).or_default() += 1;
-                        }
-                        if let Ok(mut plans) = state.plans.lock() {
-                            plans.remove(&id);
-                        }
+                        invalidate(&handle, &id, false);
                         let _ = channel.send(id.clone());
                     }
                     Err(_) => {
-                        let _=handle.emit("watcher-warning","Local folder watching was interrupted. Scan manually while Permafrost reconnects the watcher.");
+                        flag.store(true, Ordering::SeqCst);
+                        invalidate(&handle, &id, true);
+                        let _ = channel.send(id.clone());
+                        let _=handle.emit("watcher-warning","Local watching was interrupted. Permafrost is reconnecting and will verify files again.");
                     }
                     _ => {}
                 }
@@ -64,10 +110,15 @@ impl WatchSet {
                 Ok(w)
             }) {
                 Ok(w) => {
-                    self.handles.insert(project.id, w);
+                    invalidate(app, &project.id, true);
+                    let _ = sender.send(project.id.clone());
+                    self.handles.insert(project.id, (w, identity, broken));
                 }
                 Err(_) => {
-                    let _=app.emit("watcher-warning","A local folder is unavailable for live watching. Reconnect the folder and scan again.");
+                    let _ = app.emit(
+                        "watcher-warning",
+                        "Live folder watching is unavailable. Permafrost will retry automatically.",
+                    );
                 }
             }
         }
@@ -75,11 +126,7 @@ impl WatchSet {
 }
 pub fn refresh(app: &tauri::AppHandle) {
     let state = app.state::<Backend>();
-    let projects = state
-        .store
-        .lock()
-        .ok()
-        .and_then(|store| store.projects().ok());
+    let projects = state.store.lock().ok().and_then(|s| s.projects().ok());
     if let Some(projects) = projects {
         if let Ok(mut watchers) = state.watchers.lock() {
             watchers.replace(app, projects);
@@ -109,11 +156,16 @@ pub fn start(app: tauri::AppHandle) {
         }
     });
     tauri::async_runtime::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(60));
+        let mut interval = tokio::time::interval(Duration::from_secs(10));
         interval.tick().await;
+        let mut ticks = 0;
         loop {
             interval.tick().await;
-            let _ = app.emit("remote-refresh-due", ());
+            refresh(&app);
+            ticks += 1;
+            if ticks % 6 == 0 {
+                let _ = app.emit("remote-refresh-due", ());
+            }
         }
     });
 }

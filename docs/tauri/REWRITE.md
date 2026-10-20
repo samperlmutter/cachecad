@@ -99,3 +99,11 @@ signature. Explicit ad-hoc bundle signing fixes that packaging defect; the local
 Mac debug DMG then passed disk-image checksum, strict bundle signature, installation,
 native render, clean exit, and removal checks. Ad-hoc signing does not establish
 Developer ID/notarization or Gatekeeper acceptance for downloaded releases.
+
+Local comparisons cache hashes using size and a file metadata fingerprint. Unix
+fingerprints include device, inode and change time; Windows includes creation time
+and attributes in addition to modification time. Scans rehash changed files,
+execution independently rehashes every selected file, and a complete hash pass is
+forced at least every 15 minutes of remote refreshes. Watcher errors discard cached
+hashes and plans. Native watcher maintenance runs every 10 seconds to reconnect
+removed, replaced or unavailable project roots without restarting the application.
