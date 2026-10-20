@@ -53,7 +53,11 @@ import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { api, demo, native } from "./api";
-import { sharePendingPreview } from "./preview";
+import {
+  sharePendingPreview,
+  nativeCadFormat,
+  type NativePreviewLoader,
+} from "./preview";
 import {
   groupRenames,
   syncActionIds,
@@ -81,6 +85,8 @@ import {
 } from "./types";
 import Dialog from "./components/Dialog";
 const CadPreview = lazy(() => import("./components/CadPreview"));
+const installerCadPreview: NativePreviewLoader = (signal, progress) =>
+  api.nativePreview("__installer__", "cube.step", signal, progress);
 type Screen = "workspace" | "activity" | "settings";
 type Filter = "all" | "upload" | "download" | "conflict";
 const iconSize = 17;
@@ -581,17 +587,23 @@ export default function App() {
   const conflictCount = new Set(
     actions.filter((a) => conflict(a.kind)).map((a) => a.path),
   ).size;
+  const previewRequest = useRef(0);
   const loadPreview = useMemo(
     () =>
       project && preview
         ? sharePendingPreview(async () => {
+            const request = ++previewRequest.current;
             const remoteOnly = !localFiles[preview] && !!plan?.remote[preview];
             if (remoteOnly)
               setBusy((current) => current || "Downloading preview");
+            else
+              setBusy((current) =>
+                current === "Downloading preview" ? "" : current,
+              );
             try {
               return await api.preview(project.id, preview);
             } finally {
-              if (remoteOnly)
+              if (remoteOnly && previewRequest.current === request)
                 setBusy((current) =>
                   current === "Downloading preview" ? "" : current,
                 );
@@ -612,6 +624,33 @@ export default function App() {
       (localFiles[preview] ?? plan?.local[preview])?.size,
     ],
   );
+  const loadNativePreview = useMemo<NativePreviewLoader | undefined>(() => {
+    if (!native || !project || !preview || !nativeCadFormat(preview))
+      return undefined;
+    const remoteOnly = !localFiles[preview] && !!plan?.remote[preview];
+    return async (signal, onProgress) => {
+      const request = ++previewRequest.current;
+      if (remoteOnly) setBusy((current) => current || "Downloading preview");
+      else
+        setBusy((current) =>
+          current === "Downloading preview" ? "" : current,
+        );
+      const release = () => {
+        if (previewRequest.current === request)
+          setBusy((current) =>
+            current === "Downloading preview" ? "" : current,
+          );
+      };
+      try {
+        return await api.nativePreview(project.id, preview, signal, (phase) => {
+          if (phase !== "loading") release();
+          onProgress(phase);
+        });
+      } finally {
+        release();
+      }
+    };
+  }, [loadPreview, project?.id, preview]);
   const allSelectable = actions.filter((a) => !conflict(a.kind));
   const selectAll = () =>
     setSelected(
@@ -969,7 +1008,17 @@ export default function App() {
               </div>
               <div className="welcome-model">
                 <Suspense>
-                  <CadPreview path="A little room for your next idea" sample />
+                  <CadPreview
+                    path={
+                      data.nativeCadSmoke
+                        ? "cube.step"
+                        : "A little room for your next idea"
+                    }
+                    sample={!data.nativeCadSmoke}
+                    loadGlb={
+                      data.nativeCadSmoke ? installerCadPreview : undefined
+                    }
+                  />
                 </Suspense>
               </div>
             </div>
@@ -1512,6 +1561,7 @@ export default function App() {
                       path={preview}
                       sample={demo && /\.(step|stl)$/i.test(preview)}
                       load={loadPreview}
+                      loadGlb={loadNativePreview}
                       onClose={() => setPreview("")}
                     />
                   </Suspense>

@@ -2,7 +2,8 @@
 
 Branch: `codex/tauri-rewrite`. The immutable Python recovery and maintained
 application remain reference material. The new application ships only the Rust
-workspace and `desktop/` web UI; no Python runtime or vendor services.
+workspace and `desktop/` web UI. The CAD converter bundles a private Python/OpenCascade
+runtime; users do not install Python or connect a conversion service.
 
 ## Behavior inventory and acceptance evidence
 
@@ -350,8 +351,8 @@ STEP path, then `npm run test:e2e -- --grep 'measure a representative private CA
 Without that environment variable, the private benchmark is skipped. No private
 CAD is required for normal CI.
 
-A separate local native OpenCascade 7.9.3 prototype (not integrated or packaged
-with Permafrost) converted the same source to GLB in 18.052 s: 0.551 s library
+A separate local native OpenCascade 7.9.3 prototype initially converted the same
+source to GLB in 18.052 s: 0.551 s library
 startup, 1.873 s file read, 12.706 s STEP transfer, 2.656 s parallel tessellation,
 and 0.265 s GLB writing. Libraries were warm in the OS cache; the first library
 import during setup took 17.109 s, so this is not a cold installer-startup claim.
@@ -367,5 +368,47 @@ current WASM reader; counts are not asserted equal between those two readers.
 The optimized GLB rendered through the production Three.js viewer in Chromium in
 2.148 s initially and 0.410 / 0.366 s on immediate reopening. This is separate
 conversion and rendering evidence, not an end-to-end Permafrost STEP improvement.
-The native helper, persistent converted-model cache, cross-platform packaging,
-and installed-app validation would be required before shipping this route.
+The desktop now integrates this route for STEP/STP, IGES/IGS, and BREP/BRP.
+`tooling/cad/build.mjs` builds a self-contained PyInstaller directory from
+hash-pinned Python 3.12 wheels, including native OpenCascade 7.9.3.1 without VTK.
+It adds about 240 MB before installer compression on Apple Silicon. Native builds
+must run on their target architecture. The browser-only harness retains its WASM
+reader. STL/OBJ continue through their existing mesh worker.
+
+There are two independent caches. Verified remote source bytes remain in the
+project's hidden preview cache (24-hour retention). Remote ID, version, size and
+checksum must match, and the source is rehashed before reuse. Reviewed downloads
+promote these original bytes through the normal transfer commit without another
+Drive media request; conversion never consumes or changes the original. Metadata
+requests and local verification still take time, so promotion is not literally
+zero latency. Existing tests cover both new files and replacements, rejected stale
+or corrupt entries, consent, and concurrent local changes.
+
+Converted GLBs live in the application profile's `cad-cache-v1` directory. Keys
+include a SHA-256 of source bytes, extension, and converter protocol; output size,
+GLB header, and stored SHA-256 are verified before use. Entries survive restarts,
+expire after 30 unused days, and are pruned to a 1 GiB budget on access. Each job
+uses an immutable private source snapshot. A single native conversion runs at a
+time, with cancellation on preview close, a 120-second deadline, 512 MiB source,
+192 MiB GLB and five-million-triangle limits. These limits do not impose a hard
+native memory ceiling. A separate process watchdog terminates native work if the
+app exits, including while OpenCascade holds the Python GIL.
+
+Installer verification now checks both the original mesh-worker sample and a
+fresh public STEP converted by the bundled helper and rendered by Three.js in
+the installed WebView. Additional native tests check source preservation,
+persistent cache reuse without a working converter, corrupt-cache recovery,
+changed-byte invalidation, IGES/BREP conversion, and parent-exit cleanup. Only
+public generated geometry is used in CI. Upstream licenses and source links ship
+with the converter under `cad-helper/licenses`.
+
+Local native acceptance used the same 73,050,452-byte private assembly. The
+packaged Mac app rendered 392 mesh groups / 1,861,296 triangles with WebGL and
+wireframe controls. It was observed ready within 29.2 seconds of remote selection;
+that observation includes remote metadata checks, cached-source verification,
+conversion and display, while other automated tests were running. It is an upper
+bound from UI observation, not a precise first-frame or cold-start benchmark.
+The reviewed download then produced a local STEP with the same inode and SHA-256
+as the original preview cache entry, and removed that cache entry: direct evidence
+of promotion rather than a second body download. Reopening after a full app restart
+rendered the same assembly and retained the GLB inode and modification timestamp.

@@ -15,10 +15,14 @@ import tempfile
 import time
 
 
-def run_smoke(executable, report, diagnostics):
-    stdout = (diagnostics / 'native-stdout.log').open('wb')
-    stderr = (diagnostics / 'native-stderr.log').open('wb')
-    process = subprocess.Popen([str(executable), '--smoke-output', str(report)], stdout=stdout, stderr=stderr)
+def run_smoke(executable, report, diagnostics, cad=False):
+    prefix = 'native-cad' if cad else 'native'
+    stdout = (diagnostics / f'{prefix}-stdout.log').open('wb')
+    stderr = (diagnostics / f'{prefix}-stderr.log').open('wb')
+    command = [str(executable), '--smoke-output', str(report)]
+    if cad:
+        command.append('--smoke-cad')
+    process = subprocess.Popen(command, stdout=stdout, stderr=stderr)
     try:
         deadline = time.monotonic() + 75
         while not report.exists() and time.monotonic() < deadline:
@@ -37,7 +41,7 @@ def run_smoke(executable, report, diagnostics):
         assert (evidence['ui'].get('renderer') or 'webgl') in ('webgl', 'software-svg'), evidence
         # Legacy diagnostic artifacts predate reader evidence; new native builds
         # require the actual worker before their readiness command can succeed.
-        assert evidence['ui'].get('reader') in (None, 'mesh-worker'), evidence
+        assert evidence['ui'].get('reader') in (('native-opencascade',) if cad else (None, 'mesh-worker')), evidence
         assert evidence['ui']['canvasWidth'] >= 100 and evidence['ui']['canvasHeight'] >= 100, evidence
         return evidence
     finally:
@@ -47,7 +51,7 @@ def run_smoke(executable, report, diagnostics):
         stdout.close()
         stderr.close()
         if report.exists():
-            shutil.copy2(report, diagnostics / 'native-render.json')
+            shutil.copy2(report, diagnostics / f'{prefix}-render.json')
 
 
 def main():
@@ -91,6 +95,7 @@ def main():
         else:
             raise RuntimeError('Installer smoke runs on native Windows or macOS runners')
         evidence = run_smoke(executable, report, args.output)
+        evidence['nativeCad'] = run_smoke(executable, root / 'native-cad-smoke.json', args.output, cad=True)
         evidence['installer'] = {'name': installer.name, 'sha256': hashlib.sha256(installer.read_bytes()).hexdigest(), 'size': installer.stat().st_size}
         evidence['ciRun'] = os.environ.get('GITHUB_RUN_ID')
         evidence['commit'] = os.environ.get('GITHUB_SHA')

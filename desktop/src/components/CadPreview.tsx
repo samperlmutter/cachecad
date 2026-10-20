@@ -6,12 +6,18 @@ import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
 import { Box, Expand, Grid2X2, RotateCcw, Scan, X } from "lucide-react";
 import { previewable } from "../types";
 import { createPreviewRenderer } from "./previewRenderer";
-import { PREVIEW_BYTE_LIMIT, previewError } from "../preview";
+import {
+  PREVIEW_BYTE_LIMIT,
+  previewError,
+  nativeCadFormat,
+  type NativePreviewLoader,
+} from "../preview";
 import { cadMeshCache, cadMeshKey, type ImportedMesh } from "../cadMeshCache";
 
 interface Props {
   path: string;
   load?: () => Promise<ArrayBuffer>;
+  loadGlb?: NativePreviewLoader;
   sample?: boolean;
   onClose?: () => void;
 }
@@ -122,7 +128,13 @@ function dispose(object: THREE.Object3D) {
   bitmaps.forEach((bitmap) => bitmap.close());
 }
 
-export default function CadPreview({ path, load, sample, onClose }: Props) {
+export default function CadPreview({
+  path,
+  load,
+  loadGlb,
+  sample,
+  onClose,
+}: Props) {
   const host = useRef<HTMLDivElement>(null);
   const reset = useRef<() => void>(() => {});
   const changeWireframe = useRef<(enabled: boolean) => void>(() => {});
@@ -138,6 +150,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
     const element = host.current;
     if (!element || !supported) return;
     let closed = false;
+    const abort = new AbortController();
     let worker: Worker | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let progressTimer: ReturnType<typeof setInterval> | undefined;
@@ -161,6 +174,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
     const releases: (() => void)[] = [];
     const cleanup = () => {
       closed = true;
+      abort.abort();
       clearTimeout(timer);
       clearInterval(progressTimer);
       worker?.terminate();
@@ -366,6 +380,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
         try {
           let buffer: ArrayBuffer;
           let extension = path.split(".").pop()!.toLowerCase();
+          const nativeConverted = !sample && !!loadGlb && nativeCadFormat(path);
           if (sample) {
             phase("Preparing sample…");
             const model = sampleBracket();
@@ -381,6 +396,21 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
             } finally {
               dispose(model);
             }
+          } else if (nativeConverted) {
+            phase("Loading preview source…");
+            const messages: Record<string, string> = {
+              loading: "Loading preview source…",
+              converting: "Converting model…",
+              reading: "Reading CAD model…",
+              meshing: "Building preview…",
+              writing: "Saving preview…",
+              cached: "Opening saved preview…",
+              ready: "Preparing model for display…",
+            };
+            buffer = await loadGlb!(abort.signal, (value) => {
+              if (!closed && messages[value]) phase(messages[value]);
+            });
+            extension = "glb";
           } else {
             if (!load) throw new Error("Select a local file to preview it.");
             phase("Loading file…");
@@ -476,7 +506,10 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
             };
             worker.postMessage({ buffer, extension }, [buffer]);
           } else {
-            renderer.domElement.setAttribute("data-preview-reader", "gltf");
+            renderer.domElement.setAttribute(
+              "data-preview-reader",
+              nativeConverted ? "native-opencascade" : "gltf",
+            );
             const manager = new THREE.LoadingManager();
             manager.setURLModifier((url) => {
               if (url.startsWith("data:") || url.startsWith("blob:"))
@@ -500,7 +533,7 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
       cleanup();
       throw error;
     }
-  }, [path, load, sample, supported]);
+  }, [path, load, loadGlb, sample, supported]);
   return (
     <section className="preview-panel" aria-label="CAD preview">
       <div className="preview-title">

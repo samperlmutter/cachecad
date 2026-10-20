@@ -56,7 +56,7 @@ def main():
         checkout.mkdir()
         for name in ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'package.json', 'package-lock.json'):
             shutil.copy2(source / name, checkout / name)
-        for name in ('src-tauri', 'crates', 'desktop'):
+        for name in ('src-tauri', 'crates', 'desktop', 'tooling'):
             shutil.copytree(source / name, checkout / name, ignore=shutil.ignore_patterns('node_modules', 'dist', 'gen', 'occt'))
         # Junctions work on unprivileged Windows CI; local Unix builds use a symlink.
         if system == 'Windows':

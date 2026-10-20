@@ -1,3 +1,4 @@
+mod native_cad;
 mod preview;
 #[cfg(feature = "updater-qa")]
 mod update_qa;
@@ -55,8 +56,10 @@ struct Backend {
     gate: Arc<Semaphore>,
     cancel: Arc<Mutex<Option<CancellationToken>>>,
     preview_cache_error: Mutex<Option<String>>,
+    cad: native_cad::Engine,
     profile: PathBuf,
     smoke_output: Option<PathBuf>,
+    smoke_cad: bool,
     _temporary_profile: Option<tempfile::TempDir>,
     updater_configured: bool,
 }
@@ -87,6 +90,7 @@ impl Backend {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Bootstrap {
+    native_cad_smoke: bool,
     projects: Vec<Project>,
     settings: Settings,
     account: Option<Account>,
@@ -110,6 +114,7 @@ async fn bootstrap(state: State<'_, Backend>, app: tauri::AppHandle) -> ApiResul
     }
     let store = lock(&state.store)?;
     Ok(Bootstrap {
+        native_cad_smoke: state.smoke_cad,
         projects: store.projects().map_err(err)?,
         settings: store.settings().map_err(err)?,
         account: auth.account(),
@@ -312,12 +317,26 @@ async fn read_preview(
         .map_err(err)?;
     }
     let (_operation, cancel) = state.begin()?;
+    let cached = remote_preview_source(&state, &project_id, &project, &path, &cancel).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        preview::read_file(&cached).map(tauri::ipc::Response::new)
+    })
+    .await
+    .map_err(err)?
+}
+async fn remote_preview_source(
+    state: &Backend,
+    project_id: &str,
+    project: &Project,
+    path: &str,
+    cancel: &CancellationToken,
+) -> ApiResult<PathBuf> {
     let (expected, parent) = {
         let plans = lock(&state.plans)?;
-        let plan = plans.get(&project_id).ok_or_else(|| {
+        let plan = plans.get(project_id).ok_or_else(|| {
             "Scan the connected folders before previewing a Drive file.".to_string()
         })?;
-        let entry = plan.remote.get(&path).cloned().ok_or_else(|| {
+        let entry = plan.remote.get(path).cloned().ok_or_else(|| {
             "This file is no longer in the scanned Drive folder. Scan again.".to_string()
         })?;
         let directory = path
@@ -331,16 +350,93 @@ async fn read_preview(
             .ok_or_else(|| Error::Stale.to_string())?;
         (entry, parent)
     };
-    let drive = state.drive(&cancel).await?;
-    let cached =
-        permafrost_core::preview_cache::fetch(&drive, &project, &expected, &parent, &cancel)
-            .await
-            .map_err(err)?;
-    tauri::async_runtime::spawn_blocking(move || {
-        preview::read_file(&cached).map(tauri::ipc::Response::new)
+    let drive = state.drive(cancel).await?;
+    permafrost_core::preview_cache::fetch(&drive, project, &expected, &parent, cancel)
+        .await
+        .map_err(err)
+}
+#[tauri::command]
+async fn read_native_preview(
+    state: State<'_, Backend>,
+    app: tauri::AppHandle,
+    project_id: String,
+    path: String,
+    job_id: String,
+) -> ApiResult<tauri::ipc::Response> {
+    if !native_cad::supported(&path) {
+        return Err("Choose a STEP, IGES, or BREP model.".into());
+    }
+    let job = state.cad.job(&job_id)?;
+    let _permit = state.cad.acquire(&job.cancel).await?;
+    let progress_app = app.clone();
+    let progress: Arc<dyn Fn(&str) + Send + Sync> = Arc::new(move |phase| {
+        let _ = progress_app.emit(
+            "cad-preview-progress",
+            serde_json::json!({"jobId":job_id,"phase":phase}),
+        );
+    });
+    progress("loading");
+    let source = if state.smoke_cad && project_id == "__installer__" && path == "cube.step" {
+        let source = state.profile.join("installer-cube.step");
+        std::fs::write(
+            &source,
+            include_bytes!("../../desktop/tests/fixtures/cube.step"),
+        )
+        .map_err(err)?;
+        permafrost_core::fs::open_regular(&source).map_err(err)?
+    } else {
+        let project = lock(&state.store)?.project(&project_id).map_err(err)?;
+        let target = permafrost_core::fs::safe_path(&project.local_root, &path).map_err(err)?;
+        if target.try_exists().map_err(err)? {
+            permafrost_core::fs::open_regular(&target).map_err(err)?
+        } else {
+            let permit = tokio::select! { biased;
+                _ = job.cancel.cancelled() => return Err(Error::Cancelled.to_string()),
+                permit = state.gate.clone().acquire_owned() => permit.map_err(err)?,
+            };
+            *lock(&state.cancel)? = Some((*job.cancel).clone());
+            let _operation = Operation {
+                _permit: permit,
+                cancel: state.cancel.clone(),
+            };
+            // Preserve the original verified STEP in the same cache that reviewed
+            // downloads promote. Conversion only reads it into an isolated snapshot.
+            let source =
+                remote_preview_source(&state, &project_id, &project, &path, &job.cancel).await?;
+            // Hold the file open before releasing the sync gate. A reviewed
+            // download may now rename the cached source without racing preview.
+            permafrost_core::fs::open_regular(&source).map_err(err)?
+        }
+    };
+    let extension = PathBuf::from(&path)
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let root = state.profile.join("cad-cache-v1");
+    let helper = app
+        .path()
+        .resolve(
+            format!(
+                "cad-helper/permafrost-cad/permafrost-cad{}",
+                if cfg!(windows) { ".exe" } else { "" }
+            ),
+            tauri::path::BaseDirectory::Resource,
+        )
+        .map_err(err)?;
+    let cancel = job.cancel.clone();
+    let complete = progress.clone();
+    let converted = tauri::async_runtime::spawn_blocking(move || {
+        native_cad::convert(&root, source, &extension, &helper, &cancel, progress)
     })
     .await
-    .map_err(err)?
+    .map_err(err)??;
+    complete(if converted.cached { "cached" } else { "ready" });
+    Ok(tauri::ipc::Response::new(converted.data))
+}
+#[tauri::command]
+fn cancel_native_preview(state: State<'_, Backend>, job_id: String) -> ApiResult<()> {
+    state.cad.cancel(&job_id)
 }
 #[tauri::command]
 fn export_diagnostics(state: State<'_, Backend>, app: tauri::AppHandle) -> ApiResult<String> {
@@ -382,7 +478,12 @@ fn native_ready(
         || evidence.canvas_width < 100
         || evidence.canvas_height < 100
         || evidence.title != "Permafrost"
-        || evidence.reader.as_deref() != Some("mesh-worker")
+        || evidence.reader.as_deref()
+            != Some(if state.smoke_cad {
+                "native-opencascade"
+            } else {
+                "mesh-worker"
+            })
         || evidence.error.is_some()
     {
         let report = serde_json::json!({"schema":1,"version":app.package_info().version.to_string(),"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"failure":"The installed WebView did not parse and render the expected workspace and 3D model.","ui":evidence});
@@ -415,6 +516,7 @@ pub fn run() {
         .find(|a| a[0] == "--smoke-output")
         .map(|a| PathBuf::from(&a[1]));
     let smoke = smoke_output.is_some();
+    let smoke_cad = smoke && args.iter().any(|a| a == "--smoke-cad");
     let updater_configured = !smoke;
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -455,8 +557,10 @@ pub fn run() {
                 gate: Arc::new(Semaphore::new(1)),
                 cancel: Arc::new(Mutex::new(None)),
                 preview_cache_error: Mutex::new(None),
+                cad: native_cad::Engine::default(),
                 profile,
                 smoke_output,
+                smoke_cad,
                 _temporary_profile: temporary,
                 updater_configured,
             };
@@ -549,6 +653,8 @@ pub fn run() {
             reveal_project,
             open_drive,
             read_preview,
+            read_native_preview,
+            cancel_native_preview,
             list_local_files,
             export_diagnostics,
             native_ready

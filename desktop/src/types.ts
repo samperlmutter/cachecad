@@ -64,6 +64,7 @@ export interface Activity {
   createdAt: number;
 }
 export interface Bootstrap {
+  nativeCadSmoke?: boolean;
   projects: Project[];
   settings: Settings;
   account: Account | null;

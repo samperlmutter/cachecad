@@ -3,11 +3,13 @@
 The Tauri 2 rewrite lives in `desktop/`, `src-tauri/`, and
 `crates/permafrost-core/` on `codex/tauri-rewrite`. It replaces the Python runtime
 with Rust, React/TypeScript, SQLite, and a local Three.js/OpenCascade viewer.
-The Python recovery below remains reference material and is not shipped in the
-Tauri application.
+CAD conversion uses a bundled, isolated native OpenCascade helper; users do not
+install Python. The Python recovery below remains reference material and is not
+shipped in the Tauri application.
 
 ```sh
-# Node 22 and stable Rust; native Tauri prerequisites are required.
+# Node 22, stable Rust, and Python 3.12 or uv (CAD build only).
+# Native Tauri prerequisites are required.
 npm ci
 # macOS only, once: npm run desktop:setup-signing
 npm run desktop:dev
@@ -40,6 +42,10 @@ The feature/validation inventory and remaining release gates are tracked in
 [the rewrite document](docs/tauri/REWRITE.md).
 
 Previews support STEP/STP, IGES/IGS, BREP/BRP, STL, OBJ, and embedded GLB.
+Desktop solid previews convert locally to GLB in an isolated native process and
+render with Three.js. Verified downloaded originals remain available for reviewed
+sync to move into the project without downloading their contents again. Converted
+GLBs have a separate persistent content cache, reused across app restarts.
 Native SolidWorks files sync normally; per the user's scope decision, previewing
 them requires a supported export for now.
 

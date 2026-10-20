@@ -4,9 +4,9 @@
   "version": "2.0.0-alpha.1",
   "identifier": "com.permafrost.desktop",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "node tooling/cad/build.mjs && npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "node tooling/cad/build.mjs && npm run build",
     "frontendDist": "../desktop/dist"
   },
   "app": {
@@ -26,6 +26,7 @@
   },
   "bundle": {
     "active": true,
+    "resources": {"resources/cad-helper/": "cad-helper/"},
     "targets": [
       "app",
       "dmg",

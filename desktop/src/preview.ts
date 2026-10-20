@@ -1,4 +1,10 @@
 export const PREVIEW_BYTE_LIMIT = 512 * 1024 * 1024;
+export const nativeCadFormat = (path: string) =>
+  /\.(step|stp|iges|igs|brep|brp)$/i.test(path);
+export type NativePreviewLoader = (
+  signal: AbortSignal,
+  progress: (phase: string) => void,
+) => Promise<ArrayBuffer>;
 
 // StrictMode can start the same preview twice. Share only an active read:
 // settled buffers may have been transferred to a worker and detached.
