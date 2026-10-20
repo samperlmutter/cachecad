@@ -27,7 +27,7 @@ open = "5"
 base64 = "0.22"
 tempfile = "3"
 notify = "8"
-sha2 = "0.10"
+tauri-plugin-opener = "2"
 
 [lib]
 name = "permafrost"

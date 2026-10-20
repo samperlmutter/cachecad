@@ -370,25 +370,11 @@ async fn execute_one(
         }
         ActionKind::DownloadNew | ActionKind::DownloadRevision | ActionKind::DownloadConflict => {
             let expected = action.remote.as_ref().ok_or(Error::Stale)?;
-            let root = project.local_root.clone();
-            let entry = expected.clone();
-            let token = cancel.clone();
-            let cached = tokio::task::spawn_blocking(move || {
-                crate::preview_cache::take(&root, &entry, &token)
-            })
-            .await
-            .map_err(|_| Error::Stale)??;
-            let stage = if let Some(cached) = cached {
-                progress(expected.size, expected.size);
-                cached
-            } else {
-                let stage_dir = internal_dir(&project.local_root, Path::new("staging"))?;
-                let stage = tempfile::NamedTempFile::new_in(stage_dir)?;
-                drive
-                    .download(expected, stage.path(), cancel, progress)
-                    .await?;
-                stage
-            };
+            let stage_dir = internal_dir(&project.local_root, Path::new("staging"))?;
+            let stage = tempfile::NamedTempFile::new_in(stage_dir)?;
+            drive
+                .download(expected, stage.path(), cancel, progress)
+                .await?;
             let hashed = inspect_staged(stage.path(), cancel).await?;
             if hashed.md5 != expected.md5 || hashed.size != expected.size {
                 return Err(Error::Stale);

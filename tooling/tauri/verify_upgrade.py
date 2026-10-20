@@ -57,7 +57,7 @@ def main():
         for name in ('Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'package.json', 'package-lock.json'):
             shutil.copy2(source / name, checkout / name)
         for name in ('src-tauri', 'crates', 'desktop', 'tooling'):
-            shutil.copytree(source / name, checkout / name, ignore=shutil.ignore_patterns('node_modules', 'dist', 'gen', 'occt'))
+            shutil.copytree(source / name, checkout / name, ignore=shutil.ignore_patterns('node_modules', 'dist', 'gen'))
         # Junctions work on unprivileged Windows CI; local Unix builds use a symlink.
         if system == 'Windows':
             subprocess.run(['cmd', '/c', 'mklink', '/J', str(checkout / 'node_modules'), str(source / 'node_modules')], check=True)
@@ -152,7 +152,8 @@ def main():
             process.wait(timeout=20)
             assert process.returncode == 0, process.returncode
             assert rendered['version'] == '0.0.2', rendered
-            assert rendered['ui']['workspaceVisible'] and rendered['ui']['modelRendered'], rendered
+            assert rendered['ui']['workspaceVisible'] and rendered['ui']['fileListVisible'], rendered
+            assert rendered['ui']['revealButtonVisible'] and rendered['revealVerified'], rendered
             assert Path(rendered['installedExecutable']).resolve() == executable.resolve(), rendered
             new_hash = hashlib.sha256(executable.read_bytes()).hexdigest()
             assert old_hash != new_hash, 'The installed executable was not replaced'

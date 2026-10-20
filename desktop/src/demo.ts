@@ -24,6 +24,7 @@ export const demoProjects: Project[] = [
 ];
 export function demoBootstrap(): Bootstrap {
   return {
+    platform: "macos",
     projects: demoProjects,
     settings: {
       workingDirectory: "/Users/demo/Documents/Permafrost",

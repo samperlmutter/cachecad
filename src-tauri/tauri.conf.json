@@ -4,9 +4,9 @@
   "version": "2.0.0-alpha.1",
   "identifier": "com.permafrost.desktop",
   "build": {
-    "beforeDevCommand": "node tooling/cad/build.mjs && npm run dev",
+    "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "node tooling/cad/build.mjs && npm run build",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../desktop/dist"
   },
   "app": {
@@ -21,17 +21,12 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost 'self' blob: data:; font-src 'self'; object-src 'none'; base-uri 'self'; frame-src 'none'"
+      "csp": "default-src 'self'; script-src 'self'; worker-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-src 'none'"
     }
   },
   "bundle": {
     "active": true,
-    "resources": {"resources/cad-helper/": "cad-helper/"},
-    "targets": [
-      "app",
-      "dmg",
-      "nsis"
-    ],
+    "targets": ["app", "dmg", "nsis"],
     "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",

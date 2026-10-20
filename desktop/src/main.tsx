@@ -1,23 +1,12 @@
-import React, { lazy, Suspense } from "react";
+import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import WorkspaceBoundary from "./components/WorkspaceBoundary";
 import "./style.css";
-const Harness =
-  import.meta.env.DEV &&
-  new URLSearchParams(location.search).has("preview-test")
-    ? lazy(() => import("./PreviewHarness"))
-    : null;
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <WorkspaceBoundary>
-      {Harness ? (
-        <Suspense>
-          <Harness />
-        </Suspense>
-      ) : (
-        <App />
-      )}
+      <App />
     </WorkspaceBoundary>
   </React.StrictMode>,
 );

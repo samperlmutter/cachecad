@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Install the actual CI artifact into a disposable directory and run its WebView.
 The installed binary uses an isolated, network-disabled smoke profile. A report is
-written only after React and a Three.js model have rendered in the real WebView.
+written only after the workspace renders and native file reveal succeeds.
 """
 import argparse
 import hashlib
@@ -15,17 +15,15 @@ import tempfile
 import time
 
 
-def run_smoke(executable, report, diagnostics, cad=False):
+def run_smoke(executable, report, diagnostics):
     # macOS /var is a symlink to /private/var. Tauri intentionally rejects a
     # symlinked launch path when resolving resources; launch the installed file
     # by its canonical path, as LaunchServices does for a normal app launch.
     executable = executable.resolve(strict=True)
-    prefix = 'native-cad' if cad else 'native'
+    prefix = 'native'
     stdout = (diagnostics / f'{prefix}-stdout.log').open('wb')
     stderr = (diagnostics / f'{prefix}-stderr.log').open('wb')
     command = [str(executable), '--smoke-output', str(report)]
-    if cad:
-        command.append('--smoke-cad')
     process = subprocess.Popen(command, stdout=stdout, stderr=stderr)
     try:
         deadline = time.monotonic() + 75
@@ -41,12 +39,9 @@ def run_smoke(executable, report, diagnostics, cad=False):
         evidence = json.loads(report.read_text())
         assert Path(evidence['installedExecutable']).resolve() == executable.resolve(), evidence
         assert evidence['isolatedProfile'] and evidence['networkServicesDisabled'], evidence
-        assert evidence['ui']['workspaceVisible'] and evidence['ui']['modelRendered'], evidence
-        assert (evidence['ui'].get('renderer') or 'webgl') in ('webgl', 'software-svg'), evidence
-        # Legacy diagnostic artifacts predate reader evidence; new native builds
-        # require the actual worker before their readiness command can succeed.
-        assert evidence['ui'].get('reader') in (('native-opencascade',) if cad else (None, 'mesh-worker')), evidence
-        assert evidence['ui']['canvasWidth'] >= 100 and evidence['ui']['canvasHeight'] >= 100, evidence
+        assert evidence['ui']['workspaceVisible'] and evidence['ui']['fileListVisible'], evidence
+        assert evidence['ui']['revealButtonVisible'] and evidence['revealVerified'], evidence
+        assert evidence['ui']['workspaceWidth'] >= 100 and evidence['ui']['workspaceHeight'] >= 100, evidence
         return evidence
     finally:
         if process.poll() is None:
@@ -99,7 +94,10 @@ def main():
         else:
             raise RuntimeError('Installer smoke runs on native Windows or macOS runners')
         evidence = run_smoke(executable, report, args.output)
-        evidence['nativeCad'] = run_smoke(executable, root / 'native-cad-smoke.json', args.output, cad=True)
+        # Removed CAD runtimes and WASM readers must not survive incremental packaging.
+        unexpected = [p.name for p in installed.rglob('*') if p.is_file() and (p.suffix == '.wasm' or p.name in ('permafrost-cad', 'permafrost-cad.exe', 'occt-worker.js'))]
+        assert not unexpected, unexpected
+        evidence['noCadRuntime'] = True
         evidence['installer'] = {'name': installer.name, 'sha256': hashlib.sha256(installer.read_bytes()).hexdigest(), 'size': installer.stat().st_size}
         evidence['ciRun'] = os.environ.get('GITHUB_RUN_ID')
         evidence['commit'] = os.environ.get('GITHUB_SHA')

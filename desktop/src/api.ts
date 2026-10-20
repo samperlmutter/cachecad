@@ -1,6 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { listen } from "@tauri-apps/api/event";
 import type {
   Bootstrap,
   Plan,
@@ -88,38 +87,9 @@ export const api = {
   resolve: (operationId: string) =>
     command<void>("resolve_operation", { operationId }),
   reveal: (projectId: string) => command<void>("reveal_project", { projectId }),
+  revealFile: (projectId: string, path: string) =>
+    command<void>("reveal_file", { projectId, path }),
   openDrive: (projectId: string) => command<void>("open_drive", { projectId }),
-  preview: (projectId: string, path: string) =>
-    command<ArrayBuffer>("read_preview", { projectId, path }),
-  nativePreview: async (
-    projectId: string,
-    path: string,
-    signal: AbortSignal,
-    progress: (phase: string) => void,
-  ): Promise<ArrayBuffer> => {
-    const jobId = crypto.randomUUID();
-    const cancel = () => {
-      void command<void>("cancel_native_preview", { jobId }).catch(() => {});
-    };
-    const stop = await listen<{ jobId: string; phase: string }>(
-      "cad-preview-progress",
-      ({ payload }) => {
-        if (payload.jobId === jobId && !signal.aborted) progress(payload.phase);
-      },
-    );
-    signal.addEventListener("abort", cancel, { once: true });
-    try {
-      if (signal.aborted) throw new Error("The operation was cancelled.");
-      return await command<ArrayBuffer>("read_native_preview", {
-        projectId,
-        path,
-        jobId,
-      });
-    } finally {
-      signal.removeEventListener("abort", cancel);
-      stop();
-    }
-  },
   exportDiagnostics: () => command<string>("export_diagnostics"),
   chooseDirectory: async (): Promise<string | null> =>
     demo

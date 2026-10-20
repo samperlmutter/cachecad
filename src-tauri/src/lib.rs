@@ -1,5 +1,4 @@
-mod native_cad;
-mod preview;
+mod reveal;
 #[cfg(feature = "updater-qa")]
 mod update_qa;
 mod watch;
@@ -55,11 +54,8 @@ struct Backend {
     watchers: Mutex<watch::WatchSet>,
     gate: Arc<Semaphore>,
     cancel: Arc<Mutex<Option<CancellationToken>>>,
-    preview_cache_error: Mutex<Option<String>>,
-    cad: native_cad::Engine,
     profile: PathBuf,
     smoke_output: Option<PathBuf>,
-    smoke_cad: bool,
     _temporary_profile: Option<tempfile::TempDir>,
     updater_configured: bool,
 }
@@ -90,7 +86,8 @@ impl Backend {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Bootstrap {
-    native_cad_smoke: bool,
+    installer_smoke: bool,
+    platform: &'static str,
     projects: Vec<Project>,
     settings: Settings,
     account: Option<Account>,
@@ -98,7 +95,6 @@ struct Bootstrap {
     version: String,
     activity: Vec<Activity>,
     account_error: Option<String>,
-    preview_cache_error: Option<String>,
     updater_configured: bool,
 }
 #[tauri::command]
@@ -114,7 +110,8 @@ async fn bootstrap(state: State<'_, Backend>, app: tauri::AppHandle) -> ApiResul
     }
     let store = lock(&state.store)?;
     Ok(Bootstrap {
-        native_cad_smoke: state.smoke_cad,
+        installer_smoke: state.smoke_output.is_some(),
+        platform: std::env::consts::OS,
         projects: store.projects().map_err(err)?,
         settings: store.settings().map_err(err)?,
         account: auth.account(),
@@ -122,7 +119,6 @@ async fn bootstrap(state: State<'_, Backend>, app: tauri::AppHandle) -> ApiResul
         version: app.package_info().version.to_string(),
         activity: store.activity().map_err(err)?,
         account_error,
-        preview_cache_error: lock(&state.preview_cache_error)?.clone(),
         updater_configured: state.updater_configured,
     })
 }
@@ -278,6 +274,13 @@ fn reveal_project(state: State<'_, Backend>, project_id: String) -> ApiResult<()
     open::that_detached(p.local_root).map_err(err)
 }
 #[tauri::command]
+async fn reveal_file(state: State<'_, Backend>, project_id: String, path: String) -> ApiResult<()> {
+    let project = lock(&state.store)?.project(&project_id).map_err(err)?;
+    tauri::async_runtime::spawn_blocking(move || reveal::show(&project.local_root, &path))
+        .await
+        .map_err(err)?
+}
+#[tauri::command]
 fn open_drive(state: State<'_, Backend>, project_id: String) -> ApiResult<()> {
     let p = lock(&state.store)?.project(&project_id).map_err(err)?;
     open::that_detached(format!(
@@ -301,144 +304,6 @@ async fn list_local_files(state: State<'_, Backend>, project_id: String) -> ApiR
         .map_err(err)
 }
 #[tauri::command]
-async fn read_preview(
-    state: State<'_, Backend>,
-    project_id: String,
-    path: String,
-) -> ApiResult<tauri::ipc::Response> {
-    preview::validate(&path)?;
-    let project = lock(&state.store)?.project(&project_id).map_err(err)?;
-    let target = permafrost_core::fs::safe_path(&project.local_root, &path).map_err(err)?;
-    if target.try_exists().map_err(err)? {
-        return tauri::async_runtime::spawn_blocking(move || {
-            preview::read(&project.local_root, &path).map(tauri::ipc::Response::new)
-        })
-        .await
-        .map_err(err)?;
-    }
-    let (_operation, cancel) = state.begin()?;
-    let cached = remote_preview_source(&state, &project_id, &project, &path, &cancel).await?;
-    tauri::async_runtime::spawn_blocking(move || {
-        preview::read_file(&cached).map(tauri::ipc::Response::new)
-    })
-    .await
-    .map_err(err)?
-}
-async fn remote_preview_source(
-    state: &Backend,
-    project_id: &str,
-    project: &Project,
-    path: &str,
-    cancel: &CancellationToken,
-) -> ApiResult<PathBuf> {
-    let (expected, parent) = {
-        let plans = lock(&state.plans)?;
-        let plan = plans.get(project_id).ok_or_else(|| {
-            "Scan the connected folders before previewing a Drive file.".to_string()
-        })?;
-        let entry = plan.remote.get(path).cloned().ok_or_else(|| {
-            "This file is no longer in the scanned Drive folder. Scan again.".to_string()
-        })?;
-        let directory = path
-            .rsplit_once('/')
-            .map(|(parent, _)| parent)
-            .unwrap_or("");
-        let parent = plan
-            .folders
-            .get(directory)
-            .cloned()
-            .ok_or_else(|| Error::Stale.to_string())?;
-        (entry, parent)
-    };
-    let drive = state.drive(cancel).await?;
-    permafrost_core::preview_cache::fetch(&drive, project, &expected, &parent, cancel)
-        .await
-        .map_err(err)
-}
-#[tauri::command]
-async fn read_native_preview(
-    state: State<'_, Backend>,
-    app: tauri::AppHandle,
-    project_id: String,
-    path: String,
-    job_id: String,
-) -> ApiResult<tauri::ipc::Response> {
-    if !native_cad::supported(&path) {
-        return Err("Choose a STEP, IGES, or BREP model.".into());
-    }
-    let job = state.cad.job(&job_id)?;
-    let _permit = state.cad.acquire(&job.cancel).await?;
-    let progress_app = app.clone();
-    let progress: Arc<dyn Fn(&str) + Send + Sync> = Arc::new(move |phase| {
-        let _ = progress_app.emit(
-            "cad-preview-progress",
-            serde_json::json!({"jobId":job_id,"phase":phase}),
-        );
-    });
-    progress("loading");
-    let source = if state.smoke_cad && project_id == "__installer__" && path == "cube.step" {
-        let source = state.profile.join("installer-cube.step");
-        std::fs::write(
-            &source,
-            include_bytes!("../../desktop/tests/fixtures/cube.step"),
-        )
-        .map_err(err)?;
-        permafrost_core::fs::open_regular(&source).map_err(err)?
-    } else {
-        let project = lock(&state.store)?.project(&project_id).map_err(err)?;
-        let target = permafrost_core::fs::safe_path(&project.local_root, &path).map_err(err)?;
-        if target.try_exists().map_err(err)? {
-            permafrost_core::fs::open_regular(&target).map_err(err)?
-        } else {
-            let permit = tokio::select! { biased;
-                _ = job.cancel.cancelled() => return Err(Error::Cancelled.to_string()),
-                permit = state.gate.clone().acquire_owned() => permit.map_err(err)?,
-            };
-            *lock(&state.cancel)? = Some((*job.cancel).clone());
-            let _operation = Operation {
-                _permit: permit,
-                cancel: state.cancel.clone(),
-            };
-            // Preserve the original verified STEP in the same cache that reviewed
-            // downloads promote. Conversion only reads it into an isolated snapshot.
-            let source =
-                remote_preview_source(&state, &project_id, &project, &path, &job.cancel).await?;
-            // Hold the file open before releasing the sync gate. A reviewed
-            // download may now rename the cached source without racing preview.
-            permafrost_core::fs::open_regular(&source).map_err(err)?
-        }
-    };
-    let extension = PathBuf::from(&path)
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    let root = state.profile.join("cad-cache-v1");
-    let helper = app
-        .path()
-        .resolve(
-            format!(
-                "cad-helper/permafrost-cad/permafrost-cad{}",
-                if cfg!(windows) { ".exe" } else { "" }
-            ),
-            tauri::path::BaseDirectory::Resource,
-        )
-        .map_err(err)?;
-    let cancel = job.cancel.clone();
-    let complete = progress.clone();
-    let converted = tauri::async_runtime::spawn_blocking(move || {
-        native_cad::convert(&root, source, &extension, &helper, &cancel, progress)
-    })
-    .await
-    .map_err(err)??;
-    complete(if converted.cached { "cached" } else { "ready" });
-    Ok(tauri::ipc::Response::new(converted.data))
-}
-#[tauri::command]
-fn cancel_native_preview(state: State<'_, Backend>, job_id: String) -> ApiResult<()> {
-    state.cad.cancel(&job_id)
-}
-#[tauri::command]
 fn export_diagnostics(state: State<'_, Backend>, app: tauri::AppHandle) -> ApiResult<String> {
     let store = lock(&state.store)?;
     let activity = store.activity().map_err(err)?;
@@ -453,15 +318,10 @@ fn export_diagnostics(state: State<'_, Backend>, app: tauri::AppHandle) -> ApiRe
 #[serde(rename_all = "camelCase")]
 struct UiEvidence {
     workspace_visible: bool,
-    model_rendered: bool,
-    canvas_width: u32,
-    canvas_height: u32,
-    #[serde(default)]
-    renderer: Option<String>,
-    #[serde(default)]
-    reader: Option<String>,
-    #[serde(default)]
-    error: Option<String>,
+    file_list_visible: bool,
+    reveal_button_visible: bool,
+    workspace_width: u32,
+    workspace_height: u32,
     title: String,
 }
 #[tauri::command]
@@ -473,20 +333,20 @@ fn native_ready(
     let Some(output) = &state.smoke_output else {
         return Ok(());
     };
-    if !evidence.workspace_visible
-        || !evidence.model_rendered
-        || evidence.canvas_width < 100
-        || evidence.canvas_height < 100
-        || evidence.title != "Permafrost"
-        || evidence.reader.as_deref()
-            != Some(if state.smoke_cad {
-                "native-opencascade"
-            } else {
-                "mesh-worker"
-            })
-        || evidence.error.is_some()
-    {
-        let report = serde_json::json!({"schema":1,"version":app.package_info().version.to_string(),"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"failure":"The installed WebView did not parse and render the expected workspace and 3D model.","ui":evidence});
+    let valid = evidence.workspace_visible
+        && evidence.file_list_visible
+        && evidence.reveal_button_visible
+        && evidence.workspace_width >= 100
+        && evidence.workspace_height >= 100
+        && evidence.title == "Permafrost";
+    let revealed = valid.then(|| {
+        reveal::show(
+            &state.profile.join("workspace"),
+            "Installer verification.txt",
+        )
+    });
+    if !matches!(revealed, Some(Ok(()))) {
+        let report = serde_json::json!({"schema":1,"version":app.package_info().version.to_string(),"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"failure":"The installed workspace or native file reveal did not complete.","ui":evidence});
         std::fs::write(output, serde_json::to_vec_pretty(&report).map_err(err)?).map_err(err)?;
         let handle = app.clone();
         std::thread::spawn(move || {
@@ -499,7 +359,7 @@ fn native_ready(
     if update_qa::start(&app)? {
         return Ok(());
     }
-    let report = serde_json::json!({"schema":1,"version":app.package_info().version.to_string(),"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"installedExecutable":std::env::current_exe().map_err(err)?.display().to_string(),"isolatedProfile":true,"networkServicesDisabled":!cfg!(feature = "updater-qa"),"driveServicesDisabled":true,"updaterTestOnly":cfg!(feature = "updater-qa"),"ui":evidence});
+    let report = serde_json::json!({"schema":1,"version":app.package_info().version.to_string(),"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"installedExecutable":std::env::current_exe().map_err(err)?.display().to_string(),"isolatedProfile":true,"networkServicesDisabled":!cfg!(feature = "updater-qa"),"driveServicesDisabled":true,"updaterTestOnly":cfg!(feature = "updater-qa"),"revealVerified":true,"ui":evidence});
     std::fs::write(output, serde_json::to_vec_pretty(&report).map_err(err)?).map_err(err)?;
     let handle = app.clone();
     std::thread::spawn(move || {
@@ -516,7 +376,6 @@ pub fn run() {
         .find(|a| a[0] == "--smoke-output")
         .map(|a| PathBuf::from(&a[1]));
     let smoke = smoke_output.is_some();
-    let smoke_cad = smoke && args.iter().any(|a| a == "--smoke-cad");
     let updater_configured = !smoke;
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -542,8 +401,24 @@ pub fn run() {
                 .map(|t| t.path().to_path_buf())
                 .unwrap_or(app.path().app_data_dir()?);
             std::fs::create_dir_all(&profile)?;
+            let mut store = Store::open(&profile.join("permafrost.sqlite"))?;
+            if smoke {
+                let workspace = profile.join("workspace");
+                std::fs::create_dir_all(&workspace)?;
+                std::fs::write(
+                    workspace.join("Installer verification.txt"),
+                    b"Permafrost installer verification\n",
+                )?;
+                store.save_project(&Project {
+                    id: "installer".into(),
+                    name: "Installer verification".into(),
+                    local_root: workspace.canonicalize()?,
+                    drive_folder_id: "installer-fixture".into(),
+                    read_only: true,
+                })?;
+            }
             let backend = Backend {
-                store: Arc::new(Mutex::new(Store::open(&profile.join("permafrost.sqlite"))?)),
+                store: Arc::new(Mutex::new(store)),
                 auth: AsyncMutex::new(Auth::new(if smoke {
                     None
                 } else {
@@ -556,18 +431,14 @@ pub fn run() {
                 watchers: Mutex::new(watch::WatchSet::default()),
                 gate: Arc::new(Semaphore::new(1)),
                 cancel: Arc::new(Mutex::new(None)),
-                preview_cache_error: Mutex::new(None),
-                cad: native_cad::Engine::default(),
                 profile,
                 smoke_output,
-                smoke_cad,
                 _temporary_profile: temporary,
                 updater_configured,
             };
             app.manage(backend);
             if !smoke {
                 watch::start(app.handle().clone());
-                preview::start_cleanup(app.handle().clone());
             }
             let show =
                 tauri::menu::MenuItem::with_id(app, "show", "Open Permafrost", true, None::<&str>)?;
@@ -651,10 +522,8 @@ pub fn run() {
             activity,
             resolve_operation,
             reveal_project,
+            reveal_file,
             open_drive,
-            read_preview,
-            read_native_preview,
-            cancel_native_preview,
             list_local_files,
             export_diagnostics,
             native_ready

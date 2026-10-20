@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { fileURLToPath } from "node:url";
 
 test("read-only local files are not described as synchronized", async ({
   page,
@@ -31,53 +30,12 @@ test("read-only local files are not described as synchronized", async ({
   await page.getByRole("button", { name: "Save project", exact: true }).click();
   await expect(page.locator(".scan-time")).toContainText("Scanned");
   await page.getByRole("tab", { name: /All files/ }).click();
-  const localFile = page
-    .locator(".file-row")
-    .filter({
-      has: page.getByRole("button", { name: /Mounting bracket.stl/ }),
-    });
+  const localFile = page.locator(".file-row").filter({
+    has: page.locator(".file-name").filter({ hasText: /Mounting bracket.stl/ }),
+  });
   await expect(localFile).toContainText("Local only");
   await expect(localFile.getByRole("checkbox")).toBeDisabled();
   await expect(localFile).not.toContainText("Synced");
-});
-
-test("native installer readiness includes actual mesh-worker parsing", async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    const global = window as any;
-    let next = 1;
-    global.isTauri = true;
-    global.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} };
-    global.__TAURI_INTERNALS__ = {
-      transformCallback() {
-        return next++;
-      },
-      async invoke(command: string, args: any) {
-        if (command === "plugin:event|listen") return args.handler;
-        if (command === "bootstrap")
-          return {
-            projects: [],
-            account: null,
-            settings: { checkUpdates: false },
-            googleConfigured: false,
-            updaterConfigured: false,
-            activity: [],
-            version: "2.0.0-alpha.1",
-            accountError: null,
-          };
-        if (command === "native_ready") global.smokeEvidence = args.evidence;
-      },
-    };
-  });
-  await page.goto("/");
-  await expect
-    .poll(() => page.evaluate(() => (window as any).smokeEvidence?.reader))
-    .toBe("mesh-worker");
-  await expect(page.locator("[data-preview-ready]")).toBeVisible();
-  expect(
-    await page.evaluate(() => (window as any).smokeEvidence.modelRendered),
-  ).toBe(true);
 });
 
 test("connecting a project performs one initial comparison", async ({
@@ -120,113 +78,6 @@ test("connecting a project performs one initial comparison", async ({
   expect(
     await page.evaluate(() => (window as any).connectionScans.length),
   ).toBe(1);
-});
-
-test("replacing a textured GLB disposes its texture resources", async ({
-  page,
-}) => {
-  await page.goto("/?preview-test=1");
-  const uri = await page.evaluate(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 1;
-    canvas.getContext("2d")!.fillRect(0, 0, 1, 1);
-    return canvas.toDataURL("image/png");
-  });
-  const png = Buffer.from(uri.split(",")[1], "base64");
-  const geometry = Buffer.alloc(60);
-  [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1].forEach((value, i) =>
-    geometry.writeFloatLE(value, i * 4),
-  );
-  const binary = Buffer.concat([geometry, png]);
-  const document = {
-    asset: { version: "2.0" },
-    scene: 0,
-    scenes: [{ nodes: [0] }],
-    nodes: [{ mesh: 0 }],
-    meshes: [
-      {
-        primitives: [
-          { attributes: { POSITION: 0, TEXCOORD_0: 1 }, material: 0 },
-        ],
-      },
-    ],
-    buffers: [{ byteLength: binary.length }],
-    bufferViews: [
-      { buffer: 0, byteOffset: 0, byteLength: 36 },
-      { buffer: 0, byteOffset: 36, byteLength: 24 },
-      { buffer: 0, byteOffset: 60, byteLength: png.length },
-    ],
-    accessors: [
-      {
-        bufferView: 0,
-        componentType: 5126,
-        count: 3,
-        type: "VEC3",
-        min: [0, 0, 0],
-        max: [1, 1, 0],
-      },
-      { bufferView: 1, componentType: 5126, count: 3, type: "VEC2" },
-    ],
-    images: [{ bufferView: 2, mimeType: "image/png" }],
-    textures: [{ source: 0 }],
-    materials: [
-      {
-        pbrMetallicRoughness: {
-          baseColorTexture: { index: 0 },
-          metallicFactor: 0,
-        },
-        doubleSided: true,
-      },
-    ],
-  };
-  const json = Buffer.from(
-    JSON.stringify(document).padEnd(
-      Math.ceil(Buffer.byteLength(JSON.stringify(document)) / 4) * 4,
-      " ",
-    ),
-  );
-  const padded = Buffer.concat([
-    binary,
-    Buffer.alloc((4 - (binary.length % 4)) % 4),
-  ]);
-  const container = Buffer.alloc(12 + 8 + json.length + 8 + padded.length);
-  container.writeUInt32LE(0x46546c67, 0);
-  container.writeUInt32LE(2, 4);
-  container.writeUInt32LE(container.length, 8);
-  container.writeUInt32LE(json.length, 12);
-  container.writeUInt32LE(0x4e4f534a, 16);
-  json.copy(container, 20);
-  container.writeUInt32LE(padded.length, 20 + json.length);
-  container.writeUInt32LE(0x004e4942, 24 + json.length);
-  padded.copy(container, 28 + json.length);
-  await page.getByLabel("Model fixture").setInputFiles({
-    name: "textured.glb",
-    mimeType: "model/gltf-binary",
-    buffer: container,
-  });
-  await expect(page.locator("[data-preview-ready]")).toBeVisible();
-  await page.evaluate(async () => {
-    const resource = performance
-      .getEntriesByType("resource")
-      .find((entry) => new URL(entry.name).pathname.endsWith("/three.js"));
-    if (!resource) throw Error("The production Three.js module was not loaded");
-    const three = await import(resource.name);
-    const dispose = three.Texture.prototype.dispose;
-    (window as any).disposedTextures = 0;
-    three.Texture.prototype.dispose = function () {
-      (window as any).disposedTextures++;
-      return dispose.call(this);
-    };
-  });
-  await page
-    .getByLabel("Model fixture")
-    .setInputFiles(
-      fileURLToPath(new URL("./fixtures/cube.step", import.meta.url)),
-    );
-  await expect(page.locator(".preview-caption")).toContainText("12 triangles");
-  await expect
-    .poll(() => page.evaluate(() => (window as any).disposedTextures))
-    .toBeGreaterThan(0);
 });
 
 test("seeded navigation chaos stays usable through failed refreshes and offline events", async ({
@@ -332,55 +183,6 @@ test("seeded navigation chaos stays usable through failed refreshes and offline 
   });
 });
 
-for (const extension of ["stl", "obj"]) {
-  test(`${extension} parsing runs in a disposable worker and rapid replacements leave no workers behind`, async ({
-    page,
-  }) => {
-    await page.addInitScript(() => {
-      const WorkerClass = window.Worker;
-      const state = { created: 0, active: 0 };
-      (window as any).meshWorkers = state;
-      window.Worker = class extends WorkerClass {
-        private ended = false;
-        constructor(url: string | URL, options?: WorkerOptions) {
-          super(url, options);
-          state.created++;
-          state.active++;
-        }
-        terminate() {
-          if (!this.ended) {
-            this.ended = true;
-            state.active--;
-          }
-          super.terminate();
-        }
-      };
-    });
-    await page.goto("/?preview-test=1");
-    const buffer = Buffer.from(
-      extension === "obj"
-        ? "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"
-        : "solid triangle\nfacet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid triangle\n",
-    );
-    for (let i = 0; i < 20; i++)
-      await page.getByLabel("Model fixture").setInputFiles({
-        name: `replacement-${i}.${extension}`,
-        mimeType: "application/octet-stream",
-        buffer,
-      });
-    await expect(page.locator("[data-preview-ready]")).toBeVisible();
-    await expect
-      .poll(() => page.evaluate(() => (window as any).meshWorkers.created))
-      .toBeGreaterThan(0);
-    await expect
-      .poll(() => page.evaluate(() => (window as any).meshWorkers.active))
-      .toBe(0);
-    await expect(page.locator(".preview-caption")).toContainText(
-      "1 body · 1 triangle",
-    );
-  });
-}
-
 test("project options edits the connection without duplicating or removing it", async ({
   page,
 }, info) => {
@@ -425,78 +227,4 @@ test("project options edits the connection without duplicating or removing it", 
   await expect(
     page.getByRole("heading", { name: /Read-only review/ }),
   ).toBeVisible();
-});
-
-for (const kind of ["empty", "non-finite"] as const) {
-  test(`malformed ${kind} mesh is rejected and a valid preview still opens`, async ({
-    page,
-  }) => {
-    await page.goto("/?preview-test=1");
-    let buffer: Buffer;
-    if (kind === "empty") buffer = Buffer.from("# No mesh geometry\n");
-    else {
-      buffer = Buffer.alloc(134);
-      buffer.writeUInt32LE(1, 80);
-      buffer.writeFloatLE(1, 92);
-      buffer.writeFloatLE(Number.NaN, 96);
-      buffer.writeFloatLE(1, 108);
-      buffer.writeFloatLE(1, 124);
-    }
-    await page.getByLabel("Model fixture").setInputFiles({
-      name: kind === "empty" ? "empty.obj" : "invalid.stl",
-      mimeType: "application/octet-stream",
-      buffer,
-    });
-    await expect(page.getByRole("alert")).toContainText(
-      /no renderable triangles|invalid coordinates/i,
-    );
-    await expect(page.locator("[data-preview-ready]")).toHaveCount(0);
-    await page
-      .getByLabel("Model fixture")
-      .setInputFiles(
-        fileURLToPath(new URL("./fixtures/cube.step", import.meta.url)),
-      );
-    await expect(page.locator("[data-preview-ready]")).toBeVisible();
-    await expect(page.locator(".preview-caption")).toContainText(
-      "12 triangles",
-    );
-  });
-}
-
-test("an unexpected preview exception offers workspace recovery", async ({
-  page,
-}, info) => {
-  await page.addInitScript(() => {
-    const Observer = window.ResizeObserver;
-    let failed = false;
-    window.ResizeObserver = class extends Observer {
-      constructor(callback: ResizeObserverCallback) {
-        if (!failed) {
-          failed = true;
-          throw new Error("Injected graphics resource failure");
-        }
-        super(callback);
-      }
-    };
-  });
-  await page.goto("/?preview-test=1");
-  await page
-    .getByLabel("Model fixture")
-    .setInputFiles(
-      fileURLToPath(new URL("./fixtures/cube.step", import.meta.url)),
-    );
-  await expect(
-    page.getByRole("heading", { name: "Let’s reopen your workspace" }),
-  ).toBeVisible();
-  await page.screenshot({ path: info.outputPath("workspace-recovery.png") });
-  await page
-    .getByRole("button", { name: "Reopen workspace", exact: true })
-    .click();
-  await expect(page.getByLabel("Model fixture")).toBeVisible();
-  await page
-    .getByLabel("Model fixture")
-    .setInputFiles(
-      fileURLToPath(new URL("./fixtures/cube.step", import.meta.url)),
-    );
-  await expect(page.locator("[data-preview-ready]")).toBeVisible();
 });

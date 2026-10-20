@@ -4,7 +4,6 @@ pub mod drive;
 pub mod fs;
 pub mod model;
 pub mod planner;
-pub mod preview_cache;
 pub mod store;
 pub mod transfer;
 

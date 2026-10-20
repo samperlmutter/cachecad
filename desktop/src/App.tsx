@@ -1,6 +1,4 @@
 import {
-  lazy,
-  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -54,11 +52,6 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { api, demo, native } from "./api";
 import {
-  sharePendingPreview,
-  nativeCadFormat,
-  type NativePreviewLoader,
-} from "./preview";
-import {
   groupRenames,
   syncActionIds,
   completedChanges,
@@ -84,9 +77,6 @@ import {
   type Entry,
 } from "./types";
 import Dialog from "./components/Dialog";
-const CadPreview = lazy(() => import("./components/CadPreview"));
-const installerCadPreview: NativePreviewLoader = (signal, progress) =>
-  api.nativePreview("__installer__", "cube.step", signal, progress);
 type Screen = "workspace" | "activity" | "settings";
 type Filter = "all" | "upload" | "download" | "conflict";
 const iconSize = 17;
@@ -153,7 +143,6 @@ export default function App() {
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [backgroundWarning, setBackgroundWarning] = useState("");
   const [watcherWarning, setWatcherWarning] = useState("");
   const [selected, setSelected] = useState(new Set<string>());
   selectionRef.current = selected;
@@ -161,7 +150,6 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [filePage, setFilePage] = useState(0);
   const [tab, setTab] = useState<"changes" | "files">("changes");
-  const [preview, setPreview] = useState("");
   const [progress, setProgress] = useState<Progress>();
   const [modal, setModal] = useState<
     "project" | "edit-project" | "review" | "remove" | "disconnect" | null
@@ -225,15 +213,11 @@ export default function App() {
   useEffect(() => {
     mounted.current = true;
     let closed = false;
-    // Register before bootstrap so cleanup failures are visible whether they
-    // happen before startup (retained by native state) or during it (events).
+    // Register native watcher warnings before bootstrap starts local browsing.
     const warningListener = native
       ? Promise.all([
           listen<string>("watcher-warning", (event) => {
             if (!closed) setWatcherWarning(event.payload);
-          }),
-          listen<string>("preview-cache-warning", (event) => {
-            if (!closed) setBackgroundWarning(event.payload);
           }),
         ])
       : Promise.resolve([]);
@@ -245,8 +229,6 @@ export default function App() {
           setActivity(result.activity);
           setProjectId(result.projects[0]?.id ?? "");
           if (result.accountError) setError(result.accountError);
-          if (result.previewCacheError)
-            setBackgroundWarning(result.previewCacheError);
         }
       })
       .catch((e) => {
@@ -304,7 +286,6 @@ export default function App() {
           setPlan(result);
           setLocalFiles(result.local);
           setFreshness("fresh");
-          if (demo) setPreview("02 Parts/Mounting bracket.stl");
         } else {
           setFreshness(cancelled ? "changed" : "offline");
           if (cancelled) {
@@ -354,7 +335,6 @@ export default function App() {
     }
   }, []);
   useEffect(() => {
-    setPreview("");
     setFilter("all");
     setQuery("");
     setPlan(undefined);
@@ -452,29 +432,25 @@ export default function App() {
     }
   }, [data?.updaterConfigured]);
   useEffect(() => {
-    if (!native || !data || data.projects.length) return;
+    if (!native || !data?.installerSmoke) return;
     const timer = setInterval(() => {
-      const canvas = document.querySelector<HTMLCanvasElement | SVGElement>(
-        "[data-preview-ready]",
-      );
-      const previewError = document
-        .querySelector(".preview-message.error")
-        ?.textContent?.trim();
-      if (!canvas && !previewError) return;
+      const workspace = document.querySelector(".content");
+      const revealButton =
+        document.querySelector<HTMLButtonElement>("[data-reveal-file]");
+      if (!workspace || !revealButton || revealButton.disabled) return;
       clearInterval(timer);
+      const bounds = workspace.getBoundingClientRect();
       void invoke("native_ready", {
         evidence: {
           workspaceVisible: !!document.querySelector(".sidebar .brand"),
-          modelRendered: !!canvas,
-          canvasWidth: Math.round(canvas?.getBoundingClientRect().width ?? 0),
-          canvasHeight: Math.round(canvas?.getBoundingClientRect().height ?? 0),
-          renderer: canvas?.getAttribute("data-preview-renderer") ?? null,
-          reader: canvas?.getAttribute("data-preview-reader") ?? null,
-          error: previewError ?? null,
+          fileListVisible: !!document.querySelector(".files-panel .file-row"),
+          revealButtonVisible: revealButton.getBoundingClientRect().width > 0,
+          workspaceWidth: Math.round(bounds.width),
+          workspaceHeight: Math.round(bounds.height),
           title: document.title,
         },
       }).catch((e) => setError(String(e)));
-    }, 300);
+    }, 100);
     return () => clearInterval(timer);
   }, [data]);
   useEffect(() => {
@@ -587,70 +563,6 @@ export default function App() {
   const conflictCount = new Set(
     actions.filter((a) => conflict(a.kind)).map((a) => a.path),
   ).size;
-  const previewRequest = useRef(0);
-  const loadPreview = useMemo(
-    () =>
-      project && preview
-        ? sharePendingPreview(async () => {
-            const request = ++previewRequest.current;
-            const remoteOnly = !localFiles[preview] && !!plan?.remote[preview];
-            if (remoteOnly)
-              setBusy((current) => current || "Downloading preview");
-            else
-              setBusy((current) =>
-                current === "Downloading preview" ? "" : current,
-              );
-            try {
-              return await api.preview(project.id, preview);
-            } finally {
-              if (remoteOnly && previewRequest.current === request)
-                setBusy((current) =>
-                  current === "Downloading preview" ? "" : current,
-                );
-            }
-          })
-        : undefined,
-    [
-      project?.id,
-      preview,
-      !!localFiles[preview],
-      !!plan?.remote[preview],
-      plan?.remote[preview]?.remoteId,
-      plan?.remote[preview]?.version,
-      plan?.remote[preview]?.md5,
-      plan?.remote[preview]?.modified,
-      plan?.remote[preview]?.size,
-      (localFiles[preview] ?? plan?.local[preview])?.modified,
-      (localFiles[preview] ?? plan?.local[preview])?.size,
-    ],
-  );
-  const loadNativePreview = useMemo<NativePreviewLoader | undefined>(() => {
-    if (!native || !project || !preview || !nativeCadFormat(preview))
-      return undefined;
-    const remoteOnly = !localFiles[preview] && !!plan?.remote[preview];
-    return async (signal, onProgress) => {
-      const request = ++previewRequest.current;
-      if (remoteOnly) setBusy((current) => current || "Downloading preview");
-      else
-        setBusy((current) =>
-          current === "Downloading preview" ? "" : current,
-        );
-      const release = () => {
-        if (previewRequest.current === request)
-          setBusy((current) =>
-            current === "Downloading preview" ? "" : current,
-          );
-      };
-      try {
-        return await api.nativePreview(project.id, preview, signal, (phase) => {
-          if (phase !== "loading") release();
-          onProgress(phase);
-        });
-      } finally {
-        release();
-      }
-    };
-  }, [loadPreview, project?.id, preview]);
   const allSelectable = actions.filter((a) => !conflict(a.kind));
   const selectAll = () =>
     setSelected(
@@ -659,7 +571,14 @@ export default function App() {
         : new Set(allSelectable.map((a) => a.id)),
     );
   const startupError = !data && error;
-  const noticeError = error || backgroundWarning || watcherWarning;
+  const noticeError = error || watcherWarning;
+  const fileManager =
+    data?.platform === "macos"
+      ? "Finder"
+      : data?.platform === "windows"
+        ? "Explorer"
+        : "folder";
+  const revealLabel = `Reveal in ${fileManager}`;
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -888,7 +807,6 @@ export default function App() {
                 aria-label="Dismiss message"
                 onClick={() => {
                   setError("");
-                  setBackgroundWarning("");
                   setWatcherWarning("");
                   setMessage("");
                   if (update) setUpdate(null);
@@ -984,7 +902,7 @@ export default function App() {
                 </h1>
                 <p>
                   Bring your local CAD files and Google Drive together. See what
-                  changed, preview your models, and sync with confidence.
+                  changed, find your files, and sync with confidence.
                 </p>
                 <button className="primary" onClick={() => setModal("project")}>
                   <FolderPlus size={18} />
@@ -998,28 +916,13 @@ export default function App() {
                   </span>
                   <span>
                     <Check size={14} />
-                    Preview in 3D
+                    Find files instantly
                   </span>
                   <span>
                     <Check size={14} />
                     Keep local backups
                   </span>
                 </div>
-              </div>
-              <div className="welcome-model">
-                <Suspense>
-                  <CadPreview
-                    path={
-                      data.nativeCadSmoke
-                        ? "cube.step"
-                        : "A little room for your next idea"
-                    }
-                    sample={!data.nativeCadSmoke}
-                    loadGlb={
-                      data.nativeCadSmoke ? installerCadPreview : undefined
-                    }
-                  />
-                </Suspense>
               </div>
             </div>
           ) : (
@@ -1293,9 +1196,7 @@ export default function App() {
                   )}
                 </span>
               </div>
-              <div
-                className={`file-workspace ${preview ? "with-preview" : ""}`}
-              >
+              <div className="file-workspace">
                 <section className="files-panel" aria-label="Project files">
                   <div className="files-toolbar">
                     <label className="search">
@@ -1342,7 +1243,8 @@ export default function App() {
                       />
                       <span>NAME</span>
                       <span>STATUS</span>
-                      <span>SIZE</span>
+                      <span className="size-heading">SIZE</span>
+                      <span className="actions-heading">ACTIONS</span>
                     </div>
                     {rows.length ? (
                       visibleRows.map((path) => {
@@ -1352,10 +1254,7 @@ export default function App() {
                         const first = at[0];
                         const entry = localFiles[path] ?? plan?.remote[path];
                         return (
-                          <div
-                            key={path}
-                            className={`file-row-wrap ${preview === path ? "previewed" : ""}`}
-                          >
+                          <div key={path} className="file-row-wrap">
                             <div className="file-row">
                               <input
                                 type="checkbox"
@@ -1369,15 +1268,13 @@ export default function App() {
                                   )
                                 }
                               />
-                              <button
+                              <div
                                 className="file-name"
-                                disabled={busy === "Downloading preview"}
                                 title={
                                   first?.removal
                                     ? `${first.removal.path} → ${path}`
                                     : path
                                 }
-                                onClick={() => setPreview(path)}
                               >
                                 <FileIcon path={path} />
                                 <span>
@@ -1390,9 +1287,11 @@ export default function App() {
                                     {path.includes("/")
                                       ? path.slice(0, path.lastIndexOf("/"))
                                       : "Project root"}
+                                    {!localFiles[path] &&
+                                      " · Download to reveal locally"}
                                   </small>
                                 </span>
-                              </button>
+                              </div>
                               <span className={`status-pill ${statusOf(at)}`}>
                                 {hasConflict ? (
                                   <>
@@ -1440,6 +1339,28 @@ export default function App() {
                               <span className="file-size">
                                 {formatBytes(entry?.size ?? 0)}
                               </span>
+                              <button
+                                className="file-reveal secondary"
+                                data-reveal-file
+                                aria-label={`${revealLabel}: ${path}`}
+                                disabled={!localFiles[path]}
+                                title={
+                                  localFiles[path]
+                                    ? `${revealLabel}: ${path}`
+                                    : "Download this file to reveal it on your computer."
+                                }
+                                onClick={() =>
+                                  void api
+                                    .revealFile(project.id, path)
+                                    .then(() =>
+                                      setMessage(`Shown in ${fileManager}.`),
+                                    )
+                                    .catch((e) => setError(String(e)))
+                                }
+                              >
+                                <FolderOpen size={14} />
+                                {revealLabel}
+                              </button>
                             </div>
                             {hasConflict && (
                               <div className="conflict-choice">
@@ -1549,23 +1470,6 @@ export default function App() {
                     </span>
                   </div>
                 </section>
-                {preview && (
-                  <Suspense
-                    fallback={
-                      <div className="preview-panel loading-preview">
-                        Opening preview…
-                      </div>
-                    }
-                  >
-                    <CadPreview
-                      path={preview}
-                      sample={demo && /\.(step|stl)$/i.test(preview)}
-                      load={loadPreview}
-                      loadGlb={loadNativePreview}
-                      onClose={() => setPreview("")}
-                    />
-                  </Suspense>
-                )}
               </div>
               <div className="sync-bar">
                 <div>
@@ -1612,7 +1516,7 @@ export default function App() {
               <div className="workspace-footnote">
                 <span>
                   <LockKeyhole size={12} />
-                  Your files stay yours. Previews are rendered on this device.
+                  Your files stay yours. You choose what syncs.
                 </span>
                 <span>Made for the way you build.</span>
               </div>

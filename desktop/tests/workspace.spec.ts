@@ -1,55 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
-import { fileURLToPath } from "node:url";
-async function disableWebGL(page: Page) {
-  await page.addInitScript(() => {
-    const original = HTMLCanvasElement.prototype.getContext;
-    HTMLCanvasElement.prototype.getContext = function (
-      context: string,
-      ...args: any[]
-    ) {
-      if (context.includes("webgl")) return null;
-      return original.apply(this, [context, ...args] as any);
-    } as typeof original;
-  });
-}
-test("STEP preview renders and wireframe works without WebGL acceleration", async ({
-  page,
-}, testInfo) => {
-  await disableWebGL(page);
-  await page.goto("/?preview-test=1");
-  await page
-    .getByLabel("Model fixture")
-    .setInputFiles(
-      fileURLToPath(new URL("./fixtures/cube.step", import.meta.url)),
-    );
-  const surface = page.locator("svg[data-preview-ready]");
-  await expect(surface).toBeVisible();
-  await expect(page.locator(".preview-caption")).toContainText(
-    "Software preview",
-  );
-  expect(await surface.locator("path").count()).toBeGreaterThan(0);
-  const solid = await surface.innerHTML();
-  await page.getByRole("button", { name: "Toggle wireframe" }).click();
-  await expect.poll(() => surface.innerHTML()).not.toBe(solid);
-  await page.screenshot({
-    path: testInfo.outputPath("software-step-preview.png"),
-  });
-});
-test("software preview bounds the work for large meshes", async ({ page }) => {
-  await disableWebGL(page);
-  await page.goto("/?preview-test=1");
-  await page.getByLabel("Model fixture").setInputFiles({
-    name: "large.obj",
-    mimeType: "text/plain",
-    buffer: Buffer.from(
-      "v 0 0 0\nv 1 0 0\nv 0 1 0\n" + "f 1 2 3\n".repeat(50_001),
-    ),
-  });
-  await expect(page.getByRole("alert")).toContainText(
-    "Software preview supports up to 50,000 triangles",
-  );
-  await expect(page.locator("svg[data-preview-ready]")).toHaveCount(0);
-});
+import { expect, test } from "@playwright/test";
 test("local notifications update files while a Drive request remains stalled", async ({
   page,
 }) => {
@@ -73,13 +22,6 @@ test("local notifications update files while a Drive request remains stalled", a
       watchingWarning(message: string) {
         callbacks.get(listeners.get("watcher-warning")!)?.({
           event: "watcher-warning",
-          id: 1,
-          payload: message,
-        });
-      },
-      cacheWarning(message: string) {
-        callbacks.get(listeners.get("preview-cache-warning")!)?.({
-          event: "preview-cache-warning",
           id: 1,
           payload: message,
         });
@@ -145,7 +87,7 @@ test("local notifications update files while a Drive request remains stalled", a
   await page.goto("/");
   await page.getByRole("tab", { name: /All files/ }).click();
   await expect(
-    page.getByRole("button", { name: "Original.step Project root" }),
+    page.locator(".file-name").filter({ hasText: "Original.step" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Scanning…", exact: true }),
@@ -154,10 +96,10 @@ test("local notifications update files while a Drive request remains stalled", a
     (window as any).localFixture.change("Renamed.step"),
   );
   await expect(
-    page.getByRole("button", { name: "Renamed.step Project root" }),
+    page.locator(".file-name").filter({ hasText: "Renamed.step" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Original.step Project root" }),
+    page.locator(".file-name").filter({ hasText: "Original.step" }),
   ).toHaveCount(0);
   await page.evaluate(() => (window as any).localFixture.change(null));
   await expect(page.locator(".file-row-wrap")).toHaveCount(0);
@@ -183,17 +125,7 @@ test("local notifications update files while a Drive request remains stalled", a
     ),
   );
   await expect(page.getByRole("alert")).toContainText("Folder disconnected");
-  await page.evaluate(() =>
-    (window as any).localFixture.cacheWarning("Preview cache cleanup failed."),
-  );
-  await expect(page.getByRole("alert")).toContainText(
-    "Preview cache cleanup failed",
-  );
   await page.evaluate(() => (window as any).localFixture.watchingWarning(""));
-  await expect(page.getByRole("alert")).toContainText(
-    "Preview cache cleanup failed",
-  );
-  await page.evaluate(() => (window as any).localFixture.cacheWarning(""));
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(
     page
@@ -251,7 +183,7 @@ test("large projects keep rows bounded while search and selections span pages", 
     .check();
   await page.getByRole("button", { name: "Next file page" }).click();
   await expect(
-    page.getByRole("button", { name: "Part-100.step Project root" }),
+    page.locator(".file-name").filter({ hasText: "Part-100.step" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Previous file page" }).click();
   await expect(
@@ -260,7 +192,7 @@ test("large projects keep rows bounded while search and selections span pages", 
   await page.getByRole("textbox", { name: "Find a file" }).fill("Part-349");
   await expect(page.locator(".file-row-wrap")).toHaveCount(1);
   await expect(
-    page.getByRole("button", { name: "Part-349.step Project root" }),
+    page.locator(".file-name").filter({ hasText: "Part-349.step" }),
   ).toBeVisible();
   await expect(page.locator(".table-footer")).toContainText("1 selected");
 });
@@ -273,7 +205,7 @@ test("workspace renders, filters files, resolves conflict directions, and requir
   await expect(
     page.getByRole("heading", { name: "Field kit", exact: true }),
   ).toBeVisible();
-  await expect(page.locator("canvas[data-preview-ready]")).toBeVisible();
+  await expect(page.locator(".files-panel")).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("workspace.png"),
     fullPage: true,
@@ -331,42 +263,6 @@ test("new users can connect a project with validated folder inputs", async ({
     page.getByRole("heading", { name: "New assembly", exact: true }),
   ).toBeVisible();
 });
-test("actual STEP import runs OpenCascade in a worker and renders a mesh", async ({
-  page,
-}, testInfo) => {
-  await page.goto("/?preview-test=1");
-  await page
-    .getByLabel("Model fixture")
-    .setInputFiles(
-      process.env.PERMAFROST_STEP_FIXTURE ??
-        fileURLToPath(new URL("./fixtures/cube.step", import.meta.url)),
-    );
-  await expect(
-    page.locator("canvas[data-preview-ready], .preview-message.error"),
-  ).toBeVisible({
-    timeout: 60000,
-  });
-  expect(
-    await page.locator(".preview-message.error").allTextContents(),
-  ).toEqual([]);
-  await expect(page.locator(".preview-caption")).toContainText("triangles");
-  await page.getByRole("button", { name: "Toggle wireframe" }).click();
-  await expect(
-    page.getByRole("button", { name: "Toggle wireframe" }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Reset camera" }).click();
-  await page.screenshot({ path: testInfo.outputPath("step-preview.png") });
-});
-test("native SolidWorks files explain supported export formats", async ({
-  page,
-}) => {
-  await page.goto("/?demo=1");
-  await page.getByRole("button", { name: /Top housing.sldprt/ }).click();
-  await expect(page.getByText("Sync it. Preview an export.")).toBeVisible();
-  await expect(
-    page.getByText(/Native SolidWorks files sync in full/),
-  ).toBeVisible();
-});
 
 test("periodic refresh preserves unchanged choices and offline results remain visible", async ({
   page,
@@ -395,33 +291,13 @@ test("periodic refresh preserves unchanged choices and offline results remain vi
     page.getByRole("button", { name: /Review & sync/ }),
   ).toBeDisabled();
   await expect(
-    page.getByRole("button", { name: /Mounting bracket.stl/ }),
+    page.locator(".file-name").filter({ hasText: /Mounting bracket.stl/ }),
   ).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new Event("online")));
   await expect(page.locator(".scan-time")).toContainText("Scanned");
   await expect(
     page.getByRole("button", { name: /Review & sync/ }),
   ).toBeEnabled();
-});
-
-test("preview failures show the native file-read reason", async ({ page }) => {
-  await page.addInitScript(() => {
-    File.prototype.arrayBuffer = async function () {
-      throw "This file is not on your computer yet. Download it before previewing.";
-    };
-  });
-  await page.goto("/?preview-test=1");
-  await page
-    .getByLabel("Model fixture")
-    .setInputFiles(
-      fileURLToPath(new URL("./fixtures/cube.step", import.meta.url)),
-    );
-  await expect(page.getByRole("alert")).toContainText(
-    "This file is not on your computer yet. Download it before previewing.",
-  );
-  await expect(page.getByRole("alert")).not.toContainText(
-    "Could not read this model.",
-  );
 });
 test("unchanged-content renames display and select as one change", async ({
   page,

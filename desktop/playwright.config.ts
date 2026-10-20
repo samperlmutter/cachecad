@@ -10,14 +10,6 @@ export default defineConfig({
     viewport: { width: 1440, height: 1000 },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    launchOptions: {
-      args: [
-        "--enable-webgl",
-        "--use-gl=angle",
-        "--use-angle=swiftshader",
-        "--enable-unsafe-swiftshader",
-      ],
-    },
   },
   reporter: [
     ["list"],

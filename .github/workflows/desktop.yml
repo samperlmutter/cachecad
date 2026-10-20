@@ -50,7 +50,7 @@ jobs:
         run: cargo test -p permafrost-core --locked "$PERMAFROST_CORE_TEST_FILTER" -- --nocapture
   web:
     if: ${{ !inputs.installer_run_id && !inputs.core_test_filter }}
-    name: Interface and CAD previews
+    name: Interface and file actions
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -112,22 +112,10 @@ jobs:
           python-version: "3.12"
       - run: npm ci
       - run: cargo fmt --all -- --check
-      - name: Build the bundled native OpenCascade converter
-        run: npm run desktop:setup-cad
       - name: Match the Mac deployment target across tests, installers, and upgrade fixtures
         if: runner.os == 'macOS'
         run: echo "MACOSX_DEPLOYMENT_TARGET=12.0" >> "$GITHUB_ENV"
       - run: cargo test --workspace --locked
-      - name: Verify conversion, persistent cache integrity, and source preservation
-        run: cargo test -p permafrost --locked native_cad::tests::packaged_converter -- --ignored
-      - name: Verify CAD formats and orphan process cleanup
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" = Windows ]; then
-            node_modules/.cache/permafrost-cad-env/Scripts/python.exe tooling/cad/test.py
-          else
-            node_modules/.cache/permafrost-cad-env/bin/python tooling/cad/test.py
-          fi
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Verify stable local signing across rebuilds and the development runner
         if: runner.os == 'macOS'
@@ -139,7 +127,7 @@ jobs:
         run: npm run desktop:verify-keychain
       - run: node tooling/tauri/configure-release.mjs
       - run: npm run tauri -- build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
-      - name: Install, render native workspace and Three.js, exit, uninstall
+      - name: Install, render workspace, reveal local file, exit, uninstall
         run: python tooling/tauri/verify_installer.py --bundle target/${{ matrix.target }}/release/bundle --output installer-evidence
       - name: Reject tampering and upgrade an installed app between two signed versions
         run: python tooling/tauri/verify_upgrade.py --debug --output upgrade-evidence

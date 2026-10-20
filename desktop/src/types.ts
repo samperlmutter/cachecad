@@ -64,7 +64,8 @@ export interface Activity {
   createdAt: number;
 }
 export interface Bootstrap {
-  nativeCadSmoke?: boolean;
+  installerSmoke?: boolean;
+  platform?: string;
   projects: Project[];
   settings: Settings;
   account: Account | null;
@@ -72,7 +73,6 @@ export interface Bootstrap {
   version: string;
   activity: Activity[];
   accountError: string | null;
-  previewCacheError?: string | null;
   updaterConfigured: boolean;
 }
 export interface Progress {
@@ -135,5 +135,3 @@ export function toggleSelection(
   }
   return next;
 }
-export const previewable = (path: string) =>
-  /\.(stl|step|stp|igs|iges|brep|brp|obj|glb)$/i.test(path);

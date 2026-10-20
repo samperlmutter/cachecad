@@ -24,7 +24,4 @@ test-results/
 playwright-report/
 *.key
 *.key.pub
-/desktop/public/occt/
 /src-tauri/gen/
-/src-tauri/resources/cad-helper/*
-!/src-tauri/resources/cad-helper/README.txt

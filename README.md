@@ -1,14 +1,13 @@
 # Permafrost desktop rewrite
 
 The Tauri 2 rewrite lives in `desktop/`, `src-tauri/`, and
-`crates/permafrost-core/` on `codex/tauri-rewrite`. It replaces the Python runtime
-with Rust, React/TypeScript, SQLite, and a local Three.js/OpenCascade viewer.
-CAD conversion uses a bundled, isolated native OpenCascade helper; users do not
-install Python. The Python recovery below remains reference material and is not
-shipped in the Tauri application.
+`crates/permafrost-core/`. It replaces the Python runtime with Rust,
+React/TypeScript, and SQLite. File actions reveal the local file in Finder on
+macOS or Explorer on Windows. The Python recovery below remains reference
+material and is not shipped in the Tauri application.
 
 ```sh
-# Node 22, stable Rust, and Python 3.12 or uv (CAD build only).
+# Node 22 and stable Rust.
 # Native Tauri prerequisites are required.
 npm ci
 # macOS only, once: npm run desktop:setup-signing
@@ -21,8 +20,8 @@ npm run test:e2e
 # Windows: npm run tauri build -- --bundles nsis
 ```
 
-The desktop workflow builds, installs, launches, verifies native WebView/Three.js
-rendering, and uninstalls Windows and macOS installers. Signed updates use version
+The desktop workflow builds, installs, launches, verifies the native workspace
+and file reveal action, and uninstalls Windows and macOS installers. Signed updates use version
 tags and the repository's release configuration. Google sign-in requires the
 owner's Desktop OAuth client at build time; no recovered credentials are used.
 For local development, place the approved Desktop client configuration at the
@@ -41,13 +40,10 @@ ones using only a disposable generated credential.
 The feature/validation inventory and remaining release gates are tracked in
 [the rewrite document](docs/tauri/REWRITE.md).
 
-Previews support STEP/STP, IGES/IGS, BREP/BRP, STL, OBJ, and embedded GLB.
-Desktop solid previews convert locally to GLB in an isolated native process and
-render with Three.js. Verified downloaded originals remain available for reviewed
-sync to move into the project without downloading their contents again. Converted
-GLBs have a separate persistent content cache, reused across app restarts.
-Native SolidWorks files sync normally; per the user's scope decision, previewing
-them requires a supported export for now.
+Every locally available file has a Reveal in Finder/Explorer button, including
+native SolidWorks files and other binary formats. Drive-only files must be
+downloaded through the reviewed sync flow before they can be revealed locally.
+The app does not parse CAD geometry or bundle a 3D viewer or conversion runtime.
 
 ---
 
