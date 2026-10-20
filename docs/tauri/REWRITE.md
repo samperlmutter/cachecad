@@ -105,6 +105,10 @@ works while signed out; selected model previews reload when local metadata chang
 A native 60-second timer requests a Drive refresh while the application is open,
 including in the tray. Reconnection and returning to the app request an earlier
 refresh. Operations never overlap; changes arriving mid-operation queue a refresh.
+Read-only local metadata browsing runs independently of remote comparisons and
+transfers, so a stalled Drive request does not delay local file-list updates.
+An interface test holds the Drive request indefinitely while verifying local
+notifications replace and remove file rows.
 Failed refreshes retain the last successful results and disable sync until fresh.
 Only unchanged conflict selections survive a successful refreshed plan.
 
@@ -123,6 +127,8 @@ signature. Explicit ad-hoc bundle signing fixes that packaging defect; the local
 Mac debug DMG then passed disk-image checksum, strict bundle signature, installation,
 native render, clean exit, and removal checks. Ad-hoc signing does not establish
 Developer ID/notarization or Gatekeeper acceptance for downloaded releases.
+Production version-tag releases fail before publication if Mac Developer ID or
+notarization credentials are missing; development installer gates use ad-hoc signing.
 
 Local comparisons cache hashes using size and a file metadata fingerprint. Unix
 fingerprints include device, inode and change time; Windows includes creation time

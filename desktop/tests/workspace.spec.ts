@@ -1,5 +1,91 @@
 import { expect, test } from "@playwright/test";
 import { fileURLToPath } from "node:url";
+test("local notifications update files while a Drive request remains stalled", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const callbacks = new Map<number, (event: unknown) => void>();
+    const listeners = new Map<string, number>();
+    let next = 1;
+    const entry = (path: string) => ({
+      path,
+      size: 128,
+      md5: "",
+      modified: "new",
+      remoteId: null,
+      version: null,
+      modifiedBy: null,
+    });
+    const fixture = {
+      files: { "Original.step": entry("Original.step") },
+      change(path: string | null) {
+        this.files = path ? { [path]: entry(path) } : {};
+        callbacks.get(listeners.get("local-change")!)?.({
+          event: "local-change",
+          id: 1,
+          payload: ["qa"],
+        });
+      },
+    };
+    const global = window as any;
+    global.localFixture = fixture;
+    global.isTauri = true;
+    global.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} };
+    global.__TAURI_INTERNALS__ = {
+      transformCallback(fn: (event: unknown) => void) {
+        const id = next++;
+        callbacks.set(id, fn);
+        return id;
+      },
+      async invoke(command: string, args: any) {
+        if (command === "plugin:event|listen") {
+          listeners.set(args.event, args.handler);
+          return args.handler;
+        }
+        if (command === "bootstrap")
+          return {
+            projects: [
+              {
+                id: "qa",
+                name: "Offline QA",
+                localRoot: "/qa",
+                driveFolderId: "qa",
+                readOnly: false,
+              },
+            ],
+            settings: { checkUpdates: false },
+            account: { subject: "qa", name: "QA", email: "qa@example.test" },
+            googleConfigured: true,
+            updaterConfigured: false,
+            activity: [],
+            version: "2.0.0-alpha.1",
+            accountError: null,
+          };
+        if (command === "scan_project") return new Promise(() => {});
+        if (command === "list_local_files") return fixture.files;
+      },
+    };
+  });
+  await page.goto("/");
+  await page.getByRole("tab", { name: /All files/ }).click();
+  await expect(
+    page.getByRole("button", { name: "Original.step Project root" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Scanning…", exact: true }),
+  ).toBeDisabled();
+  await page.evaluate(() =>
+    (window as any).localFixture.change("Renamed.step"),
+  );
+  await expect(
+    page.getByRole("button", { name: "Renamed.step Project root" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Original.step Project root" }),
+  ).toHaveCount(0);
+  await page.evaluate(() => (window as any).localFixture.change(null));
+  await expect(page.locator(".file-row-wrap")).toHaveCount(0);
+});
 test("large projects keep rows bounded while search and selections span pages", async ({
   page,
 }) => {

@@ -9,6 +9,20 @@ if (release && !process.env.TAURI_SIGNING_PRIVATE_KEY)
   throw new Error(
     "A signed update release requires TAURI_SIGNING_PRIVATE_KEY.",
   );
+if (release && process.platform === "darwin") {
+  if (!process.env.APPLE_CERTIFICATE && !process.env.APPLE_SIGNING_IDENTITY)
+    throw new Error(
+      "Production Mac releases require a Developer ID signing identity.",
+    );
+  if (
+    !process.env.APPLE_ID ||
+    !process.env.APPLE_PASSWORD ||
+    !process.env.APPLE_TEAM_ID
+  )
+    throw new Error(
+      "Production Mac releases require Apple notarization credentials.",
+    );
+}
 const config = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
 config.bundle.createUpdaterArtifacts = release;
 if (key) {

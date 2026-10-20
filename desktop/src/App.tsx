@@ -152,6 +152,9 @@ export default function App() {
   const [update, setUpdate] = useState<Update | null>(null);
   const [updateMessage, setUpdateMessage] = useState("");
   const mounted = useRef(true);
+  const activeProject = useRef(projectId);
+  activeProject.current = projectId;
+  const localRequest = useRef(0);
   const project = data?.projects.find((p) => p.id === projectId);
   const actions = useMemo(
     () => (plan?.projectId === projectId ? plan.actions : []),
@@ -227,18 +230,21 @@ export default function App() {
       const chosen = selectionRef.current;
       const result = await run("Refreshing folders", () => api.scan(id));
       if (result) {
+        const previousChoices = new Map(
+          previous?.actions
+            .filter((old) => chosen.has(old.id))
+            .map((old) => [
+              `${old.kind}\0${old.path}`,
+              JSON.stringify([old.local, old.remote]),
+            ]),
+        );
         setSelected(
           new Set(
             result.actions
-              .filter((next) =>
-                previous?.actions.some(
-                  (old) =>
-                    chosen.has(old.id) &&
-                    old.path === next.path &&
-                    old.kind === next.kind &&
-                    JSON.stringify(old.local) === JSON.stringify(next.local) &&
-                    JSON.stringify(old.remote) === JSON.stringify(next.remote),
-                ),
+              .filter(
+                (next) =>
+                  previousChoices.get(`${next.kind}\0${next.path}`) ===
+                  JSON.stringify([next.local, next.remote]),
               )
               .map((a) => a.id),
           ),
@@ -263,6 +269,27 @@ export default function App() {
     },
     [run],
   );
+  const refreshLocal = useCallback(async (id: string) => {
+    const request = ++localRequest.current;
+    try {
+      const files = await api.localFiles(id);
+      if (
+        mounted.current &&
+        activeProject.current === id &&
+        request === localRequest.current
+      ) {
+        setLocalFiles(files);
+      }
+    } catch (error) {
+      if (
+        mounted.current &&
+        activeProject.current === id &&
+        request === localRequest.current
+      ) {
+        setError(String(error));
+      }
+    }
+  }, []);
   useEffect(() => {
     setPreview("");
     setFilter("all");
@@ -272,13 +299,15 @@ export default function App() {
     setSelected(new Set());
     setFreshness("changed");
     if (projectId) {
-      if (data?.account) void scan(projectId);
-      else {
+      if (data?.account) {
+        void refreshLocal(projectId);
+        void scan(projectId);
+      } else {
         setTab("files");
         void browse(projectId);
       }
     }
-  }, [projectId, data?.account?.subject, scan, browse]);
+  }, [projectId, data?.account?.subject, scan, browse, refreshLocal]);
   const currentRef = useRef({
     projectId,
     hasAccount: !!data?.account,
@@ -310,6 +339,7 @@ export default function App() {
           if (event.payload.includes(currentRef.current.projectId)) {
             setFreshness("changed");
             setModal((m) => (m === "review" ? null : m));
+            void refreshLocal(currentRef.current.projectId);
             refresh();
           }
         }),
@@ -329,7 +359,7 @@ export default function App() {
       window.removeEventListener("offline", offline);
       window.removeEventListener("focus", focus);
     };
-  }, []);
+  }, [refreshLocal]);
   useEffect(() => {
     if (!refreshQueued || busy || modal || !projectId) return;
     setRefreshQueued(false);
@@ -444,7 +474,6 @@ export default function App() {
       [
         ...new Set([
           ...Object.keys(localFiles),
-          ...Object.keys(plan?.local ?? {}),
           ...Object.keys(plan?.remote ?? {}),
         ]),
       ].sort(),
@@ -1145,10 +1174,7 @@ export default function App() {
                         const hasConflict = at.some((a) => conflict(a.kind));
                         const chosen = at.find((a) => selected.has(a.id));
                         const first = at[0];
-                        const entry =
-                          plan?.local[path] ??
-                          plan?.remote[path] ??
-                          localFiles[path];
+                        const entry = localFiles[path] ?? plan?.remote[path];
                         return (
                           <div
                             key={path}

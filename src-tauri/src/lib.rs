@@ -275,7 +275,9 @@ fn open_drive(state: State<'_, Backend>, project_id: String) -> ApiResult<()> {
 }
 #[tauri::command]
 async fn list_local_files(state: State<'_, Backend>, project_id: String) -> ApiResult<Tree> {
-    let (_operation, cancel) = state.begin()?;
+    // Metadata browsing is independent of remote operations so a slow/offline
+    // Drive request cannot prevent local notifications from updating the UI.
+    let cancel = CancellationToken::new();
     let root = lock(&state.store)?
         .project(&project_id)
         .map_err(err)?
