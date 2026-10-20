@@ -58,6 +58,7 @@ import {
   syncActionIds,
   completedChanges,
   retainSelection,
+  projectFilePaths,
   type Change,
 } from "./changes";
 import {
@@ -466,19 +467,10 @@ export default function App() {
     });
     setProgress(undefined);
   };
-  const filePaths = useMemo(() => {
-    const renamedPaths = new Set(
-      actions.flatMap((a) => (a.removal ? [a.removal.path] : [])),
-    );
-    return [
-      ...new Set([
-        ...Object.keys(localFiles),
-        ...Object.keys(plan?.remote ?? {}),
-      ]),
-    ]
-      .filter((path) => !renamedPaths.has(path))
-      .sort();
-  }, [plan, localFiles, actions]);
+  const filePaths = useMemo(
+    () => projectFilePaths(localFiles, plan?.remote ?? {}, actions),
+    [plan, localFiles, actions],
+  );
   const rows = useMemo(
     () =>
       (tab === "files"

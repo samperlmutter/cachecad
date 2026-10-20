@@ -1,8 +1,35 @@
-import type { Action } from "./types";
+import type { Action, Entry } from "./types";
 
 /** One displayed change, with the original removal retained for rename sync. */
 export interface Change extends Action {
   removal?: Action;
+}
+
+export function projectFilePaths(
+  local: Record<string, Entry>,
+  remote: Record<string, Entry>,
+  changes: Change[],
+): string[] {
+  const renamedPaths = new Set(
+    changes.flatMap((change) => {
+      if (!change.removal) return [];
+      const expected = change.local ?? change.removal.local;
+      const current = expected && local[expected.path];
+      const missing = change.local ? change.removal.path : change.path;
+      // Local notifications can arrive while a new Drive scan is still pending.
+      // Collapse a source only while today's local listing supports the rename.
+      const matches =
+        current &&
+        expected &&
+        current.size === expected.size &&
+        current.modified === expected.modified &&
+        (!current.md5 || current.md5 === expected.md5);
+      return matches && !local[missing] ? [change.removal.path] : [];
+    }),
+  );
+  return [...new Set([...Object.keys(local), ...Object.keys(remote)])]
+    .filter((path) => !renamedPaths.has(path))
+    .sort();
 }
 
 export function groupRenames(actions: Action[]): Change[] {

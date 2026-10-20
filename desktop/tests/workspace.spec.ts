@@ -102,7 +102,10 @@ test("large projects keep rows bounded while search and selections span pages", 
   await page.goto("/?demo=1");
   await expect(page.locator(".scan-time")).toContainText("Scanned");
   await page.evaluate(async () => {
-    const { api } = await import("/src/api.ts");
+    const loadedApi = performance
+      .getEntriesByType("resource")
+      .find((resource) => new URL(resource.name).pathname === "/src/api.ts");
+    const { api } = await import(loadedApi?.name ?? "/src/api.ts");
     const plan = await api.scan("field-kit");
     plan.actions = [];
     plan.local = {};

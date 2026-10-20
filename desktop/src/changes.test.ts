@@ -4,6 +4,7 @@ import {
   syncActionIds,
   completedChanges,
   retainSelection,
+  projectFilePaths,
 } from "./changes";
 import {
   toggleSelection,
@@ -43,6 +44,34 @@ function action(
 }
 
 describe("Displaying unchanged-content renames", () => {
+  it("keeps a restored local source visible while an older rename plan is displayed", () => {
+    const added = action("add", "upload_new", "new.step");
+    const removed = action("remove", "delete_cloud", "old.step");
+    const changes = groupRenames([added, removed]);
+    const remote = { "old.step": removed.remote! };
+    expect(
+      projectFilePaths({ "new.step": added.local! }, remote, changes),
+    ).toEqual(["new.step"]);
+    const restored = { ...added.local!, path: "old.step", modified: "2" };
+    expect(projectFilePaths({ "old.step": restored }, remote, changes)).toEqual(
+      ["old.step"],
+    );
+  });
+
+  it("keeps a locally edited source visible when a pending Drive rename is stale", () => {
+    const added = action("add", "download_new", "new.step");
+    const removed = action("remove", "delete_local", "old.step");
+    const changes = groupRenames([added, removed]);
+    const remote = { "new.step": added.remote! };
+    expect(
+      projectFilePaths({ "old.step": removed.local! }, remote, changes),
+    ).toEqual(["new.step"]);
+    const edited = { ...removed.local!, modified: "2" };
+    expect(projectFilePaths({ "old.step": edited }, remote, changes)).toEqual([
+      "new.step",
+      "old.step",
+    ]);
+  });
   it.each([
     ["upload_new", "delete_cloud"],
     ["download_new", "delete_local"],
