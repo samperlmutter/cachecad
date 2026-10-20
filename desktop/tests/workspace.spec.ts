@@ -1,5 +1,62 @@
 import { expect, test } from "@playwright/test";
 import { fileURLToPath } from "node:url";
+test("large projects keep rows bounded while search and selections span pages", async ({
+  page,
+}) => {
+  await page.goto("/?demo=1");
+  await expect(page.locator(".scan-time")).toContainText("Scanned");
+  await page.evaluate(async () => {
+    const { api } = await import("/src/api.ts");
+    const plan = await api.scan("field-kit");
+    plan.actions = [];
+    plan.local = {};
+    plan.remote = {};
+    for (let i = 0; i < 350; i++) {
+      const path = `Part-${String(i).padStart(3, "0")}.step`;
+      const entry = {
+        path,
+        size: 128,
+        md5: `fixture-${i}`,
+        modified: "2026-10-20T04:00:00Z",
+        remoteId: null,
+        version: null,
+        modifiedBy: null,
+      };
+      plan.local[path] = entry;
+      plan.actions.push({
+        id: `fixture-${i}`,
+        path,
+        size: 128,
+        local: entry,
+        remote: null,
+        kind: "upload_new",
+        reason: "New local file",
+      });
+    }
+    api.scan = async () => plan;
+  });
+  await page
+    .getByRole("button", { name: "Scan for changes", exact: true })
+    .click();
+  await expect(page.locator(".file-row-wrap")).toHaveCount(100);
+  await page
+    .getByRole("checkbox", { name: "Select Part-000.step", exact: true })
+    .check();
+  await page.getByRole("button", { name: "Next file page" }).click();
+  await expect(
+    page.getByRole("button", { name: "Part-100.step Project root" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Previous file page" }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "Select Part-000.step", exact: true }),
+  ).toBeChecked();
+  await page.getByRole("textbox", { name: "Find a file" }).fill("Part-349");
+  await expect(page.locator(".file-row-wrap")).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Part-349.step Project root" }),
+  ).toBeVisible();
+  await expect(page.locator(".table-footer")).toContainText("1 selected");
+});
 test("workspace renders, filters files, resolves conflict directions, and requires destructive consent", async ({
   page,
 }, testInfo) => {

@@ -19,6 +19,7 @@ import {
   Check,
   CheckCheck,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleCheck,
   CircleHelp,
@@ -140,6 +141,7 @@ export default function App() {
   selectionRef.current = selected;
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
+  const [filePage, setFilePage] = useState(0);
   const [tab, setTab] = useState<"changes" | "files">("changes");
   const [preview, setPreview] = useState("");
   const [progress, setProgress] = useState<Progress>();
@@ -151,7 +153,20 @@ export default function App() {
   const [updateMessage, setUpdateMessage] = useState("");
   const mounted = useRef(true);
   const project = data?.projects.find((p) => p.id === projectId);
-  const actions = plan?.projectId === projectId ? plan.actions : [];
+  const actions = useMemo(
+    () => (plan?.projectId === projectId ? plan.actions : []),
+    [plan, projectId],
+  );
+  const actionsByPath = useMemo(() => {
+    const grouped = new Map<string, Action[]>();
+    for (const action of actions) {
+      const at = grouped.get(action.path) ?? [];
+      at.push(action);
+      grouped.set(action.path, at);
+    }
+    return grouped;
+  }, [actions]);
+  useEffect(() => setFilePage(0), [projectId, query, filter, tab]);
   const selectedActions = actions.filter((a) => selected.has(a.id));
   const run = useCallback(
     async <T,>(
@@ -442,7 +457,7 @@ export default function App() {
         : [...new Set(actions.map((a) => a.path))]
       ).filter((path) => {
         if (!path.toLowerCase().includes(query.toLowerCase())) return false;
-        const at = actions.filter((a) => a.path === path);
+        const at = actionsByPath.get(path) ?? [];
         return (
           tab === "files" ||
           filter === "all" ||
@@ -453,7 +468,14 @@ export default function App() {
               ))
         );
       }),
-    [tab, filePaths, actions, query, filter],
+    [tab, filePaths, actions, actionsByPath, query, filter],
+  );
+  const pageSize = 100;
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(filePage, pageCount - 1);
+  const visibleRows = rows.slice(
+    currentPage * pageSize,
+    (currentPage + 1) * pageSize,
   );
   const uploadCount = actions.filter(
     (a) => uploads(a.kind) && !conflict(a.kind),
@@ -1118,8 +1140,8 @@ export default function App() {
                       <span>SIZE</span>
                     </div>
                     {rows.length ? (
-                      rows.map((path) => {
-                        const at = actions.filter((a) => a.path === path);
+                      visibleRows.map((path) => {
+                        const at = actionsByPath.get(path) ?? [];
                         const hasConflict = at.some((a) => conflict(a.kind));
                         const chosen = at.find((a) => selected.has(a.id));
                         const first = at[0];
@@ -1265,9 +1287,34 @@ export default function App() {
                   </div>
                   <div className="table-footer">
                     <span>
+                      {pageCount > 1 &&
+                        `${currentPage * pageSize + 1}–${Math.min((currentPage + 1) * pageSize, rows.length)} of `}
                       {rows.length} {rows.length === 1 ? "file" : "files"}
                       {selected.size > 0 ? ` · ${selected.size} selected` : ""}
                     </span>
+                    {pageCount > 1 && (
+                      <nav className="file-pagination" aria-label="File pages">
+                        <button
+                          className="icon-button"
+                          aria-label="Previous file page"
+                          disabled={currentPage === 0}
+                          onClick={() => setFilePage(currentPage - 1)}
+                        >
+                          <ChevronLeft size={15} />
+                        </button>
+                        <span>
+                          {currentPage + 1} / {pageCount}
+                        </span>
+                        <button
+                          className="icon-button"
+                          aria-label="Next file page"
+                          disabled={currentPage + 1 === pageCount}
+                          onClick={() => setFilePage(currentPage + 1)}
+                        >
+                          <ChevronRight size={15} />
+                        </button>
+                      </nav>
+                    )}
                     <span>
                       <ShieldCheck size={12} />
                       You choose what syncs
