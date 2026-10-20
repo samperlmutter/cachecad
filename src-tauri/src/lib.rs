@@ -1,3 +1,5 @@
+#[cfg(feature = "updater-qa")]
+mod update_qa;
 mod watch;
 use permafrost_core::{
     auth::{Account, Auth, OAuthConfig},
@@ -363,7 +365,11 @@ fn native_ready(
             "The installed WebView did not render the expected workspace and 3D model.".into(),
         );
     }
-    let report = serde_json::json!({"schema":1,"version":app.package_info().version.to_string(),"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"installedExecutable":std::env::current_exe().map_err(err)?.display().to_string(),"isolatedProfile":true,"networkServicesDisabled":true,"ui":evidence});
+    #[cfg(feature = "updater-qa")]
+    if update_qa::start(&app)? {
+        return Ok(());
+    }
+    let report = serde_json::json!({"schema":1,"version":app.package_info().version.to_string(),"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"installedExecutable":std::env::current_exe().map_err(err)?.display().to_string(),"isolatedProfile":true,"networkServicesDisabled":!cfg!(feature = "updater-qa"),"driveServicesDisabled":true,"updaterTestOnly":cfg!(feature = "updater-qa"),"ui":evidence});
     std::fs::write(output, serde_json::to_vec_pretty(&report).map_err(err)?).map_err(err)?;
     let handle = app.clone();
     std::thread::spawn(move || {
@@ -390,7 +396,7 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }));
-    if updater_configured {
+    if updater_configured || cfg!(feature = "updater-qa") {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     }
     builder

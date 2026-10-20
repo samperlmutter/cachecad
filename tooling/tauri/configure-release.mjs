@@ -15,11 +15,19 @@ if (key) {
   config.plugins ??= {};
   config.plugins.updater = {
     pubkey: key,
+    requireSignedVersion: true,
     endpoints: [
       "https://github.com/samperlmutter/cachecad/releases/latest/download/latest.json",
     ],
     windows: { installMode: "passive" },
   };
+}
+// A distributor identity must replace the ad-hoc development identity.
+if (process.env.APPLE_SIGNING_IDENTITY?.trim()) {
+  config.bundle.macOS.signingIdentity =
+    process.env.APPLE_SIGNING_IDENTITY.trim();
+} else if (process.env.APPLE_CERTIFICATE) {
+  delete config.bundle.macOS.signingIdentity;
 }
 if (release) {
   const version = JSON.parse(readFileSync("package.json", "utf8")).version;

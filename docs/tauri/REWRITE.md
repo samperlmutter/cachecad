@@ -41,7 +41,12 @@ credentials or bearer tokens cross into the WebView. CAD processing stays local.
 
 ## External integration gates
 
-The repository has no approved distributor Google Desktop OAuth client or Apple Developer ID, or native SolidWorks reader license (native parsing is deferred by user direction).
+The owner supplied an approved Google Desktop OAuth client in the ignored
+`google-client-desktop.json`. Native development builds load it without logging
+its contents; CI receives distributor configuration through repository variables
+and secrets. Live consent and disposable Drive testing remain outstanding.
+Apple Developer ID/notarization credentials remain unconfigured. Native SolidWorks
+parsing is deferred by user direction.
 These are genuine configuration/validation requirements. Never embed recovered
 credentials, generate a pretend login, or describe companion STEP/STL exports as
 native SolidWorks parsing. Development and installer smoke checks must be explicit
@@ -70,6 +75,25 @@ installed applications depend on the corresponding public key for future updates
 Stable `v2.*` version-tag pushes build and verify native installers, create signed
 update artifacts and `latest.json`, then publish only after all platform gates pass.
 No release tag has been created as part of initial branch development.
+
+`tooling/tauri/verify_upgrade.py` builds two isolated application versions with a
+throwaway signing key and distinct application identifier. It launches the older
+installed app, serves a modified package followed by the valid package, requires
+signature rejection before installation, and verifies the newer installed app
+restarts and renders its native workspace/Three.js canvas. The updater also requires
+the signed version to match the feed version. This harness passed locally on Apple
+Silicon (0.0.1 → 0.0.2); Windows/Intel execution is a CI gate. Its loopback transport
+and automation hook are restricted to the `updater-qa` feature and disposable build
+configuration; release jobs do not enable that feature.
+
+The HTTP integration suite exercises all eight sync actions through the real
+scanner, planner, transfer executor, SQLite journal and baseline tracking, including
+native CAD binary preservation, stale-plan rejection, corrupted-download retention,
+uncertain-write replay blocking and backend read-only enforcement.
+An upload larger than 8 MiB verifies continuation after Google's resumable chunk
+acknowledgement and byte-for-byte completion. File rows are grouped by path once
+per plan and rendered in pages of 100; a 350-file interface check verifies search
+and selections across pages.
 
 
 ## Live freshness and native UI checks

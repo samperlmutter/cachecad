@@ -4,6 +4,10 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+[features]
+# Only the disposable upgrade harness enables this. Never ship in release jobs.
+updater-qa = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
