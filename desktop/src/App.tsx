@@ -403,8 +403,8 @@ export default function App() {
         lastProbe = serialized;
         void invoke("native_probe", { probe }).catch(() => {});
       }
-      const canvas = document.querySelector<HTMLCanvasElement>(
-        "canvas[data-preview-ready]",
+      const canvas = document.querySelector<HTMLCanvasElement | SVGElement>(
+        "[data-preview-ready]",
       );
       if (!canvas) return;
       clearInterval(timer);
@@ -412,8 +412,9 @@ export default function App() {
         evidence: {
           workspaceVisible: !!document.querySelector(".sidebar .brand"),
           modelRendered: true,
-          canvasWidth: canvas.width,
-          canvasHeight: canvas.height,
+          canvasWidth: Math.round(canvas.getBoundingClientRect().width),
+          canvasHeight: Math.round(canvas.getBoundingClientRect().height),
+          renderer: canvas.getAttribute("data-preview-renderer"),
           title: document.title,
         },
       }).catch((e) => setError(String(e)));

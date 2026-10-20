@@ -6,6 +6,7 @@ import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Box, Expand, Grid2X2, RotateCcw, Scan, X } from "lucide-react";
 import { previewable } from "../types";
+import { createPreviewRenderer } from "./previewRenderer";
 import { PREVIEW_BYTE_LIMIT, previewError } from "../preview";
 
 interface Props {
@@ -130,23 +131,9 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
     setWireframe(false);
     setGrid(true);
     setDetails("");
-    let renderer: THREE.WebGLRenderer;
-    try {
-      renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: true,
-        powerPreference: "low-power",
-      });
-    } catch {
-      setError(
-        "3D acceleration is unavailable. Enable your system’s graphics support and reopen the preview.",
-      );
-      return;
-    }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0xf3f6f7, 1);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const renderer = createPreviewRenderer();
     element.appendChild(renderer.domElement);
+    renderer.domElement.setAttribute("data-preview-renderer", renderer.mode);
     renderer.domElement.setAttribute("aria-label", `3D preview of ${path}`);
     renderer.domElement.setAttribute("role", "img");
     const scene = new THREE.Scene();
@@ -158,7 +145,10 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
     const fill = new THREE.DirectionalLight(0xb7d5df, 1.5);
     fill.position.set(-100, 30, -80);
     scene.add(fill);
-    const controls = new OrbitControls(camera, renderer.domElement);
+    const controls = new OrbitControls(
+      camera,
+      renderer.domElement as HTMLElement,
+    );
     controls.enableDamping = false;
     const gridHelper = new THREE.GridHelper(320, 16, 0xc5d3d9, 0xe0e8ec);
     scene.add(gridHelper);
@@ -230,9 +220,6 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
         dispose(model);
         return;
       }
-      object = model;
-      scene.add(model);
-      fit();
       let triangles = 0;
       let parts = 0;
       model.traverse((child) => {
@@ -244,9 +231,18 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
           parts++;
         }
       });
-      renderer.domElement.dataset.previewReady = "true";
+      if (triangles > renderer.maxTriangles) {
+        dispose(model);
+        throw new Error(
+          "Software preview supports up to 50,000 triangles. Enable graphics acceleration or export a simpler model.",
+        );
+      }
+      object = model;
+      scene.add(model);
+      fit();
+      renderer.domElement.setAttribute("data-preview-ready", "true");
       setDetails(
-        `${parts} ${parts === 1 ? "body" : "bodies"} · ${Math.round(triangles).toLocaleString()} triangles`,
+        `${renderer.mode === "software-svg" ? "Software preview · " : ""}${parts} ${parts === 1 ? "body" : "bodies"} · ${Math.round(triangles).toLocaleString()} triangles`,
       );
       setStatus("");
     };
@@ -353,7 +349,6 @@ export default function CadPreview({ path, load, sample, onClose }: Props) {
       renderer.domElement.removeEventListener("webglcontextlost", onLost);
       dispose(scene);
       renderer.dispose();
-      renderer.forceContextLoss();
       renderer.domElement.remove();
     };
   }, [path, load, sample, supported]);
