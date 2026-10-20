@@ -355,6 +355,8 @@ struct UiEvidence {
     model_rendered: bool,
     canvas_width: u32,
     canvas_height: u32,
+    #[serde(default)]
+    renderer: Option<String>,
     title: String,
 }
 #[tauri::command]

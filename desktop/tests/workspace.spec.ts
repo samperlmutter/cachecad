@@ -1,5 +1,55 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { fileURLToPath } from "node:url";
+async function disableWebGL(page: Page) {
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      context: string,
+      ...args: any[]
+    ) {
+      if (context.includes("webgl")) return null;
+      return original.apply(this, [context, ...args] as any);
+    } as typeof original;
+  });
+}
+test("STEP preview renders and wireframe works without WebGL acceleration", async ({
+  page,
+}, testInfo) => {
+  await disableWebGL(page);
+  await page.goto("/?preview-test=1");
+  await page
+    .getByLabel("Model fixture")
+    .setInputFiles(
+      fileURLToPath(new URL("./fixtures/cube.step", import.meta.url)),
+    );
+  const surface = page.locator("svg[data-preview-ready]");
+  await expect(surface).toBeVisible();
+  await expect(page.locator(".preview-caption")).toContainText(
+    "Software preview",
+  );
+  expect(await surface.locator("path").count()).toBeGreaterThan(0);
+  const solid = await surface.innerHTML();
+  await page.getByRole("button", { name: "Toggle wireframe" }).click();
+  await expect.poll(() => surface.innerHTML()).not.toBe(solid);
+  await page.screenshot({
+    path: testInfo.outputPath("software-step-preview.png"),
+  });
+});
+test("software preview bounds the work for large meshes", async ({ page }) => {
+  await disableWebGL(page);
+  await page.goto("/?preview-test=1");
+  await page.getByLabel("Model fixture").setInputFiles({
+    name: "large.obj",
+    mimeType: "text/plain",
+    buffer: Buffer.from(
+      "v 0 0 0\nv 1 0 0\nv 0 1 0\n" + "f 1 2 3\n".repeat(50_001),
+    ),
+  });
+  await expect(page.getByRole("alert")).toContainText(
+    "Software preview supports up to 50,000 triangles",
+  );
+  await expect(page.locator("svg[data-preview-ready]")).toHaveCount(0);
+});
 test("local notifications update files while a Drive request remains stalled", async ({
   page,
 }) => {

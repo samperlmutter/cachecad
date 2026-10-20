@@ -7,14 +7,25 @@ on:
   pull_request:
     paths-ignore: ["recovered/**", "maintained/**", "src/**", "requirements/**"]
   workflow_dispatch:
+    inputs:
+      installer_run_id:
+        description: "Diagnose the existing Intel Mac installer from this CI run (no rebuild)"
+        type: string
+        required: false
+        default: ""
+      diagnostic_source_build:
+        description: "Build a debug Intel installer on Apple Silicon first"
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
-  group: desktop-${{ github.ref }}
+  group: desktop-${{ github.ref }}${{ inputs.installer_run_id && '-diagnostics' || '' }}
   # Let native compiles finish and populate caches; keep only the latest queued run.
   cancel-in-progress: false
 jobs:
   web:
+    if: ${{ !inputs.installer_run_id }}
     name: Interface and CAD previews
     runs-on: ubuntu-latest
     steps:
@@ -36,6 +47,7 @@ jobs:
             test-results/
             playwright-report/
   native:
+    if: ${{ !inputs.installer_run_id }}
     name: Installer · ${{ matrix.platform }}
     strategy:
       fail-fast: false
@@ -69,6 +81,8 @@ jobs:
           targets: ${{ matrix.target }}
           components: rustfmt,clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -91,6 +105,59 @@ jobs:
             target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
             installer-evidence/
             upgrade-evidence/
+  installer-diagnostics-build:
+    name: Build debug Intel installer on Apple Silicon
+    if: github.event_name == 'workflow_dispatch' && inputs.installer_run_id != '' && inputs.diagnostic_source_build
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - run: npm ci
+      - run: npm run tauri -- build --debug --target x86_64-apple-darwin --bundles app,dmg --ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-x86_64-apple-darwin
+          path: target/x86_64-apple-darwin/debug/bundle/dmg/*.dmg
+  installer-diagnostics:
+    name: Reproduce existing Intel installer
+    needs: installer-diagnostics-build
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.installer_run_id != '' && (needs.installer-diagnostics-build.result == 'success' || needs.installer-diagnostics-build.result == 'skipped')
+    runs-on: macos-15-intel
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        if: ${{ !inputs.diagnostic_source_build }}
+        with:
+          name: installer-x86_64-apple-darwin
+          run-id: ${{ inputs.installer_run_id }}
+          github-token: ${{ github.token }}
+          path: diagnostic-bundle
+      - uses: actions/download-artifact@v4
+        if: inputs.diagnostic_source_build
+        with:
+          name: installer-x86_64-apple-darwin
+          path: diagnostic-bundle
+      - run: python tooling/tauri/verify_installer.py --bundle diagnostic-bundle --output installer-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-diagnostics-${{ inputs.installer_run_id }}
+          path: installer-evidence/
   release:
     name: Signed update artifacts
     needs: [web, native]

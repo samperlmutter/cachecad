@@ -49,7 +49,9 @@ Apple Developer ID/notarization credentials remain unconfigured. Native SolidWor
 parsing is deferred by user direction.
 The owner chose development ad-hoc signing for now; production signing is deferred.
 Google's current consent flow shows an unverified-app notice for the supplied
-Desktop client. Approval to continue that notice and grant Drive access is pending.
+Desktop client. The owner approved continuing that notice, granting identity and
+Drive access, and testing generated files in a disposable QA folder. The remaining
+live test requires an unlocked Mac for the browser consent flow.
 Browser consent has a ten-minute deadline and a visible, cancellable waiting status.
 These are genuine configuration/validation requirements. Never embed recovered
 credentials, generate a pretend login, or describe companion STEP/STL exports as
@@ -86,7 +88,8 @@ installed app, serves a modified package followed by the valid package, requires
 signature rejection before installation, and verifies the newer installed app
 restarts and renders its native workspace/Three.js canvas. The updater also requires
 the signed version to match the feed version. This harness passed locally on Apple
-Silicon (0.0.1 → 0.0.2); Windows/Intel execution is a CI gate. Its loopback transport
+Silicon (0.0.1 → 0.0.2), and in CI on Windows and Apple Silicon (run
+`39371435255`). Intel execution remains a CI gate. Its loopback transport
 and automation hook are restricted to the `updater-qa` feature and disposable build
 configuration; release jobs do not enable that feature.
 
@@ -133,6 +136,16 @@ native render, clean exit, and removal checks. Ad-hoc signing does not establish
 Developer ID/notarization or Gatekeeper acceptance for downloaded releases.
 Production version-tag releases fail before publication if Mac Developer ID or
 notarization credentials are missing; development installer gates use ad-hoc signing.
+
+Intel GitHub Mac runners have no usable WebGL acceleration. A forced-no-WebGL
+browser regression first reproduced that failure. The preview now falls back to
+Three.js SVGRenderer using the same model geometry, scene, and controls, with a
+50,000-triangle software limit to protect responsiveness. An actual STEP import
+and wireframe interaction pass without WebGL. CI run `39373210625` built an x64
+DMG and installed it on `macos-15-intel`: the native workspace and 511 × 445 model
+render passed using `software-svg`, followed by clean exit and removal. Temporary
+readiness probes were removed after this proof; native stdout/stderr remain useful
+installer failure artifacts.
 
 Local comparisons cache hashes using size and a file metadata fingerprint. Unix
 fingerprints include device, inode and change time; Windows includes creation time
