@@ -105,6 +105,7 @@ def main():
         if system == 'Windows':
             result = subprocess.run(shortcut_command(executable), check=True, capture_output=True, text=True, encoding='utf-8', timeout=30)
             shortcuts = json.loads(result.stdout.lstrip('\ufeff'))
+            (args.output / 'windows-shortcuts.json').write_text(json.dumps(shortcuts, indent=2))
             # Direct binary launch cannot catch a missing or broken Start menu
             # entry. Follow both installed .lnk files through Windows' shell.
             for name in ('startMenu', 'desktop'):
@@ -121,7 +122,9 @@ def main():
         if system == 'Windows':
             uninstallers = [p for p in installed.glob('*.exe') if p.name.lower().startswith('uninstall')]
             assert len(uninstallers) == 1, uninstallers
-            subprocess.run([str(uninstallers[0]), '/S'], check=True, timeout=120)
+            # NSIS normally forks a temporary uninstaller. _?= keeps this CI
+            # invocation synchronous and supplies the exact custom install path.
+            subprocess.run([str(uninstallers[0]), '/S', f'_?={installed}'], check=True, timeout=120)
             deadline = time.monotonic() + 30
             while executable.exists() and time.monotonic() < deadline:
                 time.sleep(0.5)
@@ -129,7 +132,11 @@ def main():
             deadline = time.monotonic() + 30
             while any(Path(item['path']).exists() for item in shortcuts.values()) and time.monotonic() < deadline:
                 time.sleep(0.5)
-            assert all(not Path(item['path']).exists() for item in shortcuts.values()), 'Uninstaller left application shortcuts installed'
+            remaining = [item['path'] for item in shortcuts.values() if Path(item['path']).exists()]
+            if remaining:
+                result = subprocess.run(shortcut_command(executable) + ['-AllowMissing'], capture_output=True, text=True, encoding='utf-8', timeout=30)
+                (args.output / 'windows-shortcuts-after-uninstall.log').write_text(result.stdout + result.stderr)
+            assert not remaining, f'Uninstaller left application shortcuts installed: {remaining}'
             evidence['shortcutRemovalVerified'] = True
             evidence['uninstallVerified'] = True
         else:

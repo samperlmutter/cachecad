@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$Executable,
     [string]$LaunchShortcut,
-    [string]$SmokeReport
+    [string]$SmokeReport,
+    [switch]$AllowMissing
 )
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
@@ -14,6 +15,10 @@ $result = @{}
 foreach ($name in $paths.Keys) {
     $path = $paths[$name]
     if (!(Test-Path -LiteralPath $path -PathType Leaf)) {
+        if ($AllowMissing) {
+            $result[$name] = @{ path = $path; exists = $false }
+            continue
+        }
         throw "Missing $name shortcut: $path"
     }
     $shortcut = $shell.CreateShortcut($path)
@@ -23,7 +28,7 @@ foreach ($name in $paths.Keys) {
     if ($shortcut.Arguments -ne '') {
         throw "Unexpected $name shortcut arguments: $($shortcut.Arguments)"
     }
-    $result[$name] = @{ path = $path; target = $shortcut.TargetPath; arguments = $shortcut.Arguments }
+    $result[$name] = @{ path = $path; exists = $true; target = $shortcut.TargetPath; arguments = $shortcut.Arguments }
 }
 if ($LaunchShortcut) {
     if (!$paths.ContainsKey($LaunchShortcut) -or !$SmokeReport) {
