@@ -7,27 +7,6 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $shell = New-Object -ComObject WScript.Shell
-Add-Type @'
-using System;
-using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
-using System.Text;
-public static class ShortcutPaths {
-    [ComImport, Guid("000214F9-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    private interface IShellLinkW {
-        void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder path, int capacity, IntPtr data, uint flags);
-    }
-    public static string Read(string path, uint flags) {
-        object link = Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("00021401-0000-0000-C000-000000000046")));
-        try {
-            ((IPersistFile)link).Load(path, 0);
-            var buffer = new StringBuilder(32768);
-            ((IShellLinkW)link).GetPath(buffer, buffer.Capacity, IntPtr.Zero, flags);
-            return buffer.ToString();
-        } finally { Marshal.ReleaseComObject(link); }
-    }
-}
-'@
 $paths = @{
     startMenu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Permafrost.lnk'
     desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Permafrost.lnk'
@@ -51,8 +30,6 @@ foreach ($name in $paths.Keys) {
     }
     $result[$name] = @{
         path = $path; exists = $true; target = $shortcut.TargetPath; arguments = $shortcut.Arguments
-        rawTarget = [ShortcutPaths]::Read($path, 4)
-        resolvedTarget = [ShortcutPaths]::Read($path, 0)
     }
 }
 if ($LaunchShortcut) {

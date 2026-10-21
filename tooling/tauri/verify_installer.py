@@ -74,7 +74,9 @@ def main():
         raise RuntimeError(f'Expected exactly one {pattern} installer, found {installers}')
     installer = installers[0].resolve()
     with tempfile.TemporaryDirectory(prefix='permafrost-installer-') as tmp:
-        root = Path(tmp)
+        # Windows TEMP can use an 8.3 profile name (RUNNER~1). Shell links
+        # store the long path; NSIS compares targets literally during uninstall.
+        root = Path(tmp).resolve(strict=True)
         installed = root / 'installed'
         report = root / 'native-smoke.json'
         if system == 'Darwin':
@@ -106,12 +108,6 @@ def main():
             result = subprocess.run(shortcut_command(executable), check=True, capture_output=True, text=True, encoding='utf-8', timeout=30)
             shortcuts = json.loads(result.stdout.lstrip('\ufeff'))
             (args.output / 'windows-shortcuts.json').write_text(json.dumps(shortcuts, indent=2))
-            if os.environ.get('PERMAFROST_NSIS_PROBE'):
-                probe = root / 'shortcut-probe.exe'
-                probe_report = (args.output / 'nsis-shortcut-probe.txt').resolve()
-                subprocess.run([os.environ['PERMAFROST_NSIS_PROBE'], f'/DPROBE_EXE={probe}', f'/DREPORT={probe_report}', f'/DSHORTCUT={shortcuts["desktop"]["path"]}', f'/DTARGET={executable}', str(Path(__file__).with_name('shortcut_probe.nsi').resolve())], check=True)
-                subprocess.run([str(probe)], check=True, timeout=30)
-                print(probe_report.read_text())
             # Direct binary launch cannot catch a missing or broken Start menu
             # entry. Follow both installed .lnk files through Windows' shell.
             for name in ('startMenu', 'desktop'):
@@ -128,9 +124,7 @@ def main():
         if system == 'Windows':
             uninstallers = [p for p in installed.glob('*.exe') if p.name.lower().startswith('uninstall')]
             assert len(uninstallers) == 1, uninstallers
-            # NSIS normally forks a temporary uninstaller. _?= keeps this CI
-            # invocation synchronous and supplies the exact custom install path.
-            subprocess.run([str(uninstallers[0]), '/S', f'_?={installed}'], check=True, timeout=120)
+            subprocess.run([str(uninstallers[0]), '/S'], check=True, timeout=120)
             deadline = time.monotonic() + 30
             while executable.exists() and time.monotonic() < deadline:
                 time.sleep(0.5)
