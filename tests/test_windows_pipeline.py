@@ -86,7 +86,8 @@ class WindowsWorkflowTests(unittest.TestCase):
                       self.steps[test]['run'])
         self.assertEqual(upload['with']['if-no-files-found'], 'error')
         self.assertLessEqual(upload['with']['retention-days'], 30)
-        self.assertIn('${{ github.sha }}', upload['with']['name'])
+        self.assertEqual(upload['with']['name'], 'Legacy-CacheCAD-Windows-x64-Installer')
+        self.assertIn('dist/windows/build-provenance.json', upload['with']['path'])
 
     def test_real_session_and_native_dpapi_tests_run_before_build_and_fail_closed(self):
         index = next(index for index, step in enumerate(self.steps)

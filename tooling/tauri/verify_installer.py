@@ -15,15 +15,17 @@ import tempfile
 import time
 
 
-def run_smoke(executable, report, diagnostics):
+def run_smoke(executable, report, diagnostics, shortcut=None):
     # macOS /var is a symlink to /private/var. Tauri intentionally rejects a
     # symlinked launch path when resolving resources; launch the installed file
     # by its canonical path, as LaunchServices does for a normal app launch.
     executable = executable.resolve(strict=True)
-    prefix = 'native'
+    prefix = f'native-{shortcut}' if shortcut else 'native'
     stdout = (diagnostics / f'{prefix}-stdout.log').open('wb')
     stderr = (diagnostics / f'{prefix}-stderr.log').open('wb')
     command = [str(executable), '--smoke-output', str(report)]
+    if shortcut:
+        command = shortcut_command(executable) + ['-LaunchShortcut', shortcut, '-SmokeReport', str(report)]
     process = subprocess.Popen(command, stdout=stdout, stderr=stderr)
     try:
         deadline = time.monotonic() + 75
@@ -32,7 +34,7 @@ def run_smoke(executable, report, diagnostics):
                 raise RuntimeError(f'Installed app exited before rendering evidence (code {process.returncode})')
             time.sleep(0.5)
         if not report.exists():
-            raise RuntimeError('Installed app did not render its workspace and 3D model within 75 seconds')
+            raise RuntimeError('Installed app did not render its workspace and file actions within 75 seconds')
         process.wait(timeout=15)
         if process.returncode != 0:
             raise RuntimeError(f'Installed app exited with code {process.returncode}')
@@ -53,6 +55,12 @@ def run_smoke(executable, report, diagnostics):
             shutil.copy2(report, diagnostics / f'{prefix}-render.json')
 
 
+def shortcut_command(executable):
+    powershell = Path(os.environ['SYSTEMROOT']) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    return [str(powershell), '-NoLogo', '-NoProfile', '-NonInteractive', '-File',
+            str(Path(__file__).with_name('windows_shortcuts.ps1').resolve()), '-Executable', str(executable)]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--bundle', type=Path, required=True)
@@ -66,7 +74,9 @@ def main():
         raise RuntimeError(f'Expected exactly one {pattern} installer, found {installers}')
     installer = installers[0].resolve()
     with tempfile.TemporaryDirectory(prefix='permafrost-installer-') as tmp:
-        root = Path(tmp)
+        # Windows TEMP can use an 8.3 profile name (RUNNER~1). Shell links
+        # store the long path; NSIS compares targets literally during uninstall.
+        root = Path(tmp).resolve(strict=True)
         installed = root / 'installed'
         report = root / 'native-smoke.json'
         if system == 'Darwin':
@@ -94,6 +104,16 @@ def main():
         else:
             raise RuntimeError('Installer smoke runs on native Windows or macOS runners')
         evidence = run_smoke(executable, report, args.output)
+        if system == 'Windows':
+            result = subprocess.run(shortcut_command(executable), check=True, capture_output=True, text=True, encoding='utf-8', timeout=30)
+            shortcuts = json.loads(result.stdout.lstrip('\ufeff'))
+            (args.output / 'windows-shortcuts.json').write_text(json.dumps(shortcuts, indent=2))
+            # Direct binary launch cannot catch a missing or broken Start menu
+            # entry. Follow both installed .lnk files through Windows' shell.
+            for name in ('startMenu', 'desktop'):
+                run_smoke(executable, root / f'{name}-smoke.json', args.output, shortcut=name)
+                shortcuts[name]['nativeLaunchVerified'] = True
+            evidence['shortcuts'] = shortcuts
         # Removed CAD runtimes and WASM readers must not survive incremental packaging.
         unexpected = [p.name for p in installed.rglob('*') if p.is_file() and (p.suffix == '.wasm' or p.name in ('permafrost-cad', 'permafrost-cad.exe', 'occt-worker.js'))]
         assert not unexpected, unexpected
@@ -109,6 +129,15 @@ def main():
             while executable.exists() and time.monotonic() < deadline:
                 time.sleep(0.5)
             assert not executable.exists(), 'Uninstaller left the application executable installed'
+            deadline = time.monotonic() + 30
+            while any(Path(item['path']).exists() for item in shortcuts.values()) and time.monotonic() < deadline:
+                time.sleep(0.5)
+            remaining = [item['path'] for item in shortcuts.values() if Path(item['path']).exists()]
+            if remaining:
+                result = subprocess.run(shortcut_command(executable) + ['-AllowMissing'], capture_output=True, text=True, encoding='utf-8', timeout=30)
+                (args.output / 'windows-shortcuts-after-uninstall.log').write_text(result.stdout + result.stderr)
+            assert not remaining, f'Uninstaller left application shortcuts installed: {remaining}'
+            evidence['shortcutRemovalVerified'] = True
             evidence['uninstallVerified'] = True
         else:
             shutil.rmtree(destination)

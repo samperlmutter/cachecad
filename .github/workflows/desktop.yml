@@ -1,4 +1,4 @@
-name: Tauri desktop
+name: Permafrost desktop
 on:
   push:
     branches: [main, "codex/**"]
@@ -19,10 +19,15 @@ on:
         options: [windows-latest, macos-14, macos-15-intel, ubuntu-latest]
         default: windows-latest
       installer_run_id:
-        description: "Diagnose the existing Intel Mac installer from this CI run (no rebuild)"
+        description: "Verify an existing installer from this CI run (no rebuild)"
         type: string
         required: false
         default: ""
+      installer_platform:
+        description: "Platform of the existing installer to verify"
+        type: choice
+        options: [macos-intel, windows-x64]
+        default: macos-intel
       diagnostic_source_build:
         description: "Build a debug installer on an Intel Mac first"
         type: boolean
@@ -61,12 +66,13 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      - run: python -m unittest discover -s tooling/tauri -p 'test_*.py' -v
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: interface-evidence
+          name: Permafrost-Interface-Test-Reports
           path: |
             test-results/
             desktop/playwright-report/
@@ -80,14 +86,20 @@ jobs:
           - platform: macOS Apple Silicon
             os: macos-14
             target: aarch64-apple-darwin
+            download: macos-arm64
+            label: macOS-Apple-Silicon
             bundles: app,dmg
           - platform: macOS Intel
             os: macos-15-intel
             target: x86_64-apple-darwin
+            download: macos-x64
+            label: macOS-Intel
             bundles: app,dmg
           - platform: Windows x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
+            download: windows-x64
+            label: Windows-x64
             bundles: nsis
     runs-on: ${{ matrix.os }}
     env:
@@ -127,22 +139,29 @@ jobs:
         run: npm run desktop:verify-keychain
       - run: node tooling/tauri/configure-release.mjs
       - run: npm run tauri -- build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
-      - name: Install, render workspace, reveal local file, exit, uninstall
+      - name: Install, verify shortcuts and workspace, reveal local file, uninstall
         run: python tooling/tauri/verify_installer.py --bundle target/${{ matrix.target }}/release/bundle --output installer-evidence
       - name: Reject tampering and upgrade an installed app between two signed versions
         run: python tooling/tauri/verify_upgrade.py --debug --output upgrade-evidence
+      - name: Prepare clearly named installer download
+        id: download
+        run: python tooling/tauri/prepare_download.py --bundle target/${{ matrix.target }}/release/bundle --platform ${{ matrix.download }} --output installer-download
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.download.outputs.artifact_name }}
+          path: installer-download/
+          if-no-files-found: error
+          compression-level: 0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: installer-${{ matrix.target }}
+          name: Permafrost-${{ matrix.label }}-Test-Reports
           path: |
-            target/${{ matrix.target }}/release/bundle/dmg/*.dmg
-            target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
             installer-evidence/
             upgrade-evidence/
   installer-diagnostics-build:
     name: Build debug installer on Intel Mac
-    if: github.event_name == 'workflow_dispatch' && inputs.installer_run_id != '' && inputs.diagnostic_source_build
+    if: github.event_name == 'workflow_dispatch' && inputs.installer_run_id != '' && inputs.installer_platform == 'macos-intel' && inputs.diagnostic_source_build
     runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
@@ -163,12 +182,12 @@ jobs:
       - run: npm run tauri -- build --debug --target x86_64-apple-darwin --bundles app,dmg --ci
       - uses: actions/upload-artifact@v4
         with:
-          name: installer-x86_64-apple-darwin
+          name: Permafrost-Debug-macOS-Intel-Installer
           path: target/x86_64-apple-darwin/debug/bundle/dmg/*.dmg
   installer-diagnostics:
     name: Reproduce existing Intel installer
     needs: installer-diagnostics-build
-    if: always() && github.event_name == 'workflow_dispatch' && inputs.installer_run_id != '' && (needs.installer-diagnostics-build.result == 'success' || needs.installer-diagnostics-build.result == 'skipped')
+    if: always() && github.event_name == 'workflow_dispatch' && inputs.installer_run_id != '' && inputs.installer_platform == 'macos-intel' && (needs.installer-diagnostics-build.result == 'success' || needs.installer-diagnostics-build.result == 'skipped')
     runs-on: macos-15-intel
     permissions:
       contents: read
@@ -181,20 +200,47 @@ jobs:
       - uses: actions/download-artifact@v4
         if: ${{ !inputs.diagnostic_source_build }}
         with:
-          name: installer-x86_64-apple-darwin
+          # Accept historical runs as well as the clearly named downloads.
+          pattern: "{installer-x86_64-apple-darwin,Permafrost-*-macOS-Intel-Installer}"
+          merge-multiple: true
           run-id: ${{ inputs.installer_run_id }}
           github-token: ${{ github.token }}
           path: diagnostic-bundle
       - uses: actions/download-artifact@v4
         if: inputs.diagnostic_source_build
         with:
-          name: installer-x86_64-apple-darwin
+          name: Permafrost-Debug-macOS-Intel-Installer
           path: diagnostic-bundle
       - run: python tooling/tauri/verify_installer.py --bundle diagnostic-bundle --output installer-evidence
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: installer-diagnostics-${{ inputs.installer_run_id }}
+          name: Permafrost-macOS-Intel-Diagnostic-Reports-${{ inputs.installer_run_id }}
+          path: installer-evidence/
+  windows-installer-diagnostics:
+    name: Verify existing Windows installer and shortcuts
+    if: github.event_name == 'workflow_dispatch' && inputs.installer_run_id != '' && inputs.installer_platform == 'windows-x64'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "{installer-x86_64-pc-windows-msvc,Permafrost-*-Windows-x64-Installer}"
+          merge-multiple: true
+          run-id: ${{ inputs.installer_run_id }}
+          github-token: ${{ github.token }}
+          path: diagnostic-bundle
+      - run: python tooling/tauri/verify_installer.py --bundle diagnostic-bundle --output installer-evidence
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Permafrost-Windows-x64-Diagnostic-Reports-${{ inputs.installer_run_id }}
           path: installer-evidence/
   release:
     name: Signed update artifacts

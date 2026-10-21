@@ -103,6 +103,13 @@ verification checks that no CAD helper or WASM reader survived packaging, verifi
 signatures where applicable, and uninstalls the artifact. All geometry-related
 build dependencies and CI steps have been removed.
 
+Windows verification additionally checks both installed shortcut targets, opens
+the real Start menu and desktop links through the Windows shell, and verifies
+their removal on uninstall. Beta installer downloads are staged flat with a
+version, readable platform name, checksum, and launch instructions. Test reports
+and legacy CacheCAD builds are separate, explicitly labeled artifacts. Staging
+copies the verified installer without changing updater asset names or signatures.
+
 Official references:
 
 - https://v2.tauri.app/plugin/updater/

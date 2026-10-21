@@ -1,4 +1,7 @@
-# Windows maintained application installer
+# Legacy CacheCAD Windows installer
+
+This guide covers the previous Python/Qt application. For the current Tauri
+desktop app, use [Install Permafrost](tauri/INSTALL.md).
 
 The current recipe packages the actual recovered-plus-maintained Qt application as
 `CacheCAD.exe` and `CacheCAD-Setup.exe`. This is an unsigned development build of
@@ -36,7 +39,8 @@ commit's terminal CI report.
 ## Download and try
 
 1. Open a successful run in the private repository's Actions tab. Download
-   `CacheCAD-Windows-Application-<commit>` from Artifacts.
+   `Legacy-CacheCAD-Windows-x64-Installer` from Artifacts in **Legacy CacheCAD
+   validation**. Older runs used `CacheCAD-Windows-Application-<commit>`.
 2. Extract the ZIP and find `CacheCAD-Setup.exe`, `installer.sha256`,
    `build-provenance.json` and `test-results/installed-runtime.json`. Artifact ZIPs
    may preserve subdirectories.

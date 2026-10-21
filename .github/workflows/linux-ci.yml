@@ -1,4 +1,4 @@
-name: CacheCAD application pipeline
+name: Legacy CacheCAD validation
 "on":
   push:
   pull_request:
@@ -165,7 +165,7 @@ jobs:
       - name: Upload tested Windows application installer
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: CacheCAD-Windows-Application-${{ github.sha }}
+          name: Legacy-CacheCAD-Windows-x64-Installer
           path: |
             dist/windows/installer/*.exe
             dist/windows/installer.sha256
@@ -180,7 +180,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: CacheCAD-Windows-Diagnostics-${{ github.sha }}
+          name: Legacy-CacheCAD-Windows-x64-Diagnostic-Reports
           path: |
             dist/windows/test-results/*.json
             dist/windows/upgrade-results/*.json
@@ -233,7 +233,7 @@ jobs:
       - name: Upload verified Apple Silicon application
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: CacheCAD-macOS-arm64-${{ github.sha }}
+          name: Legacy-CacheCAD-macOS-Apple-Silicon-App
           path: |
             dist/macos/CacheCAD-macOS-arm64.zip
             dist/macos/archive.sha256
@@ -246,7 +246,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: CacheCAD-macOS-Diagnostics-${{ github.sha }}
+          name: Legacy-CacheCAD-macOS-Diagnostic-Reports
           path: |
             dist/macos/build-logs/*.log
             dist/macos/build-provenance.json
@@ -298,7 +298,7 @@ jobs:
       - name: Upload verified Linux application
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: CacheCAD-Linux-x86_64-${{ github.sha }}
+          name: Legacy-CacheCAD-Linux-x64-App
           path: |
             dist/linux-application/CacheCAD-Linux-x86_64.tar.gz
             dist/linux-application/archive.sha256
@@ -312,7 +312,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: CacheCAD-Linux-Diagnostics-${{ github.sha }}
+          name: Legacy-CacheCAD-Linux-Diagnostic-Reports
           path: |
             dist/linux-application/build-logs/*.log
             dist/linux-application/build-provenance.json
