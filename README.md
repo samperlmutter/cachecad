@@ -6,6 +6,11 @@ React/TypeScript, and SQLite. File actions reveal the local file in Finder on
 macOS or Explorer on Windows. The Python recovery below remains reference
 material and is not shipped in the Tauri application.
 
+For beta downloads and help finding the installed Windows app, see
+[Install Permafrost](docs/tauri/INSTALL.md). Current downloads are named
+`Permafrost-<version>-<platform>-Installer`; older Python/Qt builds are labeled
+`Legacy-CacheCAD`.
+
 ```sh
 # Node 22 and stable Rust.
 # Native Tauri prerequisites are required.
