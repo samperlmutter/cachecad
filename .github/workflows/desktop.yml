@@ -236,6 +236,13 @@ jobs:
           run-id: ${{ inputs.installer_run_id }}
           github-token: ${{ github.token }}
           path: diagnostic-bundle
+      - name: Prepare native NSIS shortcut diagnostics
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://github.com/tauri-apps/binary-releases/releases/download/nsis-3/nsis-3.zip -OutFile "$env:RUNNER_TEMP/nsis.zip"
+          Expand-Archive "$env:RUNNER_TEMP/nsis.zip" "$env:RUNNER_TEMP/nsis"
+          $compiler = (Get-ChildItem "$env:RUNNER_TEMP/nsis" -Recurse -Filter makensis.exe | Select-Object -First 1).FullName
+          "PERMAFROST_NSIS_PROBE=$compiler" >> $env:GITHUB_ENV
       - run: python tooling/tauri/verify_installer.py --bundle diagnostic-bundle --output installer-evidence
       - uses: actions/upload-artifact@v4
         if: always()
